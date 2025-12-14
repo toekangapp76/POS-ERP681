@@ -7,11 +7,17 @@ use App\Utils\Util;
 use Illuminate\Http\Request;
 use Illuminate\Http\Response;
 use Illuminate\Routing\Controller;
+use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Facades\DB;
 use Modules\Accounting\Entities\AccountingAccountsTransaction;
 use Modules\Accounting\Entities\AccountingAccTransMapping;
+use Modules\Accounting\Entities\AccountingAccount;
 use Modules\Accounting\Utils\AccountingUtil;
 use Yajra\DataTables\Facades\DataTables;
+use Illuminate\Support\Str;
+use Maatwebsite\Excel\Facades\Excel;
+use PhpOffice\PhpSpreadsheet\Shared\Date;
+use PhpOffice\PhpSpreadsheet\IOFactory;
 
 class JournalEntryController extends Controller
 {
@@ -49,60 +55,55 @@ class JournalEntryController extends Controller
         }
 
         if (request()->ajax()) {
-            $journal = AccountingAccTransMapping::where('accounting_acc_trans_mappings.business_id', $business_id)
-                        ->join('users as u', 'accounting_acc_trans_mappings.created_by', 'u.id')
-                        ->where('type', 'journal_entry')
-                        ->select(['accounting_acc_trans_mappings.id', 'ref_no', 'operation_date', 'note',
-                            DB::raw("CONCAT(COALESCE(u.surname, ''),' ',COALESCE(u.first_name, ''),' ',COALESCE(u.last_name,'')) as added_by"),
+            $journal = AccountingAccountsTransaction::join('accounting_acc_trans_mappings as map', 'accounting_accounts_transactions.acc_trans_mapping_id', 'map.id')
+                        ->join('accounting_accounts as acc', 'accounting_accounts_transactions.accounting_account_id', 'acc.id')
+                        ->where('map.business_id', $business_id)
+                        ->where('map.type', 'journal_entry')
+                        ->select([
+                            'accounting_accounts_transactions.id',
+                            'map.ref_no',
+                            'map.operation_date',
+                            'map.note as description',
+                            'acc.gl_code',
+                            'acc.name as account_name',
+                            'accounting_accounts_transactions.amount',
+                            'accounting_accounts_transactions.type',
                         ]);
 
             if (! empty(request()->start_date) && ! empty(request()->end_date)) {
                 $start = request()->start_date;
                 $end = request()->end_date;
-                $journal->whereDate('accounting_acc_trans_mappings.operation_date', '>=', $start)
-                            ->whereDate('accounting_acc_trans_mappings.operation_date', '<=', $end);
+                $journal->whereDate('map.operation_date', '>=', $start)
+                            ->whereDate('map.operation_date', '<=', $end);
             }
 
             return Datatables::of($journal)
-                ->addColumn(
-                    'action', function ($row) {
-                        $html = '<div class="btn-group">
-                                <button type="button" class="btn btn-info dropdown-toggle btn-xs" 
-                                    data-toggle="dropdown" aria-expanded="false">'.
-                                    __('messages.actions').
-                                    '<span class="caret"></span><span class="sr-only">Toggle Dropdown
-                                    </span>
-                                </button>
-                                <ul class="dropdown-menu dropdown-menu-right" role="menu">';
-                        if (auth()->user()->can('accounting.view_journal')) {
-                            // $html .= '<li>
-                            //         <a href="#" data-href="'.action([\Modules\Accounting\Http\Controllers\JournalEntryController::class, 'show'], [$row->id]).'">
-                            //             <i class="fas fa-eye" aria-hidden="true"></i>'.__("messages.view").'
-                            //         </a>
-                            //         </li>';
-                        }
-
-                        if (auth()->user()->can('accounting.edit_journal')) {
-                            $html .= '<li>
-                                    <a href="'.action([\Modules\Accounting\Http\Controllers\JournalEntryController::class, 'edit'], [$row->id]).'">
-                                        <i class="fas fa-edit"></i>'.__('messages.edit').'
-                                    </a>
-                                </li>';
-                        }
-
-                        if (auth()->user()->can('accounting.delete_journal')) {
-                            $html .= '<li>
-                                    <a href="#" data-href="'.action([\Modules\Accounting\Http\Controllers\JournalEntryController::class, 'destroy'], [$row->id]).'" class="delete_journal_button">
-                                        <i class="fas fa-trash" aria-hidden="true"></i>'.__('messages.delete').'
-                                    </a>
-                                    </li>';
-                        }
-
-                        $html .= '</ul></div>';
-
-                        return $html;
-                    })
-                ->rawColumns(['action'])
+                ->editColumn('operation_date', '{{@format_datetime($operation_date)}}')
+                ->editColumn('description', function ($row) {
+                    return e($row->description);
+                })
+                ->addColumn('gl_number', function ($row) {
+                    return $row->ref_no;
+                })
+                ->addColumn('account_number', function ($row) {
+                    return $row->gl_code;
+                })
+                ->addColumn('debit', function ($row) {
+                    if ($row->type == 'debit') {
+                        return '<span class="display_currency tw-block" data-currency_symbol="true" data-orig-value="'.$row->amount.'">'.$row->amount.'</span>';
+                    }
+                    return '';
+                })
+                ->addColumn('credit', function ($row) {
+                    if ($row->type == 'credit') {
+                        return '<span class="display_currency tw-block" data-currency_symbol="true" data-orig-value="'.$row->amount.'">'.$row->amount.'</span>';
+                    }
+                    return '';
+                })
+                ->addColumn('balance', function ($row) {
+                    return '<span class="display_currency tw-block" data-currency_symbol="true" data-orig-value="'.$row->amount.'">'.$row->amount.'</span>';
+                })
+                ->rawColumns(['debit', 'credit', 'balance'])
                 ->make(true);
         }
 
@@ -125,6 +126,131 @@ class JournalEntryController extends Controller
         }
 
         return view('accounting::journal_entry.create');
+    }
+
+    /**
+     * Import journal entries via Excel
+     *
+     * Expected columns: GL Date, GL Number, Account Number, Account Name, Description, Debit, Credit, Balance
+     */
+    public function import(Request $request)
+    {
+        $business_id = $request->session()->get('user.business_id');
+
+        if (! (auth()->user()->can('superadmin') ||
+            $this->moduleUtil->hasThePermissionInSubscription($business_id, 'accounting_module')) ||
+            ! (auth()->user()->can('accounting.add_journal'))) {
+            abort(403, 'Unauthorized action.');
+        }
+
+        $request->validate([
+            'journal_import' => 'required|file|mimes:xls,xlsx,csv',
+        ]);
+
+        try {
+            DB::beginTransaction();
+
+            $user_id = $request->session()->get('user.id');
+            $file = $request->file('journal_import');
+
+            $spreadsheet = IOFactory::load($file->getRealPath());
+            $sheet = $spreadsheet->getActiveSheet();
+            $highestRow = $sheet->getHighestRow();
+            if ($highestRow < 2) {
+                throw new \Exception(__('messages.no_data_found'));
+            }
+
+            $ref_count = $this->util->setAndGetReferenceCount('journal_entry');
+            $accounting_settings = $this->accountingUtil->getAccountingSettings($business_id);
+
+            $mappings = [];
+
+            for ($row = 2; $row <= $highestRow; $row++) {
+                $gl_date_raw = $sheet->getCellByColumnAndRow(1, $row)->getCalculatedValue();
+                $gl_number = trim((string) $sheet->getCellByColumnAndRow(2, $row)->getCalculatedValue());
+                $account_number = trim((string) $sheet->getCellByColumnAndRow(3, $row)->getCalculatedValue());
+                $account_name = trim((string) $sheet->getCellByColumnAndRow(4, $row)->getCalculatedValue());
+                $description = trim((string) $sheet->getCellByColumnAndRow(5, $row)->getCalculatedValue());
+                $debit_raw = $sheet->getCellByColumnAndRow(6, $row)->getCalculatedValue();
+                $credit_raw = $sheet->getCellByColumnAndRow(7, $row)->getCalculatedValue();
+
+                if (empty($gl_date_raw) && empty($gl_number) && empty($account_number) && empty($account_name) && empty($debit_raw) && empty($credit_raw)) {
+                    continue;
+                }
+
+                $debit = $this->util->num_uf($debit_raw ?: 0);
+                $credit = $this->util->num_uf($credit_raw ?: 0);
+
+                // parse date (Excel numeric or string)
+                if (is_numeric($gl_date_raw)) {
+                    $gl_date = Date::excelToDateTimeObject($gl_date_raw)->format('Y-m-d H:i:s');
+                } else {
+                    $gl_date = $this->util->uf_date($gl_date_raw, true);
+                }
+
+                // resolve account: prefer GL code (Account Number), fallback to name
+                $accountQuery = AccountingAccount::where('business_id', $business_id);
+                if (!empty($account_number)) {
+                    $accountQuery->where('gl_code', $account_number);
+                } elseif (!empty($account_name)) {
+                    $accountQuery->where('name', $account_name);
+                }
+                $account = $accountQuery->first();
+
+                if (empty($account)) {
+                    throw new \Exception(__('accounting::lang.account').' '.$account_name.' '.__('lang_v1.not_found'));
+                }
+
+                $mapping_key = !empty($gl_number) ? $gl_number : 'AUTO-'.$row;
+
+                if (!isset($mappings[$mapping_key])) {
+                    $ref_no = $gl_number;
+                    if (empty($ref_no)) {
+                        $prefix = ! empty($accounting_settings['journal_entry_prefix']) ? $accounting_settings['journal_entry_prefix'] : '';
+                        $ref_no = $this->util->generateReferenceNumber('journal_entry', $ref_count++, $business_id, $prefix);
+                    }
+
+                    $mapping = new AccountingAccTransMapping();
+                    $mapping->business_id = $business_id;
+                    $mapping->ref_no = $ref_no;
+                    $mapping->note = $description;
+                    $mapping->type = 'journal_entry';
+                    $mapping->created_by = $user_id;
+                    $mapping->operation_date = $gl_date;
+                    $mapping->save();
+
+                    $mappings[$mapping_key] = $mapping->id;
+                }
+
+                $transaction_row = [
+                    'accounting_account_id' => $account->id,
+                    'amount' => $debit > 0 ? $debit : $credit,
+                    'type' => $debit > 0 ? 'debit' : 'credit',
+                    'created_by' => $user_id,
+                    'operation_date' => $gl_date,
+                    'sub_type' => 'journal_entry',
+                    'acc_trans_mapping_id' => $mappings[$mapping_key],
+                    'note' => $description,
+                ];
+
+                $accounts_transactions = new AccountingAccountsTransaction();
+                $accounts_transactions->fill($transaction_row);
+                $accounts_transactions->save();
+            }
+
+            DB::commit();
+
+            $output = ['success' => 1, 'msg' => __('accounting::lang.journal_import_success')];
+        } catch (\Exception $e) {
+            DB::rollBack();
+            \Log::emergency('File:' . $e->getFile() . 'Line:' . $e->getLine() . 'Message:' . $e->getMessage());
+
+            $output = ['success' => 0,
+                'msg' => $e->getMessage(),
+            ];
+        }
+
+        return redirect()->back()->with(['status' => $output]);
     }
 
     /**
@@ -194,6 +320,7 @@ class JournalEntryController extends Controller
                     $transaction_row['operation_date'] = $this->util->uf_date($journal_date, true);
                     $transaction_row['sub_type'] = 'journal_entry';
                     $transaction_row['acc_trans_mapping_id'] = $acc_trans_mapping->id;
+                    $transaction_row['note'] = $request->get('note');
 
                     $accounts_transactions = new AccountingAccountsTransaction();
                     $accounts_transactions->fill($transaction_row);

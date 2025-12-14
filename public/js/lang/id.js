@@ -134,4 +134,6 @@ LANG = {
     'invoice_number_already_exists': 'Nomor faktur sudah ada',
     'tax_number_already_exists' : 'Nomor pajak ini sudah ada',
     'missing_skus' : 'SKU yang hilang',
+    'gl_date': 'Tanggal GL',
+    'gl_number': 'Nomor GL',
 };

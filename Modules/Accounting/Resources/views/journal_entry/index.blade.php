@@ -32,22 +32,30 @@
                     <a class="btn btn-block btn-primary" 
                         href="{{action([\Modules\Accounting\Http\Controllers\JournalEntryController::class, 'create'])}}">
                         <i class="fas fa-plus"></i> @lang( 'messages.add' )</a>
+                    <button type="button" class="btn btn-block btn-success" data-toggle="modal" data-target="#import_journal_modal">
+                        <i class="fas fa-file-import"></i> @lang('accounting::lang.import')
+                    </button>
                 </div>
             @endslot
         @endcan
         
+        <div class="table-responsive">
         <table class="table table-bordered table-striped" id="journal_table">
             <thead>
                 <tr>
-                    <th>@lang('messages.action')</th>
-                    <th>@lang('accounting::lang.journal_date')</th>
-                    <th>@lang('purchase.ref_no')</th>
-                    <th>@lang('lang_v1.added_by')</th>
-                    <th>@lang('lang_v1.additional_notes')</th>
+                    <th>@lang('accounting::lang.gl_date')</th>
+                    <th>@lang('accounting::lang.gl_number')</th>
+                    <th>@lang('accounting::lang.gl_code')</th>
+                    <th>@lang('accounting::lang.account_name')</th>
+                    <th>@lang('accounting::lang.description')</th>
+                    <th>@lang('accounting::lang.debit')</th>
+                    <th>@lang('accounting::lang.credit')</th>
+                    <th>@lang('accounting::lang.balance')</th>
                 </tr>
             </thead>
             <tbody></tbody>
         </table>
+        </div>
 
         
     @endcomponent
@@ -56,9 +64,38 @@
 @stop
 
 @section('javascript')
+<div class="modal fade" id="import_journal_modal" tabindex="-1" role="dialog">
+    <div class="modal-dialog" role="document">
+        <div class="modal-content">
+            <div class="modal-header">
+                <button type="button" class="close" data-dismiss="modal" aria-label="Close"><span aria-hidden="true">&times;</span></button>
+                <h4 class="modal-title">@lang('accounting::lang.import')</h4>
+            </div>
+            {!! Form::open(['url' => action([\Modules\Accounting\Http\Controllers\JournalEntryController::class, 'import']), 'method' => 'post', 'enctype' => 'multipart/form-data', 'id' => 'journal_import_form']) !!}
+            <div class="modal-body">
+                <div class="form-group">
+                    {!! Form::label('journal_import', __('accounting::lang.file_to_import')) !!}
+                    {!! Form::file('journal_import', ['class' => 'form-control', 'accept' => '.xls,.xlsx,.csv', 'required']); !!}
+                    <p class="help-block">@lang('accounting::lang.gl_date'), @lang('accounting::lang.gl_number'), @lang('accounting::lang.account'), @lang('accounting::lang.account_name'), @lang('accounting::lang.description'), @lang('accounting::lang.debit'), @lang('accounting::lang.credit'), @lang('accounting::lang.balance')</p>
+                </div>
+                <div class="form-group">
+                    <a href="{{ asset('files/journal_template.xlsx') }}" download>@lang('accounting::lang.download_template')</a>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-default" data-dismiss="modal">@lang('messages.close')</button>
+                <button type="submit" class="btn btn-primary">@lang('accounting::lang.import')</button>
+            </div>
+            {!! Form::close() !!}
+        </div>
+    </div>
+</div>
 <script type="text/javascript">
 
     $(document).ready( function(){
+        $('#journal_import_form').on('submit', function() {
+            $(this).find('button[type="submit"]').attr('disabled', true);
+        });
         
         //Journal table
         journal_table = $('#journal_table').DataTable({
@@ -81,14 +118,28 @@
                     d.end_date = end;
                 },
             },
-            aaSorting: [[1, 'desc']],
+            aaSorting: [[0, 'desc']],
             columns: [
-                { data: 'action', name: 'action', orderable: false, searchable: false },
                 { data: 'operation_date', name: 'operation_date' },
-                { data: 'ref_no', name: 'ref_no' },
-                { data: 'added_by', name: 'added_by' },
-                { data: 'note', name: 'note' }
-            ]
+                { data: 'gl_number', name: 'ref_no' },
+                { data: 'gl_code', name: 'acc.gl_code' },
+                { data: 'account_name', name: 'acc.name' },
+                { data: 'description', name: 'map.note' },
+                { data: 'debit', name: 'debit', className: 'text-right' },
+                { data: 'credit', name: 'credit', className: 'text-right' },
+                { data: 'balance', name: 'balance', className: 'text-right' },
+            ],
+            createdRow: function(row, data) {
+                if (data.type === 'debit') {
+                    $('td', row).eq(5).addClass('bg-light-green');
+                }
+                if (data.type === 'credit') {
+                    $('td', row).eq(6).addClass('bg-light-green');
+                }
+            }
+        });
+        journal_table.on('draw', function() {
+            __currency_convert_recursively($('#journal_table'));
         });
 
         $('#journal_entry_date_range_filter').daterangepicker(
