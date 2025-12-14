@@ -7,79 +7,107 @@
 @include('accounting::layouts.nav')
 
 <section class="content">
-        
-    <div class="col-md-3">
-        <div class="form-group">
-            {!! Form::label('date_range_filter', __('report.date_range') . ':') !!}
-            {!! Form::text('date_range_filter', null, 
-                ['placeholder' => __('lang_v1.select_a_date_range'), 
-                'class' => 'form-control', 'readonly', 'id' => 'date_range_filter']); !!}
+    <div class="row">
+        <div class="col-md-3 col-md-offset-1">
+            <div class="form-group">
+                {!! Form::label('date_range_filter', __('report.date_range') . ':') !!}
+                {!! Form::text('date_range_filter', null, 
+                    ['placeholder' => __('lang_v1.select_a_date_range'), 
+                    'class' => 'form-control', 'readonly', 'id' => 'date_range_filter']); !!}
+            </div>
         </div>
     </div>
-
-    <div class="col-md-8 col-md-offset-2">
         
-        <div class="box box-warning">
-            <div class="box-header with-border text-center">
-                <h2 class="box-title">@lang( 'accounting::lang.trial_balance')</h2>
-                <p>{{@format_date($start_date)}} ~ {{@format_date($end_date)}}</p>
-            </div>
-
-            <div class="box-body">
-                <table class="table table-stripped">
-                    <thead>
-                        <tr>
-                            <th></th>
-                            <th>@lang( 'accounting::lang.debit')</th>
-                            <th>@lang( 'accounting::lang.credit')</th>
-                        </tr>
-                    </thead>
-
-                    @php
-                        $total_debit = 0;
-                        $total_credit = 0;
-                    @endphp
-
-                    <tbody>
-                        @foreach($accounts as $account)
-
-                        @php
-                            $total_debit += $account->debit_balance;
-                            $total_credit += $account->credit_balance;
-                        @endphp
-
+    <div class="row">
+        <div class="col-md-10 col-md-offset-1">
+            
+            <div class="box box-warning">
+                <div class="box-header with-border text-center">
+                    <h2 class="box-title">@lang( 'accounting::lang.trial_balance')</h2>
+                    <p>{{@format_date($start_date)}} ~ {{@format_date($end_date)}}</p>
+                </div>
+    
+                <div class="box-body">
+                    <table class="table table-stripped">
+                        <thead>
                             <tr>
-                                <td>{{$account->name}}</td>
-                                <td>
-                                    @if($account->debit_balance != 0)
-                                        @format_currency($account->debit_balance)
-                                    @endif    
-                                </td>
-                                <td>
-                                    @if($account->credit_balance != 0)
-                                        @format_currency($account->credit_balance)
-                                    @endif
-                                </td>
+                                <th colspan="2" class="text-center">@lang( 'accounting::lang.gl_code')</th>
+                                <th>@lang( 'accounting::lang.opening_balance')</th>
+                                <th>@lang( 'accounting::lang.debit')</th>
+                                <th>@lang( 'accounting::lang.credit')</th>
+                                <th>@lang( 'lang_v1.balance')</th>
                             </tr>
-                        @endforeach
-                    </tbody>
-
-                    <tfoot>
-                        <tr>
-                            <th>Total</th>
-                            <th class="total_debit">@format_currency($total_debit)</th>
-                            <th class="total_credit">@format_currency($total_credit)</th>
-                        </tr>
-                    </tfoot>
-                </table>
+                            <tr>
+                                <th>No</th>
+                                <th>@lang( 'user.name')</th>
+                                <th></th>
+                                <th></th>
+                                <th></th>
+                                <th></th>
+                            </tr>
+                        </thead>
+    
+                        @php
+                            $total_beginning = 0;
+                            $total_debit = 0;
+                            $total_credit = 0;
+                            $total_ending = 0;
+                        @endphp
+    
+                        <tbody>
+                            @foreach($accounts as $account)
+    
+                            @php
+                                $total_beginning += $account->beginning_balance;
+                                $total_debit += $account->debit_balance;
+                                $total_credit += $account->credit_balance;
+                                $total_ending += $account->ending_balance;
+                            @endphp
+    
+                                <tr>
+                                    <td>{{$account->gl_code ?? '-'}}</td>
+                                    <td>{{$account->name}}</td>
+                                    <td>
+                                        @if($account->beginning_balance != 0)
+                                            @format_currency($account->beginning_balance)
+                                        @endif    
+                                    </td>
+                                    <td>
+                                        @if($account->debit_balance != 0)
+                                            @format_currency($account->debit_balance)
+                                        @endif    
+                                    </td>
+                                    <td>
+                                        @if($account->credit_balance != 0)
+                                            @format_currency($account->credit_balance)
+                                        @endif
+                                    </td>
+                                    <td>
+                                        @if($account->ending_balance != 0)
+                                            @format_currency($account->ending_balance)
+                                        @endif
+                                    </td>
+                                </tr>
+                            @endforeach
+                        </tbody>
+    
+                        <tfoot>
+                            <tr>
+                                <th colspan="2">Total</th>
+                                <th class="total_beginning">@format_currency($total_beginning)</th>
+                                <th class="total_debit">@format_currency($total_debit)</th>
+                                <th class="total_credit">@format_currency($total_credit)</th>
+                                <th class="total_ending">@format_currency($total_ending)</th>
+                            </tr>
+                        </tfoot>
+                    </table>
+                </div>
+    
             </div>
-
         </div>
     </div>
 
 </section>
-
-
 @stop
 
 @section('javascript')

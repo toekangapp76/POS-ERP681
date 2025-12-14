@@ -12,106 +12,121 @@
 </section>
 
 <section class="content">
-
-    <div class="col-md-3">
-        <div class="form-group">
-            {!! Form::label('date_range_filter', __('report.date_range') . ':') !!}
-            {!! Form::text('date_range_filter', null, 
-                ['placeholder' => __('lang_v1.select_a_date_range'), 
-                'class' => 'form-control', 'readonly', 'id' => 'date_range_filter']); !!}
+    <div class="row">
+        <div class="col-md-3 col-md-offset-1">
+            <div class="form-group">
+                {!! Form::label('date_range_filter', __('report.date_range') . ':') !!}
+                {!! Form::text('date_range_filter', null, 
+                    ['placeholder' => __('lang_v1.select_a_date_range'), 
+                    'class' => 'form-control', 'readonly', 'id' => 'date_range_filter']); !!}
+            </div>
         </div>
     </div>
-
-    <div class="col-md-10 col-md-offset-1">
-        <div class="box box-warning">
-            <div class="box-header with-border text-center">
-                <h2 class="box-title">@lang( 'accounting::lang.balance_sheet')</h2>
-                <p>{{@format_date($start_date)}} ~ {{@format_date($end_date)}}</p>
-            </div>
-
-            <div class="box-body">
-                
-                @php
-                    $total_assets = 0;
-                    $total_liab_owners = 0;
-                @endphp
-
-                    <table class="table table-stripped table-bordered" style="min-height: 300px">
-                        <thead>
+    
+    <div class="row">
+        <div class="col-md-10 col-md-offset-1">
+            <div class="box box-warning">
+                <div class="box-header with-border text-center">
+                    <h2 class="box-title">@lang( 'accounting::lang.balance_sheet')</h2>
+                    <p>{{@format_date($start_date)}} ~ {{@format_date($end_date)}}</p>
+                </div>
+    
+                <div class="box-body">
+                    
+                    @php
+                        $total_assets = 0;
+                        $total_liab_owners = 0;
+                    @endphp
+    
+                        <table class="table table-stripped table-bordered" style="min-height: 300px">
+                            <thead>
+                                <tr>
+                                    <th class="success" colspan="3">@lang( 'accounting::lang.assets')</th>
+                                    <th class="warning" colspan="3">@lang( 'accounting::lang.liab_owners_capital')</th>
+                                </tr>
+                                <tr>
+                                    <th class="success" style="width:80px;">No COA</th>
+                                    <th class="success">@lang( 'user.name')</th>
+                                    <th class="success">@lang( 'sale.total')</th>
+                                    <th class="warning" style="width:80px;">No COA</th>
+                                    <th class="warning">@lang( 'user.name')</th>
+                                    <th class="warning">@lang( 'sale.total')</th>
+                                </tr>
+                            </thead>
+    
                             <tr>
-                                <th class="success">@lang( 'accounting::lang.assets')</th>
-                                <th class="warning">@lang( 'accounting::lang.liab_owners_capital')</th>
+                                <td class="col-md-6" colspan="3">
+                                    <table class="table">
+                                        @foreach($assets as $asset)
+                                            @php
+                                                $total_assets += $asset->balance
+                                            @endphp
+    
+                                            <tr>
+                                                <td style="width:100px;">{{$asset->gl_code ?? '-'}}</td>
+                                                <th>{{$asset->name}}</th>
+                                                <td>@format_currency($asset->balance)</td>
+                                            </tr>
+                                        @endforeach
+                                    </table>
+                                </td>
+    
+                                <td class="col-md-6" colspan="3">
+                                    <table class="table">
+                                        @foreach($liabilities as $liability)
+    
+                                            @php
+                                                $total_liab_owners += $liability->balance
+                                            @endphp
+    
+                                            <tr>
+                                                <td style="width:100px;">{{$liability->gl_code ?? '-'}}</td>
+                                                <th>{{$liability->name}}</th>
+                                                <td>@format_currency($liability->balance)</td>
+                                            </tr>
+                                        @endforeach
+    
+                                        @foreach($equities as $equity)
+                                            @php
+                                                $total_liab_owners += $equity->balance
+                                            @endphp
+                                            
+                                            <tr>
+                                                <td style="width:100px;">{{$equity->gl_code ?? '-'}}</td>
+                                                <th>{{$equity->name}}</th>
+                                                <td>@format_currency($equity->balance)</td>
+                                            </tr>
+                                        @endforeach
+                                    </table>
+                                </td>
                             </tr>
-                        </thead>
-
-                        <tr>
-                            <td class="col-md-6">
-                                <table class="table">
-                                    @foreach($assets as $asset)
-                                        @php
-                                            $total_assets += $asset->balance
-                                        @endphp
-
-                                        <tr>
-                                            <th>{{$asset->name}}</th>
-                                            <td>@format_currency($asset->balance)</td>
-                                        </tr>
-                                    @endforeach
-                                </table>
-                            </td>
-
-                            <td class="col-md-6">
-                                <table class="table">
-                                    @foreach($liabilities as $liability)
-
-                                        @php
-                                            $total_liab_owners += $liability->balance
-                                        @endphp
-
-                                        <tr>
-                                            <th>{{$liability->name}}</th>
-                                            <td>@format_currency($liability->balance)</td>
-                                        </tr>
-                                    @endforeach
-
-                                    @foreach($equities as $equity)
-                                        @php
-                                            $total_liab_owners += $equity->balance
-                                        @endphp
-                                        
-                                        <tr>
-                                            <th>{{$equity->name}}</th>
-                                            <td>@format_currency($equity->balance)</td>
-                                        </tr>
-                                    @endforeach
-                                </table>
-                            </td>
-                        </tr>
-
-                        <tr>
-                            <td class="col-md-6">
-                                <span>
-                                    <strong>@lang( 'accounting::lang.total_assets'): </strong>
-                                </span>
-
-                                <span>@format_currency($total_assets)</span>
-                            </td>
-
-                            <td class="col-md-6">
-                                <span>
-                                    <strong>@lang( 'accounting::lang.total_liab_owners'): </strong>
-                                </span>
-
-                                <span>@format_currency($total_liab_owners)</span>
-                            </td>
-                        </tr>
-
-                    </table>
-                
+    
+                            <tr>
+                                <td class="col-md-6" colspan="3">
+                                    <span>
+                                        <strong>@lang( 'accounting::lang.total_assets'): </strong>
+                                    </span>
+    
+                                    <span>@format_currency($total_assets)</span>
+                                </td>
+    
+                                <td class="col-md-6" colspan="3">
+                                    <span>
+                                        <strong>@lang( 'accounting::lang.total_liab_owners'): </strong>
+                                    </span>
+    
+                                    <span>@format_currency($total_liab_owners)</span>
+                                </td>
+                            </tr>
+    
+                        </table>
+                    
+                </div>
+    
             </div>
-
         </div>
     </div>
+
 
 </section>
 
