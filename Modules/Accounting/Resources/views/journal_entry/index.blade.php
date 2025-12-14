@@ -43,6 +43,7 @@
         <table class="table table-bordered table-striped" id="journal_table">
             <thead>
                 <tr>
+                    <th>@lang('messages.action')</th>
                     <th>@lang('accounting::lang.gl_date')</th>
                     <th>@lang('accounting::lang.gl_number')</th>
                     <th>@lang('accounting::lang.gl_code')</th>
@@ -118,23 +119,24 @@
                     d.end_date = end;
                 },
             },
-            aaSorting: [[0, 'desc']],
+            aaSorting: [[1, 'desc']],
             columns: [
-                { data: 'operation_date', name: 'operation_date' },
-                { data: 'gl_number', name: 'ref_no' },
+                { data: 'action', name: 'action', orderable: false, searchable: false },
+                { data: 'operation_date', name: 'map.operation_date' },
+                { data: 'gl_number', name: 'map.ref_no' },
                 { data: 'gl_code', name: 'acc.gl_code' },
                 { data: 'account_name', name: 'acc.name' },
                 { data: 'description', name: 'map.note' },
-                { data: 'debit', name: 'debit', className: 'text-right' },
-                { data: 'credit', name: 'credit', className: 'text-right' },
-                { data: 'balance', name: 'balance', className: 'text-right' },
+                { data: 'debit', name: 'accounting_accounts_transactions.amount', orderable: false, searchable: false, className: 'text-right' },
+                { data: 'credit', name: 'accounting_accounts_transactions.amount', orderable: false, searchable: false, className: 'text-right' },
+                { data: 'balance', name: 'accounting_accounts_transactions.amount', orderable: false, searchable: false, className: 'text-right' },
             ],
             createdRow: function(row, data) {
                 if (data.type === 'debit') {
-                    $('td', row).eq(5).addClass('bg-light-green');
+                    $('td', row).eq(6).addClass('bg-light-green');
                 }
                 if (data.type === 'credit') {
-                    $('td', row).eq(6).addClass('bg-light-green');
+                    $('td', row).eq(7).addClass('bg-light-green');
                 }
             }
         });
@@ -186,3 +188,7 @@
 
 </script>
 @endsection
+
+
+
+
