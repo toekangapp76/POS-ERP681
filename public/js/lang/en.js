@@ -157,4 +157,6 @@ LANG = {
     'invoice_number_already_exists' :'Invoice number already exists',
     'tax_number_already_exists' : 'This tax number already exists',
     'missing_skus' : 'Missing SKUs',
+    'gl_date': 'GL Date',
+    'gl_number': 'GL Number',
 };
