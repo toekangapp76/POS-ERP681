@@ -208,6 +208,24 @@ class AttendanceController extends Controller
 
 
         try {
+            // Check if member has active subscription first
+            $sessionStatus = $this->sessionTrackingService->getMemberSessionStatus($request->contact_id, $business_id);
+            
+            if (!$sessionStatus['has_active_subscription']) {
+                return response()->json([
+                    'success' => false,
+                    'msg' => __('gym::lang.no_active_subscription_checkin_denied'),
+                ]);
+            }
+            
+            // Check if quota is exhausted
+            if ($sessionStatus['quota_exhausted'] ?? false) {
+                return response()->json([
+                    'success' => false,
+                    'msg' => __('gym::lang.quota_exhausted_checkin_denied'),
+                ]);
+            }
+            
             $inTime = $this->commonUtil->uf_time($request->in_time);
             
             // Use session tracking service for check-in
@@ -398,6 +416,30 @@ class AttendanceController extends Controller
             if (!$latestAttendance || ($latestAttendance->in_time && $latestAttendance->out_time)) {
                 // No attendance today OR last session completed -> New check-in
                 $action = 'check_in';
+                
+                // Check if member has active subscription first
+                $sessionStatus = $this->sessionTrackingService->getMemberSessionStatus($memberId, $business_id);
+                
+                if (!$sessionStatus['has_active_subscription']) {
+                    return response()->json([
+                        'success' => false,
+                        'action' => 'check_in_denied',
+                        'message' => __('gym::lang.no_active_subscription_checkin_denied'),
+                        'member_name' => $contact->name,
+                        'time' => Carbon::now($timezone)->format('H:i'),
+                    ]);
+                }
+                
+                // Check if quota is exhausted
+                if ($sessionStatus['quota_exhausted'] ?? false) {
+                    return response()->json([
+                        'success' => false,
+                        'action' => 'check_in_denied',
+                        'message' => __('gym::lang.quota_exhausted_checkin_denied'),
+                        'member_name' => $contact->name,
+                        'time' => Carbon::now($timezone)->format('H:i'),
+                    ]);
+                }
                 
                 $result = $this->sessionTrackingService->processCheckIn(
                     $memberId,

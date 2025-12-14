@@ -183,7 +183,7 @@ class SubscriptionController extends Controller
                         
                         $sessionHtml .= '
                             <div class="mt-1" style="margin-top: 5px; padding-top: 5px; border-top: 1px dashed #ddd;">
-                                <small class="text-muted"><i class="fa fa-clock-o"></i> ' . __('gym::lang.session_time_limit') . '</small><br>
+                                <small class="text-muted"><i class="fa fa-clock"></i> ' . __('gym::lang.session_time_limit') . '</small><br>
                                 <small>' . __('gym::lang.remaining_time') . ': <strong>' . $remainingHours . 'h ' . $remainingMins . 'm</strong></small><br>
                                 <small>' . __('gym::lang.used_time') . ': ' . $usedHours . 'h ' . $usedMins . 'm</small>
                             </div>

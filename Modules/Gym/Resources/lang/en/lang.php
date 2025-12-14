@@ -300,5 +300,12 @@
     'enter_name' => 'Enter name',
     'enter_phone' => 'Enter phone number',
     'walkin_customer' => 'Walk-in Customer',
+    'customer_name_required' => 'Customer name is required for walk-in booking',
+    'member_or_walkin_required' => 'Please select a member or provide walk-in customer details',
+    
+    // Attendance Validation
+    'no_active_subscription_checkin_denied' => 'Check-in denied: No active membership found',
+    'quota_exhausted_checkin_denied' => 'Check-in denied: Membership quota has been exhausted',
+    'check_in_denied' => 'Check-in Denied',
   ] 
 ?>

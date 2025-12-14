@@ -56,7 +56,7 @@ class PackageController extends Controller
                         } else {
                             $timeLimit = "{$minutes}m";
                         }
-                        $html .= '<span class="label label-info"><i class="fa fa-clock-o"></i> ' . $timeLimit . '</span> ';
+                        $html .= '<span class="label label-info"><i class="fa fa-clock"></i> ' . $timeLimit . '</span> ';
                     }
                     
                     // Session count limit (per visit)

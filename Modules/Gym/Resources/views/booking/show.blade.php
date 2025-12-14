@@ -16,17 +16,32 @@
     <!-- Member Info -->
     <div class="row">
         <div class="col-sm-6">
-            <div class="info-box bg-aqua">
-                <span class="info-box-icon"><i class="fa fa-user"></i></span>
+            <div class="info-box {{ $booking->member ? 'bg-aqua' : 'bg-orange' }}">
+                <span class="info-box-icon"><i class="fa {{ $booking->member ? 'fa-user' : 'fa-walking' }}"></i></span>
                 <div class="info-box-content">
-                    <span class="info-box-text">@lang('gym::lang.member')</span>
-                    <span class="info-box-number">{{ $booking->member->name ?? '--' }}</span>
+                    <span class="info-box-text">
+                        @if($booking->member)
+                            @lang('gym::lang.member')
+                        @else
+                            @lang('gym::lang.walk_in')
+                        @endif
+                    </span>
+                    <span class="info-box-number">
+                        @if($booking->member)
+                            {{ $booking->member->name }}
+                        @else
+                            {{ $booking->walkin_name ?? __('gym::lang.walk_in') }}
+                        @endif
+                    </span>
+                    @if(!$booking->member && $booking->walkin_phone)
+                        <small>{{ $booking->walkin_phone }}</small>
+                    @endif
                 </div>
             </div>
         </div>
         <div class="col-sm-6">
             <div class="info-box bg-green">
-                <span class="info-box-icon"><i class="fa fa-futbol-o"></i></span>
+                <span class="info-box-icon"><i class="fa fa-futbol"></i></span>
                 <div class="info-box-content">
                     <span class="info-box-text">@lang('gym::lang.class')</span>
                     <span class="info-box-number">{{ $booking->gymClass->name ?? '--' }}</span>
@@ -43,7 +58,7 @@
                 <td>{{ \Carbon\Carbon::parse($booking->booking_start)->format('d M Y') }}</td>
             </tr>
             <tr>
-                <th><i class="fa fa-clock-o"></i> @lang('gym::lang.time')</th>
+                <th><i class="fa fa-clock"></i> @lang('gym::lang.time')</th>
                 <td>
                     {{ \Carbon\Carbon::parse($booking->booking_start)->format('H:i') }} - 
                     {{ \Carbon\Carbon::parse($booking->booking_end)->format('H:i') }}
@@ -65,13 +80,13 @@
                 <td>{{ $booking->agent->user_full_name }}</td>
             </tr>
             @endif
-            @if($booking->subscription)
+            @if($booking->member && $booking->subscription)
             <tr>
                 <th><i class="fa fa-id-card"></i> @lang('gym::lang.subscription')</th>
                 <td>{{ $booking->subscription->gym_package->name ?? 'Subscription #' . $booking->subscription_id }}</td>
             </tr>
             @endif
-            @if($booking->hours_deducted > 0)
+            @if($booking->member && $booking->hours_deducted > 0)
             <tr>
                 <th><i class="fa fa-minus-circle"></i> @lang('gym::lang.hours_deducted')</th>
                 <td>{{ number_format($booking->hours_deducted, 1) }} @lang('gym::lang.hours')</td>

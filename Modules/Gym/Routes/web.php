@@ -62,7 +62,7 @@ Route::middleware('web', 'auth', 'language', 'AdminSidebarMenu')->prefix('gym')-
     Route::get('bookings/todays', [Modules\Gym\Http\Controllers\BookingController::class, 'getTodaysBookings'])->name('gym.bookings.todays');
     Route::get('bookings/get-courts/{class_id}', [Modules\Gym\Http\Controllers\BookingController::class, 'getCourts'])->name('gym.bookings.courts');
     Route::get('bookings/get-subscriptions/{contact_id}', [Modules\Gym\Http\Controllers\BookingController::class, 'getMemberSubscriptions'])->name('gym.bookings.subscriptions');
-    Route::get('bookings/check-availability', [Modules\Gym\Http\Controllers\BookingController::class, 'checkAvailability'])->name('gym.bookings.check_availability');
+    Route::post('bookings/check-availability', [Modules\Gym\Http\Controllers\BookingController::class, 'checkAvailability'])->name('gym.bookings.check_availability');
     Route::resource('bookings', Modules\Gym\Http\Controllers\BookingController::class);
 
     // Topup Hours management

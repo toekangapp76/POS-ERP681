@@ -43,7 +43,7 @@
             <div class="panel panel-default">
                 <div class="panel-heading">
                     <h4 class="panel-title">
-                        <i class="fa fa-clock-o"></i> @lang('gym::lang.session_time_limit')
+                        <i class="fa fa-clock"></i> @lang('gym::lang.session_time_limit')
                     </h4>
                 </div>
                 <div class="panel-body">

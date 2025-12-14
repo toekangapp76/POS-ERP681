@@ -297,8 +297,23 @@ function initBookingForm() {
         ignoreReadonly: true
     });
 
+    // Show walk-in container if no member selected on load
+    if (!$('#contact_id').val()) {
+        $('#walkin_container').show();
+    }
+
     // Form validation and submission
     $('#booking_form').validate({
+        rules: {
+            walkin_name: {
+                required: function() {
+                    return $('#contact_id').val() == '';
+                }
+            }
+        },
+        messages: {
+            walkin_name: "{{ __('gym::lang.customer_name_required') }}"
+        },
         submitHandler: function(form) {
             var data = $(form).serialize();
             var url = $(form).attr('action');
@@ -408,7 +423,7 @@ function initBookingForm() {
         var sessions = selected.data('remaining-sessions');
         
         if (hours) {
-            info.push('<i class="fa fa-clock-o"></i> ' + hours + ' {{ __("gym::lang.hours") }}');
+            info.push('<i class="fa fa-clock"></i> ' + hours + ' {{ __("gym::lang.hours") }}');
         }
         if (sessions) {
             info.push('<i class="fa fa-ticket"></i> ' + sessions + ' {{ __("gym::lang.sessions") }}');
@@ -454,11 +469,14 @@ function checkAvailability() {
     var booking_id = $('#booking_id').val();
 
     if (!date || !time || !class_id) {
+        $('#availability_status').html('<span class="text-muted"><i class="fa fa-info-circle"></i> {{ __('gym::lang.select_class_and_time') }}</span>');
         return;
     }
 
     $.ajax({
+        method: 'POST',
         url: "{{ action([\Modules\Gym\Http\Controllers\BookingController::class, 'checkAvailability']) }}",
+        dataType: 'json',
         data: {
             date: date,
             time: time,

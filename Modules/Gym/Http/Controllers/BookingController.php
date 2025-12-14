@@ -164,6 +164,24 @@ class BookingController extends Controller
             $business_id = request()->session()->get('user.business_id');
             $user_id = request()->session()->get('user.id');
 
+            // Validate request
+            $validator = \Validator::make($request->all(), [
+                'gym_class_id' => 'required|exists:gym_classes,id',
+                'booking_date' => 'required',
+                'booking_time' => 'required',
+                'duration_minutes' => 'required|integer|min:30',
+                'walkin_name' => 'required_without:contact_id',
+            ], [
+                'walkin_name.required_without' => __('gym::lang.member_or_walkin_required'),
+            ]);
+
+            if ($validator->fails()) {
+                return response()->json([
+                    'success' => false,
+                    'msg' => $validator->errors()->first(),
+                ]);
+            }
+
             $input = $request->all();
 
             // Parse booking times - handle multiple date formats
@@ -256,12 +274,23 @@ class BookingController extends Controller
                 'msg' => __('lang_v1.added_success'),
                 'booking_id' => $booking->id,
             ]);
+        } catch (\Illuminate\Validation\ValidationException $e) {
+            return response()->json([
+                'success' => false,
+                'msg' => $e->validator->errors()->first(),
+            ]);
         } catch (\Exception $e) {
-            \Log::emergency('File:' . $e->getFile() . 'Line:' . $e->getLine() . 'Message:' . $e->getMessage());
+            \Log::emergency('File:' . $e->getFile() . ' Line:' . $e->getLine() . ' Message:' . $e->getMessage());
+            \Log::emergency('Trace: ' . $e->getTraceAsString());
+
+            // In development, show actual error
+            $msg = config('app.debug') 
+                ? 'Error: ' . $e->getMessage() . ' (Line: ' . $e->getLine() . ')'
+                : __('messages.something_went_wrong');
 
             return response()->json([
                 'success' => false,
-                'msg' => __('messages.something_went_wrong'),
+                'msg' => $msg,
             ]);
         }
     }

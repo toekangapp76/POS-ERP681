@@ -527,10 +527,22 @@
                     card.addClass('error');
                     icon.addClass('error');
                     icon.html('<i class="fa fa-times-circle"></i>');
-                    $('#member_name').text('{{ __("gym::lang.error") ?? "Error" }}');
-                    $('#action_text').html('<span style="color: #ef4444;">' + (data.message || '{{ __("gym::lang.error_processing") ?? "Error processing request" }}') + '</span>');
-                    $('#time_text').text('');
-                    $('#session_info').addClass('hidden');
+                    
+                    // Handle different error types
+                    if (data.action === 'check_in_denied') {
+                        $('#member_name').text(data.member_name || '{{ __("gym::lang.member") }}');
+                        $('#action_text').html('<span style="color: #ef4444; font-weight: 600;">{{ __("gym::lang.check_in_denied") }}</span>');
+                        $('#time_text').text(data.time || '');
+                        
+                        // Show reason in session info
+                        let errorHtml = '<div class="session-info-item" style="color: #ef4444;"><i class="fa fa-ban"></i><span>' + data.message + '</span></div>';
+                        $('#session_info').html(errorHtml).removeClass('hidden');
+                    } else {
+                        $('#member_name').text('{{ __("gym::lang.error") ?? "Error" }}');
+                        $('#action_text').html('<span style="color: #ef4444;">' + (data.message || '{{ __("gym::lang.error_processing") ?? "Error processing request" }}') + '</span>');
+                        $('#time_text').text('');
+                        $('#session_info').addClass('hidden');
+                    }
                 }
 
                 $('#result_container').removeClass('hidden');
