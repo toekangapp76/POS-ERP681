@@ -86,6 +86,11 @@
                             {!! Form::select('account_filter[]', $all_accounts, [$account->id],
                                 ['class' => 'form-control accounts-dropdown', 'style' => 'width:100%', 
                                 'id' => 'account_filter', 'multiple' => 'multiple', 'data-default' => $account->id]); !!}
+
+                            <div class="btn-group" style="margin-top:6px;">
+                                <button type="button" id="select_all_accounts" class="btn btn-xs btn-default">@lang('accounting::lang.select_all')</button>
+                                <button type="button" id="deselect_all_accounts" class="btn btn-xs btn-default">@lang('accounting::lang.deselect_all')</button>
+                            </div>
                         </div>
                     </div>
                     
@@ -149,9 +154,47 @@
             allowClear: false
         });
 
+        // Text templates for selected count
+        var selectedCountTemplate = '@lang("accounting::lang.selected_count")';
+        var selectedThreshold = 5; // show count when selected items exceed this
+
+        function updateAccountFilterDisplay() {
+            var vals = $('#account_filter').val() || [];
+            var $rendered = $('#account_filter').next('.select2-container').find('.select2-selection__rendered');
+            if (vals.length > selectedThreshold) {
+                var text = selectedCountTemplate.replace(':count', vals.length);
+                $rendered.text(text);
+            } else {
+                // build comma separated labels for selected options
+                var data = $('#account_filter').select2('data') || [];
+                if (data.length === 0) {
+                    $rendered.text('');
+                } else {
+                    var texts = data.map(function(d) { return d.text; });
+                    $rendered.text(texts.join(', '));
+                }
+            }
+        }
+
         $('#account_filter').change(function(){
+            updateAccountFilterDisplay();
             ledger.ajax.reload();
         });
+
+        // Select/Deselect all handlers
+        $('#select_all_accounts').click(function(){
+            var all = $('#account_filter option').map(function(){ return $(this).val(); }).get();
+            $('#account_filter').val(all).trigger('change');
+            // if too many, update display
+            updateAccountFilterDisplay();
+        });
+        $('#deselect_all_accounts').click(function(){
+            $('#account_filter').val([]).trigger('change');
+            updateAccountFilterDisplay();
+        });
+
+        // initial display update in case default is set
+        updateAccountFilterDisplay();
 
         dateRangeSettings.startDate = moment().subtract(6, 'days');
         dateRangeSettings.endDate = moment();
