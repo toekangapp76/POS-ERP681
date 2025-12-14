@@ -1,0 +1,73 @@
+<div class="modal-dialog" role="document">
+    <div class="modal-content">
+
+        {!! Form::open([
+            'url' => action([\Modules\Gym\Http\Controllers\AttendanceController::class, 'add_edit_out_time']),
+            'method' => 'post',
+            'id' => 'add_edit_out_time',
+        ]) !!}
+
+        <div class="modal-header">
+            <button type="button" class="close" data-dismiss="modal" aria-label="Close"><span
+                    aria-hidden="true">&times;</span></button>
+            <h4 class="modal-title">@lang('gym::lang.out_time')</h4>
+        </div>
+
+        <div class="modal-body">
+            {{-- Session Status Info --}}
+            @if(isset($sessionStatus) && $sessionStatus['has_active_subscription'])
+                <div class="alert alert-info">
+                    <strong><i class="fa fa-info-circle"></i> @lang('gym::lang.session_info')</strong>
+                    @foreach($sessionStatus['active_packages'] as $pkg)
+                        <div class="mt-2">
+                            <span class="label label-primary">{{ $pkg['package_name'] }}</span>
+                            @if($pkg['has_session_limit'])
+                                <br>
+                                <small>
+                                    @lang('gym::lang.remaining_time'): 
+                                    @php
+                                        $remaining = $pkg['remaining_minutes'] ?? 0;
+                                        $hours = floor($remaining / 60);
+                                        $mins = $remaining % 60;
+                                    @endphp
+                                    <strong>{{ $hours }}h {{ $mins }}m</strong>
+                                </small>
+                            @else
+                                <span class="label label-default">@lang('gym::lang.unlimited')</span>
+                            @endif
+                        </div>
+                    @endforeach
+                </div>
+            @elseif(isset($sessionStatus) && !$sessionStatus['has_active_subscription'])
+                <div class="alert alert-warning">
+                    <i class="fa fa-exclamation-triangle"></i> @lang('gym::lang.no_active_subscription')
+                </div>
+            @endif
+
+            <div class="row">
+                <div class="col-md-12">
+                    <div class="form-group">
+                        <input type="hidden" name="contact_id", value="{{$member->id}}">
+                        {!! Form::label('out_time', __('gym::lang.out_time') . ':') !!}
+                        {!! Form::text('out_time', $attendance && $attendance->out_time ? @format_time($attendance->out_time) : null, [
+                            'class' => 'form-control time_picker',
+                            'placeholder' => __('gym::lang.out_time'),
+                            'readonly',
+                            'required',
+                            'id' => 'out_time',
+                        ]) !!}
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="modal-footer">
+            <button type="submit" class="tw-dw-btn tw-dw-btn-primary tw-text-white">@lang('messages.save')</button>
+            <button type="button" class="tw-dw-btn tw-dw-btn-neutral tw-text-white"
+                data-dismiss="modal">@lang('messages.close')</button>
+        </div>
+
+        {!! Form::close() !!}
+
+    </div><!-- /.modal-content -->
+</div><!-- /.modal-dialog -->
