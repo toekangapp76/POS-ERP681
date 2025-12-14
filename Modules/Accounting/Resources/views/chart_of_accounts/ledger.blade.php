@@ -83,9 +83,9 @@
                     <div class="col-sm-6">
                         <div class="form-group">
                             {!! Form::label('all_accounts', __( 'accounting::lang.account' ) . ':') !!}
-                            {!! Form::select('account_filter', [$account->id => $account->name], $account->id,
+                            {!! Form::select('account_filter[]', $all_accounts, [$account->id],
                                 ['class' => 'form-control accounts-dropdown', 'style' => 'width:100%', 
-                                'id' => 'account_filter', 'data-default' => $account->id]); !!}
+                                'id' => 'account_filter', 'multiple' => 'multiple', 'data-default' => $account->id]); !!}
                         </div>
                     </div>
                     
@@ -107,6 +107,7 @@
                     		<thead>
                     			<tr>
                                     <th>@lang( 'messages.date' )</th>
+                                    <th>@lang( 'accounting::lang.account' )</th>
                                     <th>@lang( 'lang_v1.description' )</th>
                                     <th>@lang( 'brand.note' )</th>
                                     <th>@lang( 'lang_v1.added_by' )</th>
@@ -121,7 +122,7 @@
 
                             <tfoot>
                                 <tr class="bg-gray font-17 footer-total text-center">
-                                    <td colspan="4"><strong>@lang('sale.total'):</strong></td>
+                                    <td colspan="5"><strong>@lang('sale.total'):</strong></td>
                                     <td class="footer_total_debit"></td>
                                     <td class="footer_total_credit"></td>
                                     <td></td>
@@ -142,11 +143,15 @@
 @include('accounting::accounting.common_js')
 <script>
     $(document).ready(function(){        
+        // Initialize select2 for multiselect
+        $('#account_filter').select2({
+            placeholder: '@lang("accounting::lang.select_account")',
+            allowClear: false
+        });
+
         $('#account_filter').change(function(){
-            account_id = $(this).val();
-            url = base_path + '/accounting/ledger/' + account_id;
-            window.location = url;
-        })
+            ledger.ajax.reload();
+        });
 
         dateRangeSettings.startDate = moment().subtract(6, 'days');
         dateRangeSettings.endDate = moment();
@@ -172,15 +177,16 @@
                                         start = $('input#transaction_date_range').data('daterangepicker').startDate.format('YYYY-MM-DD');
                                         end = $('input#transaction_date_range').data('daterangepicker').endDate.format('YYYY-MM-DD');
                                     }
-                                    var transaction_type = $('select#transaction_type').val();
+                                    var account_ids = $('#account_filter').val();
                                     d.start_date = start;
                                     d.end_date = end;
-                                    d.type = transaction_type;
+                                    d.account_ids = account_ids;
                                 }
                             },
                             "ordering": false,
                             columns: [
                                 {data: 'operation_date', name: 'operation_date'},
+                                {data: 'account_name', name: 'AA.name'},
                                 {data: 'ref_no', name: 'ATM.ref_no'},
                                 {data: 'note', name: 'ATM.note'},
                                 {data: 'added_by', name: 'added_by'},

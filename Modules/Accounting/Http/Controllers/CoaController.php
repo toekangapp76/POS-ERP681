@@ -1407,23 +1407,27 @@ class CoaController extends Controller
         if (request()->ajax()) {
             $start_date = request()->input('start_date');
             $end_date = request()->input('end_date');
+            $account_ids = request()->input('account_ids');
 
-            // $before_bal_query = AccountingAccountsTransaction::where('accounting_account_id', $account->id)
-            //                     ->leftjoin('accounting_acc_trans_mappings as ATM', 'accounting_accounts_transactions.acc_trans_mapping_id', '=', 'ATM.id')
-            //         ->select([
-            //             DB::raw('SUM(IF(accounting_accounts_transactions.type="credit", accounting_accounts_transactions.amount, -1 * accounting_accounts_transactions.amount)) as prev_bal')])
-            //         ->where('accounting_accounts_transactions.operation_date', '<', $start_date);
-            // $bal_before_start_date = $before_bal_query->first()->prev_bal;
+            // Use provided account IDs or default to current account
+            if (empty($account_ids)) {
+                $account_ids = [$account->id];
+            } elseif (!is_array($account_ids)) {
+                $account_ids = [$account_ids];
+            }
 
-            $transactions = AccountingAccountsTransaction::where('accounting_account_id', $account->id)
+            $transactions = AccountingAccountsTransaction::whereIn('accounting_account_id', $account_ids)
                             ->leftjoin('accounting_acc_trans_mappings as ATM', 'accounting_accounts_transactions.acc_trans_mapping_id', '=', 'ATM.id')
                             ->leftjoin('transactions as T', 'accounting_accounts_transactions.transaction_id', '=', 'T.id')
                             ->leftjoin('users AS U', 'accounting_accounts_transactions.created_by', 'U.id')
+                            ->leftjoin('accounting_accounts as AA', 'accounting_accounts_transactions.accounting_account_id', '=', 'AA.id')
                             ->select('accounting_accounts_transactions.operation_date',
                                 'accounting_accounts_transactions.sub_type',
                                 'accounting_accounts_transactions.type',
                                 'ATM.ref_no as a_ref', 'ATM.note',
                                 'accounting_accounts_transactions.amount',
+                                'AA.name as account_name',
+                                'AA.gl_code as account_gl_code',
                                 DB::raw("CONCAT(COALESCE(U.surname, ''),' ',COALESCE(U.first_name, ''),' ',COALESCE(U.last_name,'')) as added_by"),
                                 'T.invoice_no', 'T.ref_no'
                             );
@@ -1435,6 +1439,13 @@ class CoaController extends Controller
             return DataTables::of($transactions)
                     ->editColumn('operation_date', function ($row) {
                         return $this->accountingUtil->format_date($row->operation_date, true);
+                    })
+                    ->addColumn('account_name', function ($row) {
+                        $account_display = $row->account_name;
+                        if (!empty($row->account_gl_code)) {
+                            $account_display .= ' (' . $row->account_gl_code . ')';
+                        }
+                        return '<span class="label label-default">' . $account_display . '</span>';
                     })
                     ->editColumn('ref_no', function ($row) {
                         $description = '';
@@ -1493,7 +1504,7 @@ class CoaController extends Controller
                     ->filterColumn('added_by', function ($query, $keyword) {
                         $query->whereRaw("CONCAT(COALESCE(u.surname, ''), ' ', COALESCE(u.first_name, ''), ' ', COALESCE(u.last_name, '')) like ?", ["%{$keyword}%"]);
                     })
-                    ->rawColumns(['ref_no', 'credit', 'debit', 'balance', 'action'])
+                    ->rawColumns(['ref_no', 'credit', 'debit', 'balance', 'action', 'account_name'])
                     ->make(true);
         }
 
@@ -1504,7 +1515,21 @@ class CoaController extends Controller
                         ->select([DB::raw($this->accountingUtil->balanceFormula())]);
         $current_bal = $current_bal->first()->balance;
 
+        // Get all accounts for multiselect dropdown
+        $all_accounts = AccountingAccount::where('business_id', $business_id)
+                        ->where('status', 'active')
+                        ->orderBy('name')
+                        ->get()
+                        ->mapWithKeys(function ($acc) {
+                            $name = $acc->name;
+                            if (!empty($acc->gl_code)) {
+                                $name .= ' (' . $acc->gl_code . ')';
+                            }
+                            return [$acc->id => $name];
+                        })
+                        ->toArray();
+
         return view('accounting::chart_of_accounts.ledger')
-            ->with(compact('account', 'current_bal'));
+            ->with(compact('account', 'current_bal', 'all_accounts'));
     }
 }
