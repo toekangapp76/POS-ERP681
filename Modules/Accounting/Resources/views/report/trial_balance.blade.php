@@ -67,26 +67,10 @@
                                 <tr>
                                     <td>{{$account->gl_code ?? '-'}}</td>
                                     <td>{{$account->name}}</td>
-                                    <td>
-                                        @if($account->beginning_balance != 0)
-                                            @format_currency($account->beginning_balance)
-                                        @endif    
-                                    </td>
-                                    <td>
-                                        @if($account->debit_balance != 0)
-                                            @format_currency($account->debit_balance)
-                                        @endif    
-                                    </td>
-                                    <td>
-                                        @if($account->credit_balance != 0)
-                                            @format_currency($account->credit_balance)
-                                        @endif
-                                    </td>
-                                    <td>
-                                        @if($account->ending_balance != 0)
-                                            @format_currency($account->ending_balance)
-                                        @endif
-                                    </td>
+                                    <td>@format_currency($account->beginning_balance)</td>
+                                    <td>@format_currency($account->debit_balance)</td>
+                                    <td>@format_currency($account->credit_balance)</td>
+                                    <td>@format_currency($account->ending_balance)</td>
                                 </tr>
                             @endforeach
                         </tbody>

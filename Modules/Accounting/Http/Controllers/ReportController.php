@@ -93,19 +93,22 @@ class ReportController extends Controller
         $accounts = collect();
 
         foreach ($all_accounts as $account) {
-            // Calculate beginning balance (all transactions up to day before start_date)
-            // This includes opening_balance transactions and all subsequent transactions
+            // Calculate beginning balance (ONLY opening_balance transactions when COA was created)
             $opening = DB::table('accounting_accounts_transactions')
                 ->where('accounting_account_id', $account->id)
-                ->whereDate('operation_date', '<=', $beginning_balance_date)
+                ->where('sub_type', 'opening_balance')
                 ->select(
                     DB::raw("SUM(IF(type = 'debit', amount, 0)) - SUM(IF(type = 'credit', amount, 0)) as balance")
                 )
                 ->first();
             
-            // Calculate period transactions (debit and credit in the date range)
+            // Calculate period transactions (debit and credit in the date range, EXCLUDE opening_balance)
             $period = DB::table('accounting_accounts_transactions')
                 ->where('accounting_account_id', $account->id)
+                ->where(function($q) {
+                    $q->whereNull('sub_type')
+                      ->orWhere('sub_type', '!=', 'opening_balance');
+                })
                 ->whereDate('operation_date', '>=', $start_date)
                 ->whereDate('operation_date', '<=', $end_date)
                 ->select(
