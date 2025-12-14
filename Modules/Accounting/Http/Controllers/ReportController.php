@@ -286,4 +286,99 @@ class ReportController extends Controller
         return view('accounting::report.account_payable_ageing_details')
         ->with(compact('business_locations', 'report_details'));
     }
+
+    /**
+     * Profit and Loss Report
+     * Shows accounts with GL Code starting from 4 and above (Income & Expenses)
+     *
+     * @return Response
+     */
+    public function profitLoss()
+    {
+        $business_id = request()->session()->get('user.business_id');
+
+        if (! (auth()->user()->can('superadmin') ||
+            $this->moduleUtil->hasThePermissionInSubscription($business_id, 'accounting_module')) ||
+            ! (auth()->user()->can('accounting.view_reports'))) {
+            abort(403, 'Unauthorized action.');
+        }
+
+        if (! empty(request()->start_date) && ! empty(request()->end_date)) {
+            $start_date = request()->start_date;
+            $end_date = request()->end_date;
+        } else {
+            $fy = $this->businessUtil->getCurrentFinancialYear($business_id);
+            $start_date = $fy['start'];
+            $end_date = $fy['end'];
+        }
+
+        // Get all active accounts with gl_code starting from 4 (Income, Expenses, etc)
+        $all_accounts = AccountingAccount::where('business_id', $business_id)
+                            ->where('status', 'active')
+                            ->whereNotNull('gl_code')
+                            ->where('gl_code', '!=', '')
+                            ->whereRaw("CAST(SUBSTRING(gl_code, 1, 1) AS UNSIGNED) >= 4")
+                            ->select('id', 'name', 'gl_code', 'account_primary_type')
+                            ->orderBy('gl_code')
+                            ->get();
+
+        $income_accounts = collect();
+        $expense_accounts = collect();
+        $total_income = 0;
+        $total_expense = 0;
+
+        foreach ($all_accounts as $account) {
+            // For P&L Report: Calculate ONLY period transactions (EXCLUDE opening_balance)
+            // We don't need beginning balance for P&L - only period activity matters
+            $period = DB::table('accounting_accounts_transactions')
+                ->where('accounting_account_id', $account->id)
+                ->where(function($q) {
+                    $q->whereNull('sub_type')
+                      ->orWhere('sub_type', '!=', 'opening_balance');
+                })
+                ->whereDate('operation_date', '>=', $start_date)
+                ->whereDate('operation_date', '<=', $end_date)
+                ->select(
+                    DB::raw("SUM(IF(type = 'debit', amount, 0)) as debit"),
+                    DB::raw("SUM(IF(type = 'credit', amount, 0)) as credit")
+                )
+                ->first();
+            
+            $debit_balance = $period->debit ?? 0;
+            $credit_balance = $period->credit ?? 0;
+            
+            // Only include accounts that have activity DURING THE PERIOD (not based on opening balance)
+            if ($debit_balance != 0 || $credit_balance != 0) {
+                // For income: credit - debit = positive income
+                // For expense: debit - credit = positive expense
+                $balance = $account->account_primary_type == 'income' 
+                    ? ($credit_balance - $debit_balance) 
+                    : ($debit_balance - $credit_balance);
+                
+                $account_data = (object)[
+                    'id' => $account->id,
+                    'name' => $account->name,
+                    'gl_code' => $account->gl_code,
+                    'account_primary_type' => $account->account_primary_type,
+                    'debit_balance' => $debit_balance,
+                    'credit_balance' => $credit_balance,
+                    'balance' => $balance,
+                ];
+
+                if ($account->account_primary_type == 'income') {
+                    $income_accounts->push($account_data);
+                    $total_income += $balance;
+                } else {
+                    // expenses, cost_of_sale, other_expense
+                    $expense_accounts->push($account_data);
+                    $total_expense += $balance;
+                }
+            }
+        }
+
+        $net_profit = $total_income - $total_expense;
+
+        return view('accounting::report.profit_loss')
+            ->with(compact('income_accounts', 'expense_accounts', 'total_income', 'total_expense', 'net_profit', 'start_date', 'end_date'));
+    }
 }

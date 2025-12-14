@@ -47,6 +47,9 @@ Route::middleware('web', 'SetSessionData', 'auth', 'language', 'timezone', 'Admi
     Route::get('reports/account-payable-ageing-details',
     [\Modules\Accounting\Http\Controllers\ReportController::class, 'accountPayableAgeingDetails'])->name('accounting.account_payable_ageing_details');
 
+    Route::get('reports/profit-loss',
+    [\Modules\Accounting\Http\Controllers\ReportController::class, 'profitLoss'])->name('accounting.profitLoss');
+
     Route::get('transactions', [\Modules\Accounting\Http\Controllers\TransactionController::class, 'index']);
     Route::get('transactions/map', [\Modules\Accounting\Http\Controllers\TransactionController::class, 'map']);
     Route::post('transactions/save-map', [\Modules\Accounting\Http\Controllers\TransactionController::class, 'saveMap']);

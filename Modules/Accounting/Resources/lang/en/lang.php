@@ -422,4 +422,10 @@ return [
     '91_and_over_past_due' => '91 days and over past due',
     'map_transactions_help' => 'Set default accounts to which transactions will be automatically mapped',
     'add_more_row' => 'Add more row',
+    'profit_loss' => 'Profit & Loss',
+    'profit_loss_description' => 'This report shows income and expenses from accounts with GL Code starting from 4 and above. It calculates the net profit or loss for the selected period.',
+    'total_income' => 'Total Income',
+    'total_expenses' => 'Total Expenses',
+    'net_profit' => 'Net Profit',
+    'net_loss' => 'Net Loss',
 ];

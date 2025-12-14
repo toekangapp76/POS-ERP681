@@ -416,4 +416,10 @@ return [
     'account_payable_ageing_details_description' => 'Laporan ini menunjukkan detail semua pembelian tertunda faktur dalam kisaran hari yang disebutkan sesuai dengan tanggal jatuh tempo.',
     '91_and_over_past_due' => 'Lewat jatuh tempo 91 hari atau lebih',
     'add_more_row' => 'Tambahkan lebih banyak baris',
+    'profit_loss' => 'Laba & Rugi',
+    'profit_loss_description' => 'Laporan ini menampilkan pendapatan dan pengeluaran dari akun dengan Kode GL mulai dari 4 ke atas. Laporan ini menghitung laba bersih atau rugi untuk periode yang dipilih.',
+    'total_income' => 'Total Pendapatan',
+    'total_expenses' => 'Total Pengeluaran',
+    'net_profit' => 'Laba Bersih',
+    'net_loss' => 'Rugi Bersih',
 ];
