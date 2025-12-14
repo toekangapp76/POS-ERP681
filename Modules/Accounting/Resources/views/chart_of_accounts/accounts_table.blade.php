@@ -1,4 +1,4 @@
-<table class="table table-bordered table-striped">
+﻿<table class="table table-bordered table-striped" id="accounts_table_list">
     <thead>
         <tr>
             <th>@lang( 'messages.action' )</th>
@@ -17,7 +17,12 @@
         @foreach($accounts as $account)
             <tr class="bg-gray">
                 <td>
-                    <div class="btn-group"><button type="button" class="btn btn-info dropdown-toggle btn-xs" data-toggle="dropdown" aria-expanded="false">{{__("messages.actions")}}<span class="caret"></span><span class="sr-only">Toggle Dropdown</span></button>
+                    <div class="btn-group">
+                        <button type="button" class="tw-dw-btn tw-dw-btn-xs tw-dw-btn-outline tw-dw-btn-info tw-w-max dropdown-toggle" data-toggle="dropdown" aria-expanded="false">
+                            {{__("messages.actions")}}
+                            <span class="caret"></span>
+                            <span class="sr-only">Toggle Dropdown</span>
+                        </button>
                         <ul class="dropdown-menu dropdown-menu-left" role="menu">
                             <li>
                                 <a
@@ -71,7 +76,12 @@
                 @foreach($account->child_accounts as $child_account)
                     <tr>
                         <td>
-                        <div class="btn-group"><button type="button" class="btn btn-info dropdown-toggle btn-xs" data-toggle="dropdown" aria-expanded="false">{{__("messages.actions")}}<span class="caret"></span><span class="sr-only">Toggle Dropdown</span></button>
+                        <div class="btn-group">
+                            <button type="button" class="tw-dw-btn tw-dw-btn-xs tw-dw-btn-outline tw-dw-btn-info tw-w-max dropdown-toggle" data-toggle="dropdown" aria-expanded="false">
+                                {{__("messages.actions")}}
+                                <span class="caret"></span>
+                                <span class="sr-only">Toggle Dropdown</span>
+                            </button>
                             <ul class="dropdown-menu dropdown-menu-left" role="menu">
                                 <li>
                                     <a

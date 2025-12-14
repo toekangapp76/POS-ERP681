@@ -114,7 +114,9 @@
             dataType: 'html',
             success: function(html) {
                 if(view_type=='table') {
+                    destroyAccountsDataTable();
                     $('#accounts_table').html(html);
+                    initAccountsDataTable();
                 } else {
                     $('#accounts_tree').html(html);
 
@@ -148,6 +150,28 @@
             },
         });
     };
+    function initAccountsDataTable(){
+        if (!$.fn.DataTable) {
+            return;
+        }
+        var dt = $('#accounts_table_list').DataTable({
+            paging: true,
+            searching: true,
+            ordering: false,
+            pageLength: 25,
+            columnDefs: [
+                { targets: 0, orderable: false, searchable: false },
+            ],
+        });
+        if (dt.buttons && dt.buttons().container().length) {
+            dt.buttons().container().find('a.btn, button.btn').removeClass('btn btn-default');
+        }
+    }
+    function destroyAccountsDataTable(){
+        if ($.fn.DataTable && $.fn.DataTable.isDataTable('#accounts_table_list')) {
+            $('#accounts_table_list').DataTable().destroy();
+        }
+    }
     $(document).on('click', '#expand_all', function(e){
         $('#accounts_tree_container').jstree("open_all");
     })
