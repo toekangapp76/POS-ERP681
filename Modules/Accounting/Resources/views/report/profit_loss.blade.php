@@ -47,9 +47,24 @@
                 </div>
     
                 <div class="box-body">
+                    {{-- Export Buttons --}}
+                    <div class="row" style="margin-bottom: 15px;">
+                        <div class="col-md-12">
+                            <button type="button" class="btn btn-success" id="export_income_excel">
+                                <i class="fa fa-file-excel-o"></i> Export Income (Excel)
+                            </button>
+                            <button type="button" class="btn btn-danger" id="export_expense_excel">
+                                <i class="fa fa-file-excel-o"></i> Export Expense (Excel)
+                            </button>
+                            <button type="button" class="btn btn-primary" id="export_all_excel">
+                                <i class="fa fa-file-excel-o"></i> Export All (Excel)
+                            </button>
+                        </div>
+                    </div>
+
                     {{-- Income Section --}}
                     <h4 class="text-success"><strong><i class="fa fa-arrow-up"></i> @lang('accounting::lang.income')</strong></h4>
-                    <table class="table table-striped table-bordered">
+                    <table class="table table-striped table-bordered" id="income_report_table">
                         <thead>
                             <tr class="success">
                                 <th style="width:120px;">@lang('accounting::lang.gl_code')</th>
@@ -82,7 +97,7 @@
 
                     {{-- Expense Section --}}
                     <h4 class="text-danger"><strong><i class="fa fa-arrow-down"></i> @lang('accounting::lang.expenses')</strong></h4>
-                    <table class="table table-striped table-bordered">
+                    <table class="table table-striped table-bordered" id="expense_report_table">
                         <thead>
                             <tr class="danger">
                                 <th style="width:120px;">@lang('accounting::lang.gl_code')</th>
@@ -161,6 +176,60 @@
 
 <script type="text/javascript">
     $(document).ready(function(){
+
+        // Function to export table to Excel
+        function exportTableToExcel(tableId, filename) {
+            var table = document.getElementById(tableId);
+            var html = table.outerHTML;
+            var url = 'data:application/vnd.ms-excel,' + encodeURIComponent(html);
+            var downloadLink = document.createElement("a");
+            document.body.appendChild(downloadLink);
+            downloadLink.href = url;
+            downloadLink.download = filename + '.xls';
+            downloadLink.click();
+            document.body.removeChild(downloadLink);
+        }
+
+        // Export Income Table
+        $('#export_income_excel').on('click', function() {
+            exportTableToExcel('income_report_table', 'Income_Report_{{$start_date}}_to_{{$end_date}}');
+        });
+
+        // Export Expense Table
+        $('#export_expense_excel').on('click', function() {
+            exportTableToExcel('expense_report_table', 'Expense_Report_{{$start_date}}_to_{{$end_date}}');
+        });
+
+        // Export All (Income + Expense)
+        $('#export_all_excel').on('click', function() {
+            var html = '<table>';
+            html += '<tr><th colspan="3" style="text-align:center; font-size:18px;">Profit & Loss Report</th></tr>';
+            html += '<tr><th colspan="3" style="text-align:center;">{{@format_date($start_date)}} ~ {{@format_date($end_date)}}</th></tr>';
+            html += '<tr><td colspan="3">&nbsp;</td></tr>';
+            
+            // Income section
+            html += document.getElementById('income_report_table').outerHTML;
+            html += '<tr><td colspan="3">&nbsp;</td></tr>';
+            
+            // Expense section
+            html += document.getElementById('expense_report_table').outerHTML;
+            html += '<tr><td colspan="3">&nbsp;</td></tr>';
+            
+            // Summary
+            html += '<tr style="background-color: ' + ({{$net_profit}} >= 0 ? '#00a65a' : '#dd4b39') + '; color: white;">';
+            html += '<th colspan="2" style="text-align:right;">{{ $net_profit >= 0 ? __("accounting::lang.net_profit") : __("accounting::lang.net_loss") }}</th>';
+            html += '<th style="text-align:right;">@format_currency(abs($net_profit))</th>';
+            html += '</tr>';
+            html += '</table>';
+            
+            var url = 'data:application/vnd.ms-excel,' + encodeURIComponent(html);
+            var downloadLink = document.createElement("a");
+            document.body.appendChild(downloadLink);
+            downloadLink.href = url;
+            downloadLink.download = 'Profit_Loss_Report_{{$start_date}}_to_{{$end_date}}.xls';
+            downloadLink.click();
+            document.body.removeChild(downloadLink);
+        });
 
         dateRangeSettings.startDate = moment('{{$start_date}}');
         dateRangeSettings.endDate = moment('{{$end_date}}');

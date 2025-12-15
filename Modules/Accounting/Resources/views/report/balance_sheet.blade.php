@@ -33,12 +33,21 @@
     
                 <div class="box-body">
                     
+                    {{-- Export Button --}}
+                    <div class="row" style="margin-bottom: 15px;">
+                        <div class="col-md-12">
+                            <button type="button" class="btn btn-success" id="export_balance_sheet_excel">
+                                <i class="fa fa-file-excel-o"></i> Export Balance Sheet (Excel)
+                            </button>
+                        </div>
+                    </div>
+
                     @php
                         $total_assets = 0;
                         $total_liab_owners = 0;
                     @endphp
     
-                        <table class="table table-stripped table-bordered" style="min-height: 300px">
+                        <table class="table table-stripped table-bordered" id="balance_sheet_table" style="min-height: 300px">
                             <thead>
                                 <tr>
                                     <th class="success" colspan="3">@lang( 'accounting::lang.assets')</th>
@@ -136,6 +145,86 @@
 
 <script type="text/javascript">
     $(document).ready(function(){
+
+        // Export Balance Sheet to Excel
+        $('#export_balance_sheet_excel').on('click', function() {
+            var html = '<table border="1">';
+            html += '<tr><th colspan="6" style="text-align:center; font-size:18px;">Balance Sheet</th></tr>';
+            html += '<tr><th colspan="6" style="text-align:center;">{{@format_date($start_date)}} ~ {{@format_date($end_date)}}</th></tr>';
+            html += '<tr><td colspan="6">&nbsp;</td></tr>';
+            
+            // Header row
+            html += '<tr>';
+            html += '<th colspan="3" style="background-color:#00a65a; color:white; text-align:center;">{{ __('accounting::lang.assets') }}</th>';
+            html += '<th colspan="3" style="background-color:#f39c12; color:white; text-align:center;">{{ __('accounting::lang.liab_owners_capital') }}</th>';
+            html += '</tr>';
+            
+            html += '<tr>';
+            html += '<th style="background-color:#00a65a; color:white;">No COA</th>';
+            html += '<th style="background-color:#00a65a; color:white;">{{ __('user.name') }}</th>';
+            html += '<th style="background-color:#00a65a; color:white;">{{ __('sale.total') }}</th>';
+            html += '<th style="background-color:#f39c12; color:white;">No COA</th>';
+            html += '<th style="background-color:#f39c12; color:white;">{{ __('user.name') }}</th>';
+            html += '<th style="background-color:#f39c12; color:white;">{{ __('sale.total') }}</th>';
+            html += '</tr>';
+            
+            // Prepare assets and liabilities arrays
+            var assets = @json($assets);
+            var liabilities = @json($liabilities);
+            var equities = @json($equities);
+            var liab_equity = liabilities.concat(equities);
+            
+            var maxRows = Math.max(assets.length, liab_equity.length);
+            var totalAssets = 0;
+            var totalLiabEquity = 0;
+            
+            // Data rows
+            for(var i = 0; i < maxRows; i++) {
+                html += '<tr>';
+                
+                // Assets column
+                if(i < assets.length) {
+                    var asset = assets[i];
+                    totalAssets += parseFloat(asset.balance);
+                    html += '<td>' + (asset.gl_code || '-') + '</td>';
+                    html += '<td>' + asset.name + '</td>';
+                    html += '<td style="text-align:right;">' + parseFloat(asset.balance).toFixed(2) + '</td>';
+                } else {
+                    html += '<td></td><td></td><td></td>';
+                }
+                
+                // Liabilities & Equity column
+                if(i < liab_equity.length) {
+                    var liab = liab_equity[i];
+                    totalLiabEquity += parseFloat(liab.balance);
+                    html += '<td>' + (liab.gl_code || '-') + '</td>';
+                    html += '<td>' + liab.name + '</td>';
+                    html += '<td style="text-align:right;">' + parseFloat(liab.balance).toFixed(2) + '</td>';
+                } else {
+                    html += '<td></td><td></td><td></td>';
+                }
+                
+                html += '</tr>';
+            }
+            
+            // Total row
+            html += '<tr style="font-weight:bold;">';
+            html += '<td colspan="2" style="text-align:right;">{{ __('accounting::lang.total_assets') }}:</td>';
+            html += '<td style="text-align:right;">' + totalAssets.toFixed(2) + '</td>';
+            html += '<td colspan="2" style="text-align:right;">{{ __('accounting::lang.total_liab_owners') }}:</td>';
+            html += '<td style="text-align:right;">' + totalLiabEquity.toFixed(2) + '</td>';
+            html += '</tr>';
+            
+            html += '</table>';
+            
+            var url = 'data:application/vnd.ms-excel,' + encodeURIComponent(html);
+            var downloadLink = document.createElement("a");
+            document.body.appendChild(downloadLink);
+            downloadLink.href = url;
+            downloadLink.download = 'Balance_Sheet_{{$start_date}}_to_{{$end_date}}.xls';
+            downloadLink.click();
+            document.body.removeChild(downloadLink);
+        });
 
         dateRangeSettings.startDate = moment('{{$start_date}}');
         dateRangeSettings.endDate = moment('{{$end_date}}');

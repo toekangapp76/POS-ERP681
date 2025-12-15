@@ -28,22 +28,15 @@
                 </div>
     
                 <div class="box-body">
-                    <table class="table table-stripped">
+                    <table class="table table-stripped" id="trial_balance_table">
                         <thead>
                             <tr>
-                                <th colspan="2" class="text-center">@lang( 'accounting::lang.gl_code')</th>
+                                <th>@lang( 'accounting::lang.gl_code')</th>
+                                <th>@lang( 'user.name')</th>
                                 <th>@lang( 'accounting::lang.opening_balance')</th>
                                 <th>@lang( 'accounting::lang.debit')</th>
                                 <th>@lang( 'accounting::lang.credit')</th>
                                 <th>@lang( 'lang_v1.balance')</th>
-                            </tr>
-                            <tr>
-                                <th>No</th>
-                                <th>@lang( 'user.name')</th>
-                                <th></th>
-                                <th></th>
-                                <th></th>
-                                <th></th>
                             </tr>
                         </thead>
     
@@ -77,7 +70,8 @@
     
                         <tfoot>
                             <tr>
-                                <th colspan="2">Total</th>
+                                <th>Total</th>
+                                <th></th>
                                 <th class="total_beginning">@format_currency($total_beginning)</th>
                                 <th class="total_debit">@format_currency($total_debit)</th>
                                 <th class="total_credit">@format_currency($total_credit)</th>
@@ -98,6 +92,38 @@
 
 <script type="text/javascript">
     $(document).ready(function(){
+
+        // Initialize DataTable with export buttons
+        $('#trial_balance_table').DataTable({
+            dom: 'Bfrtip',
+            buttons: [
+                {
+                    extend: 'excel',
+                    text: '<i class="fa fa-file-excel-o"></i> Excel',
+                    exportOptions: {
+                        columns: ':visible'
+                    }
+                },
+                {
+                    extend: 'pdf',
+                    text: '<i class="fa fa-file-pdf-o"></i> PDF',
+                    exportOptions: {
+                        columns: ':visible'
+                    }
+                },
+                {
+                    extend: 'print',
+                    text: '<i class="fa fa-print"></i> Print',
+                    exportOptions: {
+                        columns: ':visible'
+                    }
+                }
+            ],
+            paging: false,
+            searching: false,
+            info: false,
+            ordering: false
+        });
 
         dateRangeSettings.startDate = moment('{{$start_date}}');
         dateRangeSettings.endDate = moment('{{$end_date}}');
