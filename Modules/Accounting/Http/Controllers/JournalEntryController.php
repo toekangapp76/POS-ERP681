@@ -61,6 +61,7 @@ class JournalEntryController extends Controller
                         ->where('map.type', 'journal_entry')
                         ->select([
                             'accounting_accounts_transactions.id',
+                            'map.id as mapping_id',
                             'map.ref_no',
                             'map.operation_date',
                             'map.note as description',
@@ -103,7 +104,38 @@ class JournalEntryController extends Controller
                 ->addColumn('balance', function ($row) {
                     return '<span class="display_currency tw-block" data-currency_symbol="true" data-orig-value="'.$row->amount.'">'.$row->amount.'</span>';
                 })
-                ->rawColumns(['debit', 'credit', 'balance'])
+                ->addColumn(
+                    'action',
+                    function ($row) {
+                        $html = '<div class="btn-group">
+                                <button type="button" class="btn btn-info dropdown-toggle btn-xs" 
+                                    data-toggle="dropdown" aria-expanded="false">'.
+                                    __('messages.actions').
+                                    '<span class="caret"></span><span class="sr-only">Toggle Dropdown
+                                    </span>
+                                </button>
+                                <ul class="dropdown-menu" role="menu">';
+                        if (auth()->user()->can('accounting.edit_journal')) {
+                            $html .= '<li>
+                                <a href="'.action([\Modules\Accounting\Http\Controllers\JournalEntryController::class, 'edit'], [$row->mapping_id]).'">
+                                    <i class="fas fa-edit"></i>'.__('messages.edit').'
+                                </a>
+                            </li>';
+                        }
+                        if (auth()->user()->can('accounting.delete_journal')) {
+                            $html .= '<li>
+                                    <a href="#" data-href="'.action([\Modules\Accounting\Http\Controllers\JournalEntryController::class, 'destroy'], [$row->mapping_id]).'" class="delete_journal_button">
+                                        <i class="fas fa-trash" aria-hidden="true"></i>'.__('messages.delete').'
+                                    </a>
+                                    </li>';
+                        }
+
+                        $html .= '</ul></div>';
+
+                        return $html;
+                    }
+                )
+                ->rawColumns(['debit', 'credit', 'balance', 'action'])
                 ->make(true);
         }
 
@@ -512,3 +544,5 @@ class JournalEntryController extends Controller
         ];
     }
 }
+
+
