@@ -159,7 +159,7 @@ class AccountingUtil extends Util
     /**
      * Function to save a mapping
      */
-    public function saveMap($type, $id, $user_id, $business_id, $deposit_to, $payment_account){
+    public function saveMap($type, $id, $user_id, $business_id, $deposit_to, $payment_account, $ppn_account = null){
         if ($type == 'sell') {
             $transaction = Transaction::where('business_id', $business_id)->where('id', $id)->firstorFail();
 
@@ -270,6 +270,55 @@ class AccountingUtil extends Util
                 'created_by' => $user_id,
                 'operation_date' => \Carbon::now(),
             ];
+        } elseif ($type == 'gym_subscription') {
+            $transaction = Transaction::where('business_id', $business_id)->where('id', $id)->firstorFail();
+            
+            // Rumus: deposit = bank / 1.1
+            // PPN = 10% dari deposit
+            $deposit_amount = $transaction->final_total / 1.1;
+            $ppn_amount = $deposit_amount * 0.1;
+            
+            // Bank (debit) - total yang diterima
+            $payment_data = [
+                'accounting_account_id' => $payment_account,
+                'transaction_id' => $id,
+                'transaction_payment_id' => null,
+                'amount' => $transaction->final_total,
+                'type' => 'debit',
+                'sub_type' => $type,
+                'map_type' => 'payment_account',
+                'created_by' => $user_id,
+                'operation_date' => \Carbon::now(),
+            ];
+
+            // Deposit to (credit) - pendapatan sebelum pajak
+            $deposit_data = [
+                'accounting_account_id' => $deposit_to,
+                'transaction_id' => $id,
+                'transaction_payment_id' => null,
+                'amount' => $deposit_amount,
+                'type' => 'credit',
+                'sub_type' => $type,
+                'map_type' => 'deposit_to',
+                'created_by' => $user_id,
+                'operation_date' => \Carbon::now(),
+            ];
+            
+            // PPN (credit) - pajak 10%
+            if (!empty($ppn_account)) {
+                $ppn_data = [
+                    'accounting_account_id' => $ppn_account,
+                    'transaction_id' => $id,
+                    'transaction_payment_id' => null,
+                    'amount' => $ppn_amount,
+                    'type' => 'credit',
+                    'sub_type' => $type,
+                    'map_type' => 'ppn_account',
+                    'created_by' => $user_id,
+                    'operation_date' => \Carbon::now(),
+                ];
+                AccountingAccountsTransaction::updateOrCreateMapTransaction($ppn_data);
+            }
         }
 
         AccountingAccountsTransaction::updateOrCreateMapTransaction($payment_data);

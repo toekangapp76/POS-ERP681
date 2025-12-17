@@ -518,6 +518,7 @@ class TransactionController extends Controller
                 'gp.name as package_name',
                 'u.first_name as added_by',
                 \DB::raw('(SELECT SUM(IF(tp.is_return = 1, -1*tp.amount, tp.amount)) FROM transaction_payments as tp WHERE tp.transaction_id = transactions.id) as total_paid'),
+                \DB::raw('(SELECT GROUP_CONCAT(CONCAT(aa.name, " (", aa.gl_code, ") - ", IF(aat.type="debit", "Debit", "Credit"), ": ", aat.amount) SEPARATOR "<br>") FROM accounting_accounts_transactions aat LEFT JOIN accounting_accounts aa ON aat.accounting_account_id = aa.id WHERE aat.transaction_id = transactions.id) as mapped_accounts'),
             ]);
 
         return DataTables::of($query)
@@ -529,7 +530,7 @@ class TransactionController extends Controller
                 return '<span class="label label-success">' . __('gym::lang.subscription') . '</span>';
             })
             ->editColumn('payment_status', function ($row) {
-                return '<span class="label @payment_status(' . $row->payment_status . ')">'.
+                return '<span class="label label-warning @payment_status(' . $row->payment_status . ')">'.
                     __('lang_v1.' . $row->payment_status) . '</span>';
             })
             ->editColumn('final_total', function ($row) {
@@ -538,6 +539,13 @@ class TransactionController extends Controller
             ->addColumn('total_paid', function ($row) {
                 $total_paid = $row->total_paid ?? 0;
                 return '<span class="display_currency total-paid" data-currency_symbol="true" data-orig-value="' . $total_paid . '">' . $this->transactionUtil->num_f($total_paid, true) . '</span>';
+            })
+            ->addColumn('mapping_status', function ($row) {
+                if (!empty($row->mapped_accounts)) {
+                    return '<span class="label label-success"><i class="fa fa-check"></i> ' . __('accounting::lang.mapped') . '</span><br><small class="text-muted">' . $row->mapped_accounts . '</small>';
+                } else {
+                    return '<span class="label label-warning"><i class="fa fa-exclamation-triangle"></i> ' . __('accounting::lang.not_mapped') . '</span>';
+                }
             })
             ->addColumn('action', function ($row) {
                 $html = '<div class="btn-group">';
@@ -552,7 +560,7 @@ class TransactionController extends Controller
                 $html .= '</div>';
                 return $html;
             })
-            ->rawColumns(['action', 'sub_type', 'payment_status', 'final_total', 'total_paid'])
+            ->rawColumns(['action', 'sub_type', 'payment_status', 'final_total', 'total_paid', 'mapping_status'])
             ->make(true);
     }
 
@@ -664,11 +672,15 @@ class TransactionController extends Controller
                 $existing_deposit = AccountingAccountsTransaction::where('transaction_id', $id)
                                         ->where('map_type', 'deposit_to')
                                         ->first();
+                $existing_ppn = AccountingAccountsTransaction::where('transaction_id', $id)
+                                        ->where('map_type', 'ppn_account')
+                                        ->first();
                 $default_payment_account = ! empty($existing_payment) ? AccountingAccount::find($existing_payment->accounting_account_id) : null;
                 $default_deposit_to = ! empty($existing_deposit) ? AccountingAccount::find($existing_deposit->accounting_account_id) : null;
+                $default_ppn_account = ! empty($existing_ppn) ? AccountingAccount::find($existing_ppn->accounting_account_id) : null;
 
                 return view('accounting::transactions.map')
-                        ->with(compact('transaction', 'type', 'default_payment_account', 'default_deposit_to'));
+                        ->with(compact('transaction', 'type', 'default_payment_account', 'default_deposit_to', 'default_ppn_account'));
             }
 
         }
@@ -694,8 +706,9 @@ class TransactionController extends Controller
 
                 $deposit_to = $request->get('deposit_to');
                 $payment_account = $request->get('payment_account');
+                $ppn_account = $request->get('ppn_account');
 
-                $this->accountingUtil->saveMap($type, $id, $user_id, $business_id, $deposit_to, $payment_account);
+                $this->accountingUtil->saveMap($type, $id, $user_id, $business_id, $deposit_to, $payment_account, $ppn_account);
 
                 DB::commit();
 

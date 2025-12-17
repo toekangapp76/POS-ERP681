@@ -33,102 +33,60 @@
     
                 <div class="box-body">
                     
-                    {{-- Export Button --}}
-                    <div class="row" style="margin-bottom: 15px;">
-                        <div class="col-md-12">
-                            <button type="button" class="btn btn-success" id="export_balance_sheet_excel">
-                                <i class="fa fa-file-excel-o"></i> Export Balance Sheet (Excel)
-                            </button>
-                        </div>
-                    </div>
-
-                    @php
-                        $total_assets = 0;
-                        $total_liab_owners = 0;
-                    @endphp
-    
-                        <table class="table table-stripped table-bordered" id="balance_sheet_table" style="min-height: 300px">
-                            <thead>
-                                <tr>
-                                    <th class="success" colspan="3">@lang( 'accounting::lang.assets')</th>
-                                    <th class="warning" colspan="3">@lang( 'accounting::lang.liab_owners_capital')</th>
-                                </tr>
-                                <tr>
-                                    <th class="success" style="width:80px;">No COA</th>
-                                    <th class="success">@lang( 'user.name')</th>
-                                    <th class="success">@lang( 'sale.total')</th>
-                                    <th class="warning" style="width:80px;">No COA</th>
-                                    <th class="warning">@lang( 'user.name')</th>
-                                    <th class="warning">@lang( 'sale.total')</th>
-                                </tr>
-                            </thead>
-    
+                    <table class="table table-striped table-bordered" id="balance_sheet_table">
+                        <thead>
                             <tr>
-                                <td class="col-md-6" colspan="3">
-                                    <table class="table">
-                                        @foreach($assets as $asset)
-                                            @php
-                                                $total_assets += $asset->balance
-                                            @endphp
-    
-                                            <tr>
-                                                <td style="width:100px;">{{$asset->gl_code ?? '-'}}</td>
-                                                <th>{{$asset->name}}</th>
-                                                <td>@format_currency($asset->balance)</td>
-                                            </tr>
-                                        @endforeach
-                                    </table>
-                                </td>
-    
-                                <td class="col-md-6" colspan="3">
-                                    <table class="table">
-                                        @foreach($liabilities as $liability)
-    
-                                            @php
-                                                $total_liab_owners += $liability->balance
-                                            @endphp
-    
-                                            <tr>
-                                                <td style="width:100px;">{{$liability->gl_code ?? '-'}}</td>
-                                                <th>{{$liability->name}}</th>
-                                                <td>@format_currency($liability->balance)</td>
-                                            </tr>
-                                        @endforeach
-    
-                                        @foreach($equities as $equity)
-                                            @php
-                                                $total_liab_owners += $equity->balance
-                                            @endphp
-                                            
-                                            <tr>
-                                                <td style="width:100px;">{{$equity->gl_code ?? '-'}}</td>
-                                                <th>{{$equity->name}}</th>
-                                                <td>@format_currency($equity->balance)</td>
-                                            </tr>
-                                        @endforeach
-                                    </table>
-                                </td>
+                                <th>@lang('accounting::lang.gl_code')</th>
+                                <th>@lang('user.name')</th>
+                                <th>@lang('accounting::lang.account_type')</th>
+                                <th>@lang('accounting::lang.account_sub_type')</th>
+                                <th class="text-right">@lang('sale.total')</th>
                             </tr>
-    
-                            <tr>
-                                <td class="col-md-6" colspan="3">
-                                    <span>
-                                        <strong>@lang( 'accounting::lang.total_assets'): </strong>
-                                    </span>
-    
-                                    <span>@format_currency($total_assets)</span>
-                                </td>
-    
-                                <td class="col-md-6" colspan="3">
-                                    <span>
-                                        <strong>@lang( 'accounting::lang.total_liab_owners'): </strong>
-                                    </span>
-    
-                                    <span>@format_currency($total_liab_owners)</span>
-                                </td>
+                        </thead>
+                        <tbody>
+                            @php
+                                $total_assets = 0;
+                                $total_liabilities = 0;
+                                $total_equity = 0;
+                            @endphp
+                            @foreach($all_accounts as $account)
+                                @php
+                                    if ($account->account_primary_type == 'asset') {
+                                        $total_assets += $account->balance;
+                                    } elseif ($account->account_primary_type == 'liability') {
+                                        $total_liabilities += $account->balance;
+                                    } elseif ($account->account_primary_type == 'equity') {
+                                        $total_equity += $account->balance;
+                                    }
+                                @endphp
+                                <tr>
+                                    <td>{{ $account->gl_code ?? '-' }}</td>
+                                    <td>{{ $account->name }}</td>
+                                    <td>{{ __('accounting::lang.' . $account->account_primary_type) }}</td>
+                                    <td>{{ $account->sub_type ? __('accounting::lang.' . $account->sub_type) : '-' }}</td>
+                                    <td class="text-right"><span data-orig-value="{{ $account->balance }}">@format_currency($account->balance)</span></td>
+                                </tr>
+                            @endforeach
+                        </tbody>
+                        <tfoot>
+                            <tr class="bg-success">
+                                <th colspan="4" class="text-right">@lang('accounting::lang.total_assets'):</th>
+                                <th class="text-right total-assets">@format_currency($total_assets)</th>
                             </tr>
-    
-                        </table>
+                            <tr class="bg-warning">
+                                <th colspan="4" class="text-right">@lang('accounting::lang.total_liabilities'):</th>
+                                <th class="text-right total-liabilities">@format_currency($total_liabilities)</th>
+                            </tr>
+                            <tr class="bg-info">
+                                <th colspan="4" class="text-right">@lang('accounting::lang.total_equity'):</th>
+                                <th class="text-right total-equity">@format_currency($total_equity)</th>
+                            </tr>
+                            <tr class="bg-primary">
+                                <th colspan="4" class="text-right">@lang('accounting::lang.total_liab_owners'):</th>
+                                <th class="text-right total-liab-equity">@format_currency($total_liabilities + $total_equity)</th>
+                            </tr>
+                        </tfoot>
+                    </table>
                     
                 </div>
     
@@ -146,84 +104,43 @@
 <script type="text/javascript">
     $(document).ready(function(){
 
-        // Export Balance Sheet to Excel
-        $('#export_balance_sheet_excel').on('click', function() {
-            var html = '<table border="1">';
-            html += '<tr><th colspan="6" style="text-align:center; font-size:18px;">Balance Sheet</th></tr>';
-            html += '<tr><th colspan="6" style="text-align:center;">{{@format_date($start_date)}} ~ {{@format_date($end_date)}}</th></tr>';
-            html += '<tr><td colspan="6">&nbsp;</td></tr>';
-            
-            // Header row
-            html += '<tr>';
-            html += '<th colspan="3" style="background-color:#00a65a; color:white; text-align:center;">{{ __('accounting::lang.assets') }}</th>';
-            html += '<th colspan="3" style="background-color:#f39c12; color:white; text-align:center;">{{ __('accounting::lang.liab_owners_capital') }}</th>';
-            html += '</tr>';
-            
-            html += '<tr>';
-            html += '<th style="background-color:#00a65a; color:white;">No COA</th>';
-            html += '<th style="background-color:#00a65a; color:white;">{{ __('user.name') }}</th>';
-            html += '<th style="background-color:#00a65a; color:white;">{{ __('sale.total') }}</th>';
-            html += '<th style="background-color:#f39c12; color:white;">No COA</th>';
-            html += '<th style="background-color:#f39c12; color:white;">{{ __('user.name') }}</th>';
-            html += '<th style="background-color:#f39c12; color:white;">{{ __('sale.total') }}</th>';
-            html += '</tr>';
-            
-            // Prepare assets and liabilities arrays
-            var assets = @json($assets);
-            var liabilities = @json($liabilities);
-            var equities = @json($equities);
-            var liab_equity = liabilities.concat(equities);
-            
-            var maxRows = Math.max(assets.length, liab_equity.length);
-            var totalAssets = 0;
-            var totalLiabEquity = 0;
-            
-            // Data rows
-            for(var i = 0; i < maxRows; i++) {
-                html += '<tr>';
-                
-                // Assets column
-                if(i < assets.length) {
-                    var asset = assets[i];
-                    totalAssets += parseFloat(asset.balance);
-                    html += '<td>' + (asset.gl_code || '-') + '</td>';
-                    html += '<td>' + asset.name + '</td>';
-                    html += '<td style="text-align:right;">' + parseFloat(asset.balance).toFixed(2) + '</td>';
-                } else {
-                    html += '<td></td><td></td><td></td>';
+        // Initialize DataTable with export buttons and sorting
+        $('#balance_sheet_table').DataTable({
+            dom: 'Bfrtip',
+            buttons: [
+                {
+                    extend: 'excel',
+                    text: '<i class="fa fa-file-excel-o"></i> Excel',
+                    title: 'Balance Sheet - {{@format_date($start_date)}} to {{@format_date($end_date)}}',
+                    exportOptions: {
+                        columns: ':visible'
+                    }
+                },
+                {
+                    extend: 'pdf',
+                    text: '<i class="fa fa-file-pdf-o"></i> PDF',
+                    title: 'Balance Sheet - {{@format_date($start_date)}} to {{@format_date($end_date)}}',
+                    exportOptions: {
+                        columns: ':visible'
+                    }
+                },
+                {
+                    extend: 'print',
+                    text: '<i class="fa fa-print"></i> Print',
+                    title: 'Balance Sheet - {{@format_date($start_date)}} to {{@format_date($end_date)}}',
+                    exportOptions: {
+                        columns: ':visible'
+                    }
                 }
-                
-                // Liabilities & Equity column
-                if(i < liab_equity.length) {
-                    var liab = liab_equity[i];
-                    totalLiabEquity += parseFloat(liab.balance);
-                    html += '<td>' + (liab.gl_code || '-') + '</td>';
-                    html += '<td>' + liab.name + '</td>';
-                    html += '<td style="text-align:right;">' + parseFloat(liab.balance).toFixed(2) + '</td>';
-                } else {
-                    html += '<td></td><td></td><td></td>';
-                }
-                
-                html += '</tr>';
-            }
-            
-            // Total row
-            html += '<tr style="font-weight:bold;">';
-            html += '<td colspan="2" style="text-align:right;">{{ __('accounting::lang.total_assets') }}:</td>';
-            html += '<td style="text-align:right;">' + totalAssets.toFixed(2) + '</td>';
-            html += '<td colspan="2" style="text-align:right;">{{ __('accounting::lang.total_liab_owners') }}:</td>';
-            html += '<td style="text-align:right;">' + totalLiabEquity.toFixed(2) + '</td>';
-            html += '</tr>';
-            
-            html += '</table>';
-            
-            var url = 'data:application/vnd.ms-excel,' + encodeURIComponent(html);
-            var downloadLink = document.createElement("a");
-            document.body.appendChild(downloadLink);
-            downloadLink.href = url;
-            downloadLink.download = 'Balance_Sheet_{{$start_date}}_to_{{$end_date}}.xls';
-            downloadLink.click();
-            document.body.removeChild(downloadLink);
+            ],
+            paging: false,
+            searching: true,
+            info: false,
+            ordering: true,
+            order: [[0, 'asc']], // Sort by GL Code by default
+            columnDefs: [
+                { targets: [4], orderable: true, type: 'num' } // Make balance column sortable as number
+            ]
         });
 
         dateRangeSettings.startDate = moment('{{$start_date}}');

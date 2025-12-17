@@ -336,7 +336,8 @@
             { data: 'final_total', name: 'final_total' },
             { data: 'total_paid', name: 'total_paid', searchable: false },
             { data: 'added_by', name: 'u.first_name' },
-            { data: 'additional_notes', name: 'additional_notes' }
+            { data: 'additional_notes', name: 'additional_notes' },
+            { data: 'mapping_status', name: 'mapping_status' }
             ],
             fnDrawCallback: function(oSettings) {
                 __currency_convert_recursively($('#gym_subscription_table'));

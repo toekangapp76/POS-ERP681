@@ -20,7 +20,8 @@
                         <th>@lang('sale.total_amount')</th>
                         <th>@lang('sale.total_paid')</th>
                         <th>@lang('lang_v1.added_by')</th>
-                        <th>@lang('lang_v1.notes')</th>
+                        <th>@lang('accounting::lang.notes')</th>
+                        <th>@lang('accounting::lang.mapping_status')</th>
                     </tr>
                 </thead>
                 <tbody></tbody>

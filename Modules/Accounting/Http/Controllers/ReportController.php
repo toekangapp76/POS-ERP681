@@ -72,43 +72,43 @@ class ReportController extends Controller
             abort(403, 'Unauthorized action.');
         }
 
-        if (! empty(request()->start_date) && ! empty(request()->end_date)) {
-            $start_date = request()->start_date;
-            $end_date = request()->end_date;
+        // Handle month filter instead of date range
+        if (! empty(request()->month)) {
+            $month = request()->month; // Format: YYYY-MM
+            $start_date = $month . '-01';
+            $end_date = date('Y-m-t', strtotime($start_date)); // Last day of month
         } else {
-            $fy = $this->businessUtil->getCurrentFinancialYear($business_id);
-            $start_date = $fy['start'];
-            $end_date = $fy['end'];
+            // Default to current month
+            $start_date = date('Y-m-01');
+            $end_date = date('Y-m-t');
+            $month = date('Y-m');
         }
 
-        // Calculate the day before start_date for beginning balance
+        // Calculate beginning balance date (end of previous month)
         $beginning_balance_date = date('Y-m-d', strtotime($start_date . ' -1 day'));
 
         // Get all active accounts
         $all_accounts = AccountingAccount::where('business_id', $business_id)
                             ->where('status', 'active')
                             ->select('id', 'name', 'gl_code')
+                            ->orderBy('gl_code')
                             ->get();
 
         $accounts = collect();
 
         foreach ($all_accounts as $account) {
-            // Calculate beginning balance (ONLY opening_balance transactions when COA was created)
-            $opening = DB::table('accounting_accounts_transactions')
+            // Calculate beginning balance (all transactions up to the day before start_date)
+            $beginning = DB::table('accounting_accounts_transactions')
                 ->where('accounting_account_id', $account->id)
-                ->where('sub_type', 'opening_balance')
+                ->whereDate('operation_date', '<=', $beginning_balance_date)
                 ->select(
                     DB::raw("SUM(IF(type = 'debit', amount, 0)) - SUM(IF(type = 'credit', amount, 0)) as balance")
                 )
                 ->first();
             
-            // Calculate period transactions (debit and credit in the date range, EXCLUDE opening_balance)
+            // Calculate period transactions (debit and credit in the date range)
             $period = DB::table('accounting_accounts_transactions')
                 ->where('accounting_account_id', $account->id)
-                ->where(function($q) {
-                    $q->whereNull('sub_type')
-                      ->orWhere('sub_type', '!=', 'opening_balance');
-                })
                 ->whereDate('operation_date', '>=', $start_date)
                 ->whereDate('operation_date', '<=', $end_date)
                 ->select(
@@ -117,12 +117,12 @@ class ReportController extends Controller
                 )
                 ->first();
             
-            $beginning_balance = $opening->balance ?? 0;
+            $beginning_balance = $beginning->balance ?? 0;
             $debit_balance = $period->debit ?? 0;
             $credit_balance = $period->credit ?? 0;
             $ending_balance = $beginning_balance + $debit_balance - $credit_balance;
             
-            // Only include accounts that have activity (opening balance or period transactions)
+            // Include all accounts that have any activity (beginning balance or period transactions)
             if ($beginning_balance != 0 || $debit_balance != 0 || $credit_balance != 0) {
                 $accounts->push((object)[
                     'id' => $account->id,
@@ -137,11 +137,11 @@ class ReportController extends Controller
         }
 
         return view('accounting::report.trial_balance')
-            ->with(compact('accounts', 'start_date', 'end_date'));
+            ->with(compact('accounts', 'start_date', 'end_date', 'month'));
     }
 
     /**
-     * Trial Balance
+     * Balance Sheet
      *
      * @return Response
      */
@@ -164,46 +164,28 @@ class ReportController extends Controller
             $end_date = $fy['end'];
         }
 
-        $balance_formula = $this->accountingUtil->balanceFormula();
-
-        $assets = AccountingAccount::join('accounting_accounts_transactions as AAT',
+        // Get all accounts grouped by COA (including those with 0 balance)
+        $all_accounts = AccountingAccount::leftJoin('accounting_accounts_transactions as AAT',
                                 'AAT.accounting_account_id', '=', 'accounting_accounts.id')
-                    ->join('accounting_account_types as AATP',
+                    ->leftJoin('accounting_account_types as AATP',
                                 'AATP.id', '=', 'accounting_accounts.account_sub_type_id')
-                    ->whereDate('AAT.operation_date', '>=', $start_date)
-                    ->whereDate('AAT.operation_date', '<=', $end_date)
-                    ->select(DB::raw($balance_formula), 'accounting_accounts.name', 'accounting_accounts.gl_code', 'AATP.name as sub_type')
                     ->where('accounting_accounts.business_id', $business_id)
-                    ->whereIn('accounting_accounts.account_primary_type', ['asset'])
-                    ->groupBy('accounting_accounts.name', 'accounting_accounts.gl_code')
-                    ->get();
-
-        $liabilities = AccountingAccount::join('accounting_accounts_transactions as AAT',
-                                'AAT.accounting_account_id', '=', 'accounting_accounts.id')
-                    ->join('accounting_account_types as AATP',
-                                'AATP.id', '=', 'accounting_accounts.account_sub_type_id')
-                    ->whereDate('AAT.operation_date', '>=', $start_date)
-                    ->whereDate('AAT.operation_date', '<=', $end_date)
-                    ->select(DB::raw($balance_formula), 'accounting_accounts.name', 'accounting_accounts.gl_code', 'AATP.name as sub_type')
-                    ->where('accounting_accounts.business_id', $business_id)
-                    ->whereIn('accounting_accounts.account_primary_type', ['liability'])
-                    ->groupBy('accounting_accounts.name', 'accounting_accounts.gl_code')
-                    ->get();
-
-        $equities = AccountingAccount::join('accounting_accounts_transactions as AAT',
-                                'AAT.accounting_account_id', '=', 'accounting_accounts.id')
-                    ->join('accounting_account_types as AATP',
-                                'AATP.id', '=', 'accounting_accounts.account_sub_type_id')
-                    ->whereDate('AAT.operation_date', '>=', $start_date)
-                    ->whereDate('AAT.operation_date', '<=', $end_date)
-                    ->select(DB::raw($balance_formula), 'accounting_accounts.name', 'accounting_accounts.gl_code', 'AATP.name as sub_type')
-                    ->where('accounting_accounts.business_id', $business_id)
-                    ->whereIn('accounting_accounts.account_primary_type', ['equity'])
-                    ->groupBy('accounting_accounts.name', 'accounting_accounts.gl_code')
+                    ->where('accounting_accounts.status', 'active')
+                    ->whereIn('accounting_accounts.account_primary_type', ['asset', 'liability', 'equity'])
+                    ->select(
+                        'accounting_accounts.id',
+                        'accounting_accounts.name', 
+                        'accounting_accounts.gl_code', 
+                        'accounting_accounts.account_primary_type',
+                        'AATP.name as sub_type',
+                        DB::raw("COALESCE(SUM(IF(AAT.type = 'debit' AND AAT.operation_date BETWEEN '$start_date' AND '$end_date', AAT.amount, 0)) - SUM(IF(AAT.type = 'credit' AND AAT.operation_date BETWEEN '$start_date' AND '$end_date', AAT.amount, 0)), 0) as balance")
+                    )
+                    ->groupBy('accounting_accounts.id', 'accounting_accounts.name', 'accounting_accounts.gl_code', 'accounting_accounts.account_primary_type', 'AATP.name')
+                    ->orderBy('accounting_accounts.gl_code')
                     ->get();
 
         return view('accounting::report.balance_sheet')
-            ->with(compact('assets', 'liabilities', 'equities', 'start_date', 'end_date'));
+            ->with(compact('all_accounts', 'start_date', 'end_date'));
     }
 
     public function accountReceivableAgeingReport()

@@ -428,9 +428,11 @@ return [
     'account_name' => 'Nama Account',
     'description' => 'Deskripsi',
     'balance' => 'Saldo',
+    'ending_balance' => 'Saldo Akhir',
     'account' => 'Account',
     'not_found' => 'Tidak di temukan',
     'import' => 'Import',
     'file_to_import' => 'Import File',
-    'download_template' => 'Download template'
+    'download_template' => 'Download template',
+    'notes' => 'Catatan'
 ];
