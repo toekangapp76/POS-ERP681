@@ -159,7 +159,7 @@ class AccountingUtil extends Util
     /**
      * Function to save a mapping
      */
-    public function saveMap($type, $id, $user_id, $business_id, $deposit_to, $payment_account, $ppn_account = null){
+    public function saveMap($type, $id, $user_id, $business_id, $deposit_to, $payment_account, $ppn_account = null, $discount_account = null){
         if ($type == 'sell') {
             $transaction = Transaction::where('business_id', $business_id)->where('id', $id)->firstorFail();
 
@@ -244,8 +244,71 @@ class AccountingUtil extends Util
                 'map_type' => 'deposit_to',
                 'created_by' => $user_id,
                 'operation_date' => \Carbon::now(),
+            ];        } elseif ($type == 'purchase') {
+            $transaction = Transaction::where('business_id', $business_id)->where('id', $id)->firstorFail();
+            
+            // Calculate amounts
+            $tax_amount = $transaction->tax_amount ?? 0;
+            $discount_amount = $transaction->discount_amount ?? 0;
+            $base_purchase = $transaction->final_total - $tax_amount + $discount_amount;
+            
+            // Purchase/Inventory (debit) - pembelian barang
+            $payment_data = [
+                'accounting_account_id' => $payment_account,
+                'transaction_id' => $id,
+                'transaction_payment_id' => null,
+                'amount' => $base_purchase,
+                'type' => 'debit',
+                'sub_type' => $type,
+                'map_type' => 'payment_account',
+                'created_by' => $user_id,
+                'operation_date' => \Carbon::now(),
             ];
-        }elseif ($type == 'expense') {
+
+            // Accounts Payable (credit) - hutang ke supplier
+            $deposit_data = [
+                'accounting_account_id' => $deposit_to,
+                'transaction_id' => $id,
+                'transaction_payment_id' => null,
+                'amount' => $transaction->final_total,
+                'type' => 'credit',
+                'sub_type' => $type,
+                'map_type' => 'deposit_to',
+                'created_by' => $user_id,
+                'operation_date' => \Carbon::now(),
+            ];
+            
+            // Tax (debit) - pajak yang bisa diklaim
+            if (!empty($ppn_account) && $tax_amount > 0) {
+                $ppn_data = [
+                    'accounting_account_id' => $ppn_account,
+                    'transaction_id' => $id,
+                    'transaction_payment_id' => null,
+                    'amount' => $tax_amount,
+                    'type' => 'debit',
+                    'sub_type' => $type,
+                    'map_type' => 'ppn_account',
+                    'created_by' => $user_id,
+                    'operation_date' => \Carbon::now(),
+                ];
+                AccountingAccountsTransaction::updateOrCreateMapTransaction($ppn_data);
+            }
+            
+            // Discount Received (credit) - diskon yang diterima
+            if (!empty($discount_account) && $discount_amount > 0) {
+                $discount_data = [
+                    'accounting_account_id' => $discount_account,
+                    'transaction_id' => $id,
+                    'transaction_payment_id' => null,
+                    'amount' => $discount_amount,
+                    'type' => 'credit',
+                    'sub_type' => $type,
+                    'map_type' => 'discount_account',
+                    'created_by' => $user_id,
+                    'operation_date' => \Carbon::now(),
+                ];
+                AccountingAccountsTransaction::updateOrCreateMapTransaction($discount_data);
+            }        }elseif ($type == 'expense') {
             $transaction = Transaction::where('business_id', $business_id)->where('id', $id)->firstorFail();            
             $payment_data = [
                 'accounting_account_id' => $payment_account,

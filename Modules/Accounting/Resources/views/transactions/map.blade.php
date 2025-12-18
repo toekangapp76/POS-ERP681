@@ -29,6 +29,8 @@
                 {!! Form::select('payment_account', !is_null($default_payment_account) ? [$default_payment_account->id => $default_payment_account->name] : [], $default_payment_account->id ?? null, ['class' => 'form-control accounts-dropdown','placeholder' => __('accounting::lang.payment_account'), 'required' => 'required']); !!}
                 @if($type == 'gym_subscription')
                     <small class="text-muted">@lang('accounting::lang.bank_debit')</small>
+                @elseif($type == 'purchase')
+                    <small class="text-muted">@lang('accounting::lang.purchase_debit')</small>
                 @endif
             </div>
         </div>
@@ -40,6 +42,8 @@
                     [$default_deposit_to->id => $default_deposit_to->name] : [], $default_deposit_to->id ?? null, ['class' => 'form-control accounts-dropdown','placeholder' => __('accounting::lang.deposit_to'), 'required' => 'required']); !!}
                 @if($type == 'gym_subscription')
                     <small class="text-muted">@lang('accounting::lang.revenue_credit')</small>
+                @elseif($type == 'purchase')
+                    <small class="text-muted">@lang('accounting::lang.payable_credit')</small>
                 @endif
             </div>
         </div>
@@ -61,6 +65,38 @@
                     <strong>@lang('accounting::lang.calculation_formula'):</strong><br>
                     @lang('accounting::lang.deposit_formula'): <code>@lang('accounting::lang.bank') / 1.1</code><br>
                     @lang('accounting::lang.ppn_formula'): <code>10% × @lang('accounting::lang.deposit')</code>
+                </small>
+            </div>
+        </div>
+    </div>
+    @endif
+
+    @if($type == 'purchase')
+    <div class="row">
+        <div class="col-md-6">
+            <div class="form-group">
+                {!! Form::label('ppn_account', __('accounting::lang.ppn_account') . ':' ) !!}
+                {!! Form::select('ppn_account', !is_null($default_ppn_account ?? null) ? 
+                    [$default_ppn_account->id => $default_ppn_account->name] : [], $default_ppn_account->id ?? null, ['class' => 'form-control accounts-dropdown','placeholder' => __('accounting::lang.ppn_account')]); !!}
+                <small class="text-muted">@lang('accounting::lang.tax_debit')</small>
+            </div>
+        </div>
+        <div class="col-md-6">
+            <div class="form-group">
+                {!! Form::label('discount_account', __('accounting::lang.discount_account') . ':' ) !!}
+                {!! Form::select('discount_account', !is_null($default_discount_account ?? null) ? 
+                    [$default_discount_account->id => $default_discount_account->name] : [], $default_discount_account->id ?? null, ['class' => 'form-control accounts-dropdown','placeholder' => __('accounting::lang.discount_account')]); !!}
+                <small class="text-muted">@lang('accounting::lang.discount_credit')</small>
+            </div>
+        </div>
+    </div>
+    <div class="row">
+        <div class="col-md-12">
+            <div class="alert alert-info">
+                <small>
+                    <strong>@lang('accounting::lang.purchase_calculation'):</strong><br>
+                    @lang('accounting::lang.purchase_total'): <code>Purchase + Tax - Discount</code><br>
+                    @lang('accounting::lang.net_payable'): <code>Accounts Payable (Credit)</code>
                 </small>
             </div>
         </div>

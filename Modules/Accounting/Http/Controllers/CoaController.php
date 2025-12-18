@@ -1532,4 +1532,67 @@ class CoaController extends Controller
         return view('accounting::chart_of_accounts.ledger')
             ->with(compact('account', 'current_bal', 'all_accounts'));
     }
+
+    public function getAccountDetails()
+    {
+        $business_id = request()->session()->get('user.business_id');
+
+        if (! (auth()->user()->can('superadmin') ||
+            $this->moduleUtil->hasThePermissionInSubscription($business_id, 'accounting_module')) ||
+            ! (auth()->user()->can('accounting.manage_accounts'))) {
+            abort(403, 'Unauthorized action.');
+        }
+
+        if (request()->ajax()) {
+            $account_ids = request()->input('account_ids');
+            
+            if (empty($account_ids) || !is_array($account_ids)) {
+                return response()->json(['error' => 'Invalid account IDs'], 400);
+            }
+
+            // Get account details
+            $accounts = AccountingAccount::whereIn('id', $account_ids)
+                        ->where('business_id', $business_id)
+                        ->with(['account_sub_type', 'detail_type'])
+                        ->get();
+
+            if ($accounts->isEmpty()) {
+                return response()->json(['error' => 'No accounts found'], 404);
+            }
+
+            // Calculate balance for each account and sum them
+            $total_balance = 0;
+            foreach ($account_ids as $acc_id) {
+                $balance = AccountingAccount::leftjoin('accounting_accounts_transactions as AAT',
+                                'AAT.accounting_account_id', '=', 'accounting_accounts.id')
+                            ->where('accounting_accounts.business_id', $business_id)
+                            ->where('accounting_accounts.id', $acc_id)
+                            ->select([DB::raw($this->accountingUtil->balanceFormula())])
+                            ->first();
+                
+                if ($balance) {
+                    $total_balance += $balance->balance;
+                }
+            }
+
+            // Prepare account details
+            $account_details = [];
+            foreach ($accounts as $account) {
+                $account_details[] = [
+                    'id' => $account->id,
+                    'name' => $account->name,
+                    'gl_code' => $account->gl_code,
+                    'account_primary_type' => $account->account_primary_type,
+                    'account_sub_type' => $account->account_sub_type ? $account->account_sub_type->name : null,
+                    'detail_type' => $account->detail_type ? $account->detail_type->name : null,
+                ];
+            }
+
+            return response()->json([
+                'accounts' => $account_details,
+                'total_balance' => $total_balance,
+                'count' => count($account_details)
+            ]);
+        }
+    }
 }

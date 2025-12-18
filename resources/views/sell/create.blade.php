@@ -133,14 +133,14 @@
 								<i class="fa fa-user"></i>
 							</span>
 							<input type="hidden" id="default_customer_id" 
-							value="{{ $walk_in_customer['id']}}" >
+							value="{{ !empty($walk_in_customer['id']) ? $walk_in_customer['id'] : '' }}" >
 							<input type="hidden" id="default_customer_name" 
-							value="{{ $walk_in_customer['name']}}" >
-							<input type="hidden" id="default_customer_balance" value="{{ $walk_in_customer['balance'] ?? ''}}" >
-							<input type="hidden" id="default_customer_address" value="{{ $walk_in_customer['shipping_address'] ?? ''}}" >
+							value="{{ !empty($walk_in_customer['name']) ? $walk_in_customer['name'] : '' }}" >
+							<input type="hidden" id="default_customer_balance" value="{{ !empty($walk_in_customer['balance']) ? $walk_in_customer['balance'] : '' }}" >
+							<input type="hidden" id="default_customer_address" value="{{ !empty($walk_in_customer['shipping_address']) ? $walk_in_customer['shipping_address'] : '' }}" >
 							@if(!empty($walk_in_customer['price_calculation_type']) && $walk_in_customer['price_calculation_type'] == 'selling_price_group')
 								<input type="hidden" id="default_selling_price_group" 
-							value="{{ $walk_in_customer['selling_price_group_id'] ?? ''}}" >
+							value="{{ !empty($walk_in_customer['selling_price_group_id']) ? $walk_in_customer['selling_price_group_id'] : '' }}" >
 							@endif
 							{!! Form::select('contact_id', 
 								[], null, ['class' => 'form-control mousetrap', 'id' => 'customer_id', 'placeholder' => 'Enter Customer name / phone', 'required']); !!}

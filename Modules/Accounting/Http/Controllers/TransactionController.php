@@ -634,11 +634,19 @@ class TransactionController extends Controller
                 $existing_deposit = AccountingAccountsTransaction::where('transaction_id', $id)
                                         ->where('map_type', 'deposit_to')
                                         ->first();
+                $existing_ppn = AccountingAccountsTransaction::where('transaction_id', $id)
+                                        ->where('map_type', 'ppn_account')
+                                        ->first();
+                $existing_discount = AccountingAccountsTransaction::where('transaction_id', $id)
+                                        ->where('map_type', 'discount_account')
+                                        ->first();
                 $default_payment_account = ! empty($existing_payment) ? AccountingAccount::find($existing_payment->accounting_account_id) : null;
                 $default_deposit_to = ! empty($existing_deposit) ? AccountingAccount::find($existing_deposit->accounting_account_id) : null;
+                $default_ppn_account = ! empty($existing_ppn) ? AccountingAccount::find($existing_ppn->accounting_account_id) : null;
+                $default_discount_account = ! empty($existing_discount) ? AccountingAccount::find($existing_discount->accounting_account_id) : null;
 
                 return view('accounting::transactions.map')
-                        ->with(compact('transaction', 'type', 'default_payment_account', 'default_deposit_to'));
+                        ->with(compact('transaction', 'type', 'default_payment_account', 'default_deposit_to', 'default_ppn_account', 'default_discount_account'));
             } elseif ($type == 'expense') {
                 $transaction = Transaction::where('id', $id)->where('business_id', $business_id)
                                     ->firstorFail();
@@ -707,8 +715,9 @@ class TransactionController extends Controller
                 $deposit_to = $request->get('deposit_to');
                 $payment_account = $request->get('payment_account');
                 $ppn_account = $request->get('ppn_account');
+                $discount_account = $request->get('discount_account');
 
-                $this->accountingUtil->saveMap($type, $id, $user_id, $business_id, $deposit_to, $payment_account, $ppn_account);
+                $this->accountingUtil->saveMap($type, $id, $user_id, $business_id, $deposit_to, $payment_account, $ppn_account, $discount_account);
 
                 DB::commit();
 

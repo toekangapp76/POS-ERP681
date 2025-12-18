@@ -8,7 +8,7 @@
 
 <!-- Content Header (Page header) -->
 <section class="content-header">
-    <h1>@lang( 'accounting::lang.ledger' ) - {{$account->name}}</h1>
+    <h1>@lang( 'accounting::lang.ledger' ) - <span class="account-details-name">{{$account->name}}</span></h1>
 </section>
 
 <section class="content">
@@ -19,7 +19,7 @@
                     <table class="table table-condensed">
                         <tr>
                             <th>@lang( 'user.name' ):</th>
-                            <td>
+                            <td class="account-details-name">
                                 {{$account->name}}
 
                                 @if(!empty($account->gl_code))
@@ -30,7 +30,7 @@
 
                         <tr>
                             <th>@lang( 'accounting::lang.account_type' ):</th>
-                            <td>
+                            <td class="account-details-type">
                                 @if(!empty($account->account_primary_type))
                                     {{__('accounting::lang.' . $account->account_primary_type)}}
                                 @endif
@@ -39,7 +39,7 @@
 
                         <tr>
                             <th>@lang( 'accounting::lang.account_sub_type' ):</th>
-                            <td>
+                            <td class="account-details-subtype">
                                 @if(!empty($account->account_sub_type))
                                     {{__('accounting::lang.' . $account->account_sub_type->name)}}
                                 @endif
@@ -48,7 +48,7 @@
 
                         <tr>
                             <th>@lang( 'accounting::lang.detail_type' ):</th>
-                            <td>
+                            <td class="account-details-detailtype">
                                 @if(!empty($account->detail_type))
                                     {{__('accounting::lang.' . $account->detail_type->name)}}
                                 @endif
@@ -56,7 +56,7 @@
                         </tr>
                         <tr>
                             <th>@lang( 'lang_v1.balance' ):</th>
-                            <td>@format_currency($current_bal)</td>
+                            <td class="account-details-balance">@format_currency($current_bal)</td>
                         </tr>
                     </table>
                 </div>
@@ -178,8 +178,51 @@
 
         $('#account_filter').change(function(){
             updateAccountFilterDisplay();
+            updateAccountDetails();
             ledger.ajax.reload();
         });
+
+        // Function to update account details box
+        function updateAccountDetails() {
+            var account_ids = $('#account_filter').val();
+            if (!account_ids || account_ids.length === 0) {
+                return;
+            }
+
+            $.ajax({
+                url: '{{action([\Modules\Accounting\Http\Controllers\CoaController::class, 'getAccountDetails'])}}',
+                type: 'GET',
+                data: { account_ids: account_ids },
+                success: function(response) {
+                    if (response.count === 1) {
+                        // Single account - show full details
+                        var acc = response.accounts[0];
+                        var nameHtml = acc.name;
+                        if (acc.gl_code) {
+                            nameHtml += ' (' + acc.gl_code + ')';
+                        }
+                        $('.account-details-name').html(nameHtml);
+                        $('.account-details-type').html(acc.account_primary_type ? '@lang("accounting::lang.' + acc.account_primary_type + '")'.replace(acc.account_primary_type, acc.account_primary_type) : '-');
+                        $('.account-details-subtype').html(acc.account_sub_type ? '@lang("accounting::lang.' + acc.account_sub_type + '")'.replace(acc.account_sub_type, acc.account_sub_type) : '-');
+                        $('.account-details-detailtype').html(acc.detail_type ? '@lang("accounting::lang.' + acc.detail_type + '")'.replace(acc.detail_type, acc.detail_type) : '-');
+                    } else {
+                        // Multiple accounts - show summary
+                        var names = response.accounts.map(function(a) { 
+                            return a.name + (a.gl_code ? ' (' + a.gl_code + ')' : '');
+                        }).join(', ');
+                        $('.account-details-name').html(response.count + ' @lang("accounting::lang.accounts_selected"): <br><small>' + names + '</small>');
+                        $('.account-details-type').html('-');
+                        $('.account-details-subtype').html('-');
+                        $('.account-details-detailtype').html('-');
+                    }
+                    // Update balance
+                    $('.account-details-balance').html(__currency_trans_from_en(response.total_balance, true));
+                },
+                error: function() {
+                    console.error('Failed to fetch account details');
+                }
+            });
+        }
 
         // Select/Deselect all handlers
         $('#select_all_accounts').click(function(){
