@@ -155,16 +155,20 @@
 						@lang('lang_v1.billing_address'):
 					</strong>
 					<div id="billing_address_div">
-						{!! $walk_in_customer['contact_address'] ?? '' !!}
+						@if(!empty($walk_in_customer))
+							{!! $walk_in_customer['contact_address'] ?? '' !!}
+						@endif
 					</div>
 					<br>
 					<strong>
 						@lang('lang_v1.shipping_address'):
 					</strong>
 					<div id="shipping_address_div">
-						{{$walk_in_customer['supplier_business_name'] ?? ''}},<br>
-						{{$walk_in_customer['name'] ?? ''}},<br>
-						{{$walk_in_customer['shipping_address'] ?? ''}}
+						@if(!empty($walk_in_customer))
+							{{$walk_in_customer['supplier_business_name'] ?? ''}},<br>
+							{{$walk_in_customer['name'] ?? ''}},<br>
+							{{$walk_in_customer['shipping_address'] ?? ''}}
+						@endif
 					</div>					
 					</small>
 				</div>
@@ -177,12 +181,12 @@
 					@endphp
 		              {!! Form::label('pay_term_number', __('contact.pay_term') . ':') !!} @show_tooltip(__('tooltip.pay_term'))
 		              <br/>
-		              {!! Form::number('pay_term_number', $walk_in_customer['pay_term_number'], ['class' => 'form-control width-40 pull-left', 'placeholder' => __('contact.pay_term'), 'required' => $is_pay_term_required]); !!}
+		              {!! Form::number('pay_term_number', (!empty($walk_in_customer['pay_term_number'])? $walk_in_customer['pay_term_number'] : ''), ['class' => 'form-control width-40 pull-left', 'placeholder' => __('contact.pay_term'), 'required' => $is_pay_term_required]); !!}
 
 		              {!! Form::select('pay_term_type', 
 		              	['months' => __('lang_v1.months'), 
 		              		'days' => __('lang_v1.days')], 
-		              		$walk_in_customer['pay_term_type'], 
+		              		(!empty($walk_in_customer['pay_term_type'])? $walk_in_customer['pay_term_type'] : ''), 
 		              	['class' => 'form-control width-60 pull-left','placeholder' => __('messages.please_select'), 'required' => $is_pay_term_required]); !!}
 		            </div>
 		          </div>

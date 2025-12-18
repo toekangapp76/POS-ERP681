@@ -733,6 +733,23 @@ class SellController extends Controller
         }
 
         $walk_in_customer = $this->contactUtil->getWalkInCustomer($business_id);
+        
+        // Set default empty array if walk_in_customer is null
+        if (empty($walk_in_customer)) {
+            $walk_in_customer = [
+                'id' => null,
+                'name' => '',
+                'balance' => 0,
+                'shipping_address' => '',
+                'price_calculation_type' => '',
+                'selling_price_group_id' => '',
+                'contact_address' => '',
+                'supplier_business_name' => '',
+                'pay_term_number' => '',
+                'pay_term_type' => '',
+                'shipping_custom_field_details' => []
+            ];
+        }
 
         $business_details = $this->businessUtil->getDetails($business_id);
         $taxes = TaxRate::forBusinessDropdown($business_id, true, true);
