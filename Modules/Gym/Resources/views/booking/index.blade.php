@@ -288,7 +288,7 @@ function initBookingForm() {
     // Initialize datetimepickers
     $('#booking_date').datetimepicker({
         format: moment_date_format,
-        minDate: moment().startOf('day'),
+        // minDate: moment().startOf('day'),
         ignoreReadonly: true
     });
 
