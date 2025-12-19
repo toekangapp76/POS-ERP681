@@ -21,6 +21,17 @@
                     'class' => 'form-control', 'readonly', 'id' => 'date_range_filter']); !!}
             </div>
         </div>
+        <div class="col-md-3">
+            <div class="form-group">
+                <label>&nbsp;</label>
+                <div class="checkbox">
+                    <label>
+                        <input type="checkbox" id="show_difference_columns" checked> 
+                        <strong>Tampilkan Kolom Selisih</strong>
+                    </label>
+                </div>
+            </div>
+        </div>
         <div class="col-md-2">
             <div class="form-group">
                 <label>&nbsp;</label>
@@ -39,14 +50,14 @@
     </div>
 
     <div class="row">
-        <div class="col-md-10 col-md-offset-1">
+        <div class="col-md-12">
             <div class="box box-success">
                 <div class="box-header with-border text-center">
                     <h2 class="box-title">@lang( 'accounting::lang.profit_loss')</h2>
                     <p>{{@format_date($start_date)}} ~ {{@format_date($end_date)}}</p>
                 </div>
     
-                <div class="box-body">
+                <div class="box-body table-responsive">
                     {{-- Export Buttons --}}
                     <div class="row" style="margin-bottom: 15px;">
                         <div class="col-md-12">
@@ -67,9 +78,27 @@
                     <table class="table table-striped table-bordered" id="income_report_table">
                         <thead>
                             <tr class="success">
-                                <th style="width:120px;">@lang('accounting::lang.gl_code')</th>
-                                <th>@lang('user.name')</th>
-                                <th class="text-right" style="width:150px;">@lang('sale.total')</th>
+                                <th rowspan="2" style="width:120px; vertical-align: middle;">@lang('accounting::lang.gl_code')</th>
+                                <th rowspan="2" style="vertical-align: middle;">@lang('user.name')</th>
+                                @foreach($months as $index => $month)
+                                    <th class="text-center month-col">{{ $month['label'] }}</th>
+                                    @if($index > 0)
+                                        <th class="text-center diff-col bg-warning">Selisih</th>
+                                    @endif
+                                @endforeach
+                                <th class="text-right bg-primary" rowspan="2" style="width:150px; vertical-align: middle;">Total</th>
+                            </tr>
+                            <tr class="success">
+                                @foreach($months as $index => $month)
+                                    <th class="text-center text-muted month-col" style="font-size: 10px;">
+                                        {{ \Carbon\Carbon::parse($month['start'])->format('d M') }} - {{ \Carbon\Carbon::parse($month['end'])->format('d M') }}
+                                    </th>
+                                    @if($index > 0)
+                                        <th class="text-center text-muted diff-col" style="font-size: 10px;">
+                                            vs {{ $months[$index - 1]['label'] }}
+                                        </th>
+                                    @endif
+                                @endforeach
                             </tr>
                         </thead>
                         <tbody>
@@ -77,17 +106,52 @@
                                 <tr>
                                     <td>{{ $account->gl_code }}</td>
                                     <td>{{ $account->name }}</td>
-                                    <td class="text-right">@format_currency($account->balance)</td>
+                                    @foreach($months as $index => $month)
+                                        @php
+                                            $current_balance = $account->monthly_balances[$month['key']] ?? 0;
+                                            $prev_balance = $index > 0 ? ($account->monthly_balances[$months[$index - 1]['key']] ?? 0) : 0;
+                                            $difference = $current_balance - $prev_balance;
+                                            // For income: positive difference = good (green)
+                                            $diff_color = $difference > 0 ? 'text-success' : ($difference < 0 ? 'text-danger' : '');
+                                        @endphp
+                                        <td class="text-right month-col">@format_currency($current_balance)</td>
+                                        @if($index > 0)
+                                            <td class="text-right diff-col {{ $diff_color }}">
+                                                @if($difference > 0)
+                                                    <i class="fa fa-arrow-up"></i>
+                                                @elseif($difference < 0)
+                                                    <i class="fa fa-arrow-down"></i>
+                                                @endif
+                                                @format_currency(abs($difference))
+                                            </td>
+                                        @endif
+                                    @endforeach
+                                    <td class="text-right"><strong>@format_currency($account->balance)</strong></td>
                                 </tr>
                             @empty
                                 <tr>
-                                    <td colspan="3" class="text-center text-muted">@lang('lang_v1.no_data')</td>
+                                    <td colspan="{{ 2 + count($months) + (count($months) > 0 ? count($months) - 1 : 0) + 1 }}" class="text-center text-muted">@lang('lang_v1.no_data')</td>
                                 </tr>
                             @endforelse
                         </tbody>
                         <tfoot>
                             <tr class="success">
                                 <th colspan="2" class="text-right"><strong>@lang('accounting::lang.total_income')</strong></th>
+                                @foreach($months as $index => $month)
+                                    @php
+                                        $current_income = $monthly_totals['income'][$month['key']] ?? 0;
+                                        $prev_income = $index > 0 ? ($monthly_totals['income'][$months[$index - 1]['key']] ?? 0) : 0;
+                                        $income_diff = $current_income - $prev_income;
+                                        $income_diff_color = $income_diff > 0 ? 'text-success' : ($income_diff < 0 ? 'text-danger' : '');
+                                    @endphp
+                                    <th class="text-right month-col">@format_currency($current_income)</th>
+                                    @if($index > 0)
+                                        <th class="text-right diff-col {{ $income_diff_color }}" style="background-color: #d4edda;">
+                                            @if($income_diff > 0) <i class="fa fa-arrow-up"></i> @elseif($income_diff < 0) <i class="fa fa-arrow-down"></i> @endif
+                                            @format_currency(abs($income_diff))
+                                        </th>
+                                    @endif
+                                @endforeach
                                 <th class="text-right"><strong>@format_currency($total_income)</strong></th>
                             </tr>
                         </tfoot>
@@ -100,9 +164,27 @@
                     <table class="table table-striped table-bordered" id="expense_report_table">
                         <thead>
                             <tr class="danger">
-                                <th style="width:120px;">@lang('accounting::lang.gl_code')</th>
-                                <th>@lang('user.name')</th>
-                                <th class="text-right" style="width:150px;">@lang('sale.total')</th>
+                                <th rowspan="2" style="width:120px; vertical-align: middle;">@lang('accounting::lang.gl_code')</th>
+                                <th rowspan="2" style="vertical-align: middle;">@lang('user.name')</th>
+                                @foreach($months as $index => $month)
+                                    <th class="text-center month-col">{{ $month['label'] }}</th>
+                                    @if($index > 0)
+                                        <th class="text-center diff-col bg-warning">Selisih</th>
+                                    @endif
+                                @endforeach
+                                <th class="text-right bg-primary" rowspan="2" style="width:150px; vertical-align: middle;">Total</th>
+                            </tr>
+                            <tr class="danger">
+                                @foreach($months as $index => $month)
+                                    <th class="text-center text-muted month-col" style="font-size: 10px;">
+                                        {{ \Carbon\Carbon::parse($month['start'])->format('d M') }} - {{ \Carbon\Carbon::parse($month['end'])->format('d M') }}
+                                    </th>
+                                    @if($index > 0)
+                                        <th class="text-center text-muted diff-col" style="font-size: 10px;">
+                                            vs {{ $months[$index - 1]['label'] }}
+                                        </th>
+                                    @endif
+                                @endforeach
                             </tr>
                         </thead>
                         <tbody>
@@ -110,17 +192,53 @@
                                 <tr>
                                     <td>{{ $account->gl_code }}</td>
                                     <td>{{ $account->name }}</td>
-                                    <td class="text-right">@format_currency($account->balance)</td>
+                                    @foreach($months as $index => $month)
+                                        @php
+                                            $current_balance = $account->monthly_balances[$month['key']] ?? 0;
+                                            $prev_balance = $index > 0 ? ($account->monthly_balances[$months[$index - 1]['key']] ?? 0) : 0;
+                                            $difference = $current_balance - $prev_balance;
+                                            // For expense: positive difference = bad (red, more expense)
+                                            $diff_color = $difference > 0 ? 'text-danger' : ($difference < 0 ? 'text-success' : '');
+                                        @endphp
+                                        <td class="text-right month-col">@format_currency($current_balance)</td>
+                                        @if($index > 0)
+                                            <td class="text-right diff-col {{ $diff_color }}">
+                                                @if($difference > 0)
+                                                    <i class="fa fa-arrow-up"></i>
+                                                @elseif($difference < 0)
+                                                    <i class="fa fa-arrow-down"></i>
+                                                @endif
+                                                @format_currency(abs($difference))
+                                            </td>
+                                        @endif
+                                    @endforeach
+                                    <td class="text-right"><strong>@format_currency($account->balance)</strong></td>
                                 </tr>
                             @empty
                                 <tr>
-                                    <td colspan="3" class="text-center text-muted">@lang('lang_v1.no_data')</td>
+                                    <td colspan="{{ 2 + count($months) + (count($months) > 0 ? count($months) - 1 : 0) + 1 }}" class="text-center text-muted">@lang('lang_v1.no_data')</td>
                                 </tr>
                             @endforelse
                         </tbody>
                         <tfoot>
                             <tr class="danger">
                                 <th colspan="2" class="text-right"><strong>@lang('accounting::lang.total_expenses')</strong></th>
+                                @foreach($months as $index => $month)
+                                    @php
+                                        $current_expense = $monthly_totals['expense'][$month['key']] ?? 0;
+                                        $prev_expense = $index > 0 ? ($monthly_totals['expense'][$months[$index - 1]['key']] ?? 0) : 0;
+                                        $expense_diff = $current_expense - $prev_expense;
+                                        // For expense: positive difference = bad (more expense)
+                                        $expense_diff_color = $expense_diff > 0 ? 'text-danger' : ($expense_diff < 0 ? 'text-success' : '');
+                                    @endphp
+                                    <th class="text-right month-col">@format_currency($current_expense)</th>
+                                    @if($index > 0)
+                                        <th class="text-right diff-col {{ $expense_diff_color }}" style="background-color: #f8d7da;">
+                                            @if($expense_diff > 0) <i class="fa fa-arrow-up"></i> @elseif($expense_diff < 0) <i class="fa fa-arrow-down"></i> @endif
+                                            @format_currency(abs($expense_diff))
+                                        </th>
+                                    @endif
+                                @endforeach
                                 <th class="text-right"><strong>@format_currency($total_expense)</strong></th>
                             </tr>
                         </tfoot>
@@ -129,21 +247,56 @@
                     <br/>
 
                     {{-- Net Profit/Loss Section --}}
+                    <h4><strong><i class="fa fa-calculator"></i> @lang('accounting::lang.net_profit') / @lang('accounting::lang.net_loss')</strong></h4>
                     <table class="table table-bordered">
-                        <tr class="{{ $net_profit >= 0 ? 'bg-green' : 'bg-red' }}">
-                            <th class="text-right" style="font-size: 18px;">
-                                <strong>
-                                    @if($net_profit >= 0)
-                                        <i class="fa fa-check-circle"></i> @lang('accounting::lang.net_profit')
-                                    @else
-                                        <i class="fa fa-times-circle"></i> @lang('accounting::lang.net_loss')
+                        <thead>
+                            <tr class="{{ $net_profit >= 0 ? 'bg-green' : 'bg-red' }}">
+                                <th style="font-size: 16px; vertical-align: middle;">
+                                    <strong>
+                                        @if($net_profit >= 0)
+                                            <i class="fa fa-check-circle"></i> @lang('accounting::lang.net_profit')
+                                        @else
+                                            <i class="fa fa-times-circle"></i> @lang('accounting::lang.net_loss')
+                                        @endif
+                                    </strong>
+                                </th>
+                                @foreach($months as $index => $month)
+                                    <th class="text-center month-col">{{ $month['label'] }}</th>
+                                    @if($index > 0)
+                                        <th class="text-center diff-col bg-warning">Selisih</th>
                                     @endif
-                                </strong>
-                            </th>
-                            <th class="text-right" style="width:150px; font-size: 18px;">
-                                <strong>@format_currency(abs($net_profit))</strong>
-                            </th>
-                        </tr>
+                                @endforeach
+                                <th class="text-center bg-primary">Total</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr class="{{ $net_profit >= 0 ? 'bg-green' : 'bg-red' }}">
+                                <td style="font-size: 16px;"><strong>Nilai</strong></td>
+                                @foreach($months as $index => $month)
+                                    @php
+                                        $current_net = $monthly_totals['net_profit'][$month['key']] ?? 0;
+                                        $prev_net = $index > 0 ? ($monthly_totals['net_profit'][$months[$index - 1]['key']] ?? 0) : 0;
+                                        $net_diff = $current_net - $prev_net;
+                                        // For net profit: positive difference = good
+                                        $net_diff_color = $net_diff > 0 ? 'text-success' : ($net_diff < 0 ? 'text-danger' : '');
+                                    @endphp
+                                    <td class="text-right month-col" style="font-size: 14px;">
+                                        <strong class="{{ $current_net >= 0 ? '' : 'text-danger' }}">
+                                            @format_currency($current_net)
+                                        </strong>
+                                    </td>
+                                    @if($index > 0)
+                                        <td class="text-right diff-col {{ $net_diff_color }}" style="background-color: {{ $net_diff >= 0 ? '#d4edda' : '#f8d7da' }};">
+                                            @if($net_diff > 0) <i class="fa fa-arrow-up"></i> @elseif($net_diff < 0) <i class="fa fa-arrow-down"></i> @endif
+                                            @format_currency(abs($net_diff))
+                                        </td>
+                                    @endif
+                                @endforeach
+                                <td class="text-right" style="font-size: 18px;">
+                                    <strong>@format_currency(abs($net_profit))</strong>
+                                </td>
+                            </tr>
+                        </tbody>
                     </table>
 
                     {{-- Summary --}}
@@ -177,6 +330,15 @@
 <script type="text/javascript">
     $(document).ready(function(){
 
+        // Toggle difference columns visibility
+        $('#show_difference_columns').on('change', function() {
+            if ($(this).is(':checked')) {
+                $('.diff-col').show();
+            } else {
+                $('.diff-col').hide();
+            }
+        });
+
         // Function to export table to Excel
         function exportTableToExcel(tableId, filename) {
             var table = document.getElementById(tableId);
@@ -202,22 +364,31 @@
 
         // Export All (Income + Expense)
         $('#export_all_excel').on('click', function() {
+            var monthCount = {{ count($months) }};
+            var totalCols = 2 + monthCount + (monthCount > 1 ? monthCount - 1 : 0) + 1;
+            
             var html = '<table>';
-            html += '<tr><th colspan="3" style="text-align:center; font-size:18px;">Profit & Loss Report</th></tr>';
-            html += '<tr><th colspan="3" style="text-align:center;">{{@format_date($start_date)}} ~ {{@format_date($end_date)}}</th></tr>';
-            html += '<tr><td colspan="3">&nbsp;</td></tr>';
+            html += '<tr><th colspan="' + totalCols + '" style="text-align:center; font-size:18px;">Profit & Loss Report</th></tr>';
+            html += '<tr><th colspan="' + totalCols + '" style="text-align:center;">{{@format_date($start_date)}} ~ {{@format_date($end_date)}}</th></tr>';
+            html += '<tr><td colspan="' + totalCols + '">&nbsp;</td></tr>';
             
             // Income section
             html += document.getElementById('income_report_table').outerHTML;
-            html += '<tr><td colspan="3">&nbsp;</td></tr>';
+            html += '<tr><td colspan="' + totalCols + '">&nbsp;</td></tr>';
             
             // Expense section
             html += document.getElementById('expense_report_table').outerHTML;
-            html += '<tr><td colspan="3">&nbsp;</td></tr>';
+            html += '<tr><td colspan="' + totalCols + '">&nbsp;</td></tr>';
             
             // Summary
             html += '<tr style="background-color: ' + ({{$net_profit}} >= 0 ? '#00a65a' : '#dd4b39') + '; color: white;">';
             html += '<th colspan="2" style="text-align:right;">{{ $net_profit >= 0 ? __("accounting::lang.net_profit") : __("accounting::lang.net_loss") }}</th>';
+            @foreach($months as $index => $month)
+                html += '<th style="text-align:right;">@format_currency($monthly_totals["net_profit"][$month["key"]] ?? 0)</th>';
+                @if($index > 0)
+                    html += '<th></th>';
+                @endif
+            @endforeach
             html += '<th style="text-align:right;">@format_currency(abs($net_profit))</th>';
             html += '</tr>';
             html += '</table>';
@@ -266,5 +437,53 @@
         }
     });
 </script>
+
+<style>
+    .table th, .table td {
+        white-space: nowrap;
+    }
+    
+    .text-success {
+        color: #28a745 !important;
+    }
+    
+    .text-danger {
+        color: #dc3545 !important;
+    }
+    
+    .diff-col {
+        background-color: #fff8e1;
+    }
+
+    .bg-green {
+        background-color: #00a65a !important;
+        color: #fff;
+    }
+
+    .bg-red {
+        background-color: #dd4b39 !important;
+        color: #fff;
+    }
+
+    .bg-green th, .bg-green td,
+    .bg-red th, .bg-red td {
+        color: #fff;
+    }
+
+    @media print {
+        .no-print {
+            display: none !important;
+        }
+        .print_section {
+            display: block !important;
+        }
+    }
+
+    .print_section {
+        display: none;
+        text-align: center;
+        margin-bottom: 20px;
+    }
+</style>
 
 @stop
