@@ -92,6 +92,13 @@
 <script type="text/javascript">
     $(document).ready(function(){
 
+        // Helper function to strip HTML tags
+        function stripHtml(html) {
+            var tmp = document.createElement("DIV");
+            tmp.innerHTML = html;
+            return tmp.textContent || tmp.innerText || "";
+        }
+
         // Initialize DataTable with export buttons and sorting
         $('#trial_balance_table').DataTable({
             dom: 'Bfrtip',
@@ -100,14 +107,41 @@
                     extend: 'excel',
                     text: '<i class="fa fa-file-excel-o"></i> Excel',
                     exportOptions: {
-                        columns: ':visible'
+                        columns: ':visible',
+                        format: {
+                            body: function(data, row, column, node) {
+                                // For columns with currency (columns 2-5), extract numeric value from data-orig-value
+                                if (column >= 2 && column <= 5) {
+                                    var $el = $(data);
+                                    if ($el.data('orig-value') !== undefined) {
+                                        return parseFloat($el.data('orig-value'));
+                                    }
+                                    // Fallback: strip HTML and return text
+                                    return stripHtml(data);
+                                }
+                                return stripHtml(data);
+                            }
+                        }
                     }
                 },
                 {
                     extend: 'pdf',
                     text: '<i class="fa fa-file-pdf-o"></i> PDF',
                     exportOptions: {
-                        columns: ':visible'
+                        columns: ':visible',
+                        format: {
+                            body: function(data, row, column, node) {
+                                if (column >= 2 && column <= 5) {
+                                    var $el = $(data);
+                                    if ($el.data('orig-value') !== undefined) {
+                                        // Format number with Indonesian locale for display
+                                        return parseFloat($el.data('orig-value')).toLocaleString('id-ID', {minimumFractionDigits: 2, maximumFractionDigits: 2});
+                                    }
+                                    return stripHtml(data);
+                                }
+                                return stripHtml(data);
+                            }
+                        }
                     }
                 },
                 {

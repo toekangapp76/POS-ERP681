@@ -249,6 +249,26 @@
         var differenceCount = monthCount > 0 ? monthCount - 1 : 0;
         var totalColumns = 4 + monthCount + differenceCount + 1; // base cols + months + differences + total
 
+        // Helper function to strip HTML tags
+        function stripHtml(html) {
+            var tmp = document.createElement("DIV");
+            tmp.innerHTML = html;
+            return tmp.textContent || tmp.innerText || "";
+        }
+
+        // Helper function to parse Indonesian formatted number (Rp 1.234.567,00 → 1234567.00)
+        function parseIndonesianNumber(str) {
+            if (!str) return 0;
+            // Remove Rp, spaces, and HTML tags
+            var cleaned = stripHtml(str);
+            cleaned = cleaned.replace(/Rp\s*/gi, '').trim();
+            // Indonesian format: dots for thousands, comma for decimal
+            // Remove dots (thousand separator), replace comma with dot (decimal)
+            cleaned = cleaned.replace(/\./g, '').replace(',', '.');
+            var num = parseFloat(cleaned);
+            return isNaN(num) ? 0 : num;
+        }
+
         // Initialize DataTable with export buttons and sorting
         var table = $('#balance_sheet_table').DataTable({
             dom: 'Bfrtip',
@@ -258,7 +278,17 @@
                     text: '<i class="fa fa-file-excel-o"></i> Excel',
                     title: 'Balance Sheet - {{@format_date($start_date)}} to {{@format_date($end_date)}}',
                     exportOptions: {
-                        columns: ':visible'
+                        columns: ':visible',
+                        format: {
+                            body: function(data, row, column, node) {
+                                // For columns with currency (columns 4 onwards), extract numeric value
+                                if (column >= 4) {
+                                    return parseIndonesianNumber(data);
+                                }
+                                // Strip HTML from other columns
+                                return stripHtml(data);
+                            }
+                        }
                     }
                 },
                 {
@@ -268,7 +298,17 @@
                     orientation: 'landscape',
                     pageSize: 'A3',
                     exportOptions: {
-                        columns: ':visible'
+                        columns: ':visible',
+                        format: {
+                            body: function(data, row, column, node) {
+                                if (column >= 4) {
+                                    var num = parseIndonesianNumber(data);
+                                    // Format for PDF display with Indonesian locale
+                                    return num.toLocaleString('id-ID', {minimumFractionDigits: 2, maximumFractionDigits: 2});
+                                }
+                                return stripHtml(data);
+                            }
+                        }
                     }
                 },
                 {

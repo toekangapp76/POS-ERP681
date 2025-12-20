@@ -339,10 +339,54 @@
             }
         });
 
-        // Function to export table to Excel
+        // Helper function to strip HTML tags
+        function stripHtml(html) {
+            var tmp = document.createElement("DIV");
+            tmp.innerHTML = html;
+            return tmp.textContent || tmp.innerText || "";
+        }
+
+        // Helper function to parse Indonesian formatted number (Rp 1.234.567,00 → 1234567.00)
+        function parseIndonesianNumber(str) {
+            if (!str) return '';
+            // Remove Rp, spaces
+            var cleaned = str.replace(/Rp\s*/gi, '').trim();
+            // Remove arrow icons text
+            cleaned = cleaned.replace(/[↑↓▲▼]/g, '').trim();
+            // Indonesian format: dots for thousands, comma for decimal
+            // Check if it looks like a number
+            if (!cleaned.match(/^-?[\d.,]+$/)) {
+                return str; // Return original if not a number pattern
+            }
+            // Remove dots (thousand separator), replace comma with dot (decimal)
+            cleaned = cleaned.replace(/\./g, '').replace(',', '.');
+            var num = parseFloat(cleaned);
+            return isNaN(num) ? 0 : num;
+        }
+
+        // Function to export table to Excel (strips currency prefix and converts numbers)
         function exportTableToExcel(tableId, filename) {
             var table = document.getElementById(tableId);
-            var html = table.outerHTML;
+            // Clone the table to avoid modifying the original
+            var clone = table.cloneNode(true);
+            
+            // Process all cells - strip HTML and convert numbers
+            $(clone).find('td, th').each(function() {
+                // First get text content (strips HTML)
+                var text = $(this).text().trim();
+                
+                // Check if it looks like a currency value (contains Rp or is a number pattern)
+                if (text.match(/Rp\s*-?[\d.,]+/) || text.match(/^-?[\d.,]+$/)) {
+                    // Parse the Indonesian formatted number
+                    var num = parseIndonesianNumber(text);
+                    $(this).text(num);
+                } else {
+                    // Just set the stripped text (removes HTML)
+                    $(this).text(text);
+                }
+            });
+            
+            var html = clone.outerHTML;
             var url = 'data:application/vnd.ms-excel,' + encodeURIComponent(html);
             var downloadLink = document.createElement("a");
             document.body.appendChild(downloadLink);

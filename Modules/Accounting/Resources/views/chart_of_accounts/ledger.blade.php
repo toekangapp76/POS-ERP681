@@ -304,10 +304,78 @@
             }
         );
 
+        // Helper function to strip HTML tags
+        function stripHtml(html) {
+            var tmp = document.createElement("DIV");
+            tmp.innerHTML = html;
+            return tmp.textContent || tmp.innerText || "";
+        }
+
+        // Helper function to parse Indonesian formatted number
+        function parseIndonesianNumber(str) {
+            if (!str) return 0;
+            var cleaned = stripHtml(str);
+            cleaned = cleaned.replace(/Rp\s*/gi, '').trim();
+            cleaned = cleaned.replace(/\./g, '').replace(',', '.');
+            var num = parseFloat(cleaned);
+            return isNaN(num) ? 0 : num;
+        }
+
         // Account Book
         ledger = $('#ledger').DataTable({
             processing: true,
             serverSide: true,
+            dom: 'Bfrtip',
+            buttons: [
+                {
+                    extend: 'excel',
+                    text: '<i class="fa fa-file-excel-o"></i> Excel',
+                    exportOptions: {
+                        columns: [0, 1, 2, 3, 4, 5, 6],
+                        format: {
+                            body: function (data, row, column, node) {
+                                // For columns with currency (columns 5-6), extract numeric value
+                                if (column >= 5 && column <= 6) {
+                                    var $el = $(data);
+                                    if ($el.data('orig-value') !== undefined) {
+                                        return parseFloat($el.data('orig-value'));
+                                    }
+                                    return parseIndonesianNumber(data);
+                                }
+                                // Strip HTML from all other columns
+                                return stripHtml(data);
+                            }
+                        }
+                    }
+                },
+                {
+                    extend: 'pdf',
+                    text: '<i class="fa fa-file-pdf-o"></i> PDF',
+                    exportOptions: {
+                        columns: [0, 1, 2, 3, 4, 5, 6],
+                        format: {
+                            body: function (data, row, column, node) {
+                                if (column >= 5 && column <= 6) {
+                                    var $el = $(data);
+                                    if ($el.data('orig-value') !== undefined) {
+                                        return parseFloat($el.data('orig-value')).toLocaleString('id-ID', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+                                    }
+                                    var num = parseIndonesianNumber(data);
+                                    return num.toLocaleString('id-ID', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+                                }
+                                return stripHtml(data);
+                            }
+                        }
+                    }
+                },
+                {
+                    extend: 'print',
+                    text: '<i class="fa fa-print"></i> Print',
+                    exportOptions: {
+                        columns: [0, 1, 2, 3, 4, 5, 6]
+                    }
+                }
+            ],
             ajax: {
                 url: '{{action([\Modules\Accounting\Http\Controllers\CoaController::class, 'ledger'], [$account->id])}}',
                 data: function (d) {

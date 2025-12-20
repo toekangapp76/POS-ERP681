@@ -434,5 +434,22 @@ return [
     'import' => 'Import',
     'file_to_import' => 'Import File',
     'download_template' => 'Download template',
-    'notes' => 'Catatan'
+    'notes' => 'Catatan',
+
+    // Account Sub Types
+    'ACCOUNT RECEIVABLE' => 'Piutang Usaha',
+    'ADVANCE PAYMENT' => 'Pembayaran Dimuka',
+    'CAPITAL' => 'Modal',
+    'DEPOSIT LIABILITIES' => 'Kewajiban Deposito',
+    'INVENTORY' => 'Persediaan',
+    'OUTLET IN PROGRESS' => 'Outlet Dalam Proses',
+    'PREPAID EXPENSES' => 'Biaya Dibayar Dimuka',
+    'SALARY & SC PAYABLE' => 'Hutang Gaji & SC',
+    'SHARE HOLDER LOAN and LOAN' => 'Pinjaman Pemegang Saham dan Pinjaman',
+    'TAXES PAYABLE' => 'Hutang Pajak',
+    'TRADE CREDITOR' => 'Kreditur Dagang',
+    'total_liabilities' => 'Total Liabilitas',
+    'total_equity' => 'Total Ekuitas',
+    'accounts_selected' => 'akun dipilih',
+    'select_account' => 'Pilih Akun',
 ];

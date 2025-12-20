@@ -473,5 +473,22 @@ return [
     'tax_amount' => 'Tax Amount',
     'discount_amount' => 'Discount Amount',
     'net_payable' => 'Net Payable',
-    'asset' => 'Asset'
+    'asset' => 'Asset',
+
+    // Account Sub Types
+    'ACCOUNT RECEIVABLE' => 'Account Receivable',
+    'ADVANCE PAYMENT' => 'Advance Payment',
+    'CAPITAL' => 'Capital',
+    'DEPOSIT LIABILITIES' => 'Deposit Liabilities',
+    'INVENTORY' => 'Inventory',
+    'OUTLET IN PROGRESS' => 'Outlet In Progress',
+    'PREPAID EXPENSES' => 'Prepaid Expenses',
+    'SALARY & SC PAYABLE' => 'Salary & SC Payable',
+    'SHARE HOLDER LOAN and LOAN' => 'Share Holder Loan and Loan',
+    'TAXES PAYABLE' => 'Taxes Payable',
+    'TRADE CREDITOR' => 'Trade Creditor',
+    'total_liabilities' => 'Total Liabilities',
+    'total_equity' => 'Total Equity',
+    'accounts_selected' => 'accounts selected',
+    'select_account' => 'Select Account',
 ];
