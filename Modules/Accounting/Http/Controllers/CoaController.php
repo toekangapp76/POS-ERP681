@@ -1430,7 +1430,8 @@ class CoaController extends Controller
                                 'AA.gl_code as account_gl_code',
                                 DB::raw("CONCAT(COALESCE(U.surname, ''),' ',COALESCE(U.first_name, ''),' ',COALESCE(U.last_name,'')) as added_by"),
                                 'T.invoice_no', 'T.ref_no'
-                            );
+                            )
+                              ->orderBy('AA.name', 'ASC');
             if (! empty($start_date) && ! empty($end_date)) {
                 $transactions->whereDate('accounting_accounts_transactions.operation_date', '>=', $start_date)
                         ->whereDate('accounting_accounts_transactions.operation_date', '<=', $end_date);
@@ -1451,8 +1452,7 @@ class CoaController extends Controller
                         $description = '';
 
                         if ($row->sub_type == 'journal_entry') {
-                            $description = '<b>'.__('accounting::lang.journal_entry').'</b>';
-                            $description .= '<br>'.__('purchase.ref_no').': '.$row->a_ref;
+                            $description = $row->a_ref;
                         }
 
                         if ($row->sub_type == 'opening_balance') {
@@ -1460,13 +1460,11 @@ class CoaController extends Controller
                         }
 
                         if ($row->sub_type == 'sell') {
-                            $description = '<b>'.__('sale.sale').'</b>';
-                            $description .= '<br>'.__('sale.invoice_no').': '.$row->invoice_no;
+                            $description = $row->invoice_no;
                         }
 
                         if ($row->sub_type == 'expense') {
-                            $description = '<b>'.__('accounting::lang.expense').'</b>';
-                            $description .= '<br>'.__('purchase.ref_no').': '.$row->ref_no;
+                            $description = $row->ref_no;
                         }
 
                         return $description;
@@ -1496,15 +1494,15 @@ class CoaController extends Controller
                     //     $bal = $bal_before_start_date + $current_bal;
                     //     return '<span class="balance" data-orig-value="' . $bal . '">' . $this->accountingUtil->num_f($bal, true) . '</span>';
                     // })
-                    ->editColumn('action', function ($row) {
-                        $action = '';
+                    // ->editColumn('action', function ($row) {
+                    //     $action = '';
 
-                        return $action;
-                    })
+                    //     return $action;
+                    // })
                     ->filterColumn('added_by', function ($query, $keyword) {
                         $query->whereRaw("CONCAT(COALESCE(u.surname, ''), ' ', COALESCE(u.first_name, ''), ' ', COALESCE(u.last_name, '')) like ?", ["%{$keyword}%"]);
                     })
-                    ->rawColumns(['ref_no', 'credit', 'debit', 'balance', 'action', 'account_name'])
+                    ->rawColumns(['ref_no', 'credit', 'debit', 'balance','account_name'])
                     ->make(true);
         }
 

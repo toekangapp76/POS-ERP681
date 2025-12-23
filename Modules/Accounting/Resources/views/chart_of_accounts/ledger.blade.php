@@ -8,7 +8,7 @@
 
 <!-- Content Header (Page header) -->
 <section class="content-header">
-    <h1>@lang('accounting::lang.ledger') - <span class="account-details-name">{{$account->name}}</span></h1>
+    <h1>@lang('accounting::lang.journal_entry') - <span class="account-details-name">{{$account->name}}</span></h1>
 </section>
 
 <section class="content">
@@ -150,7 +150,7 @@
                                         <th>@lang('account.debit')</th>
                                         <th>@lang('account.credit')</th>
                                         <!-- <th>@lang( 'lang_v1.balance' )</th> -->
-                                        <th>@lang('messages.action')</th>
+                                        <!-- <th>@lang('messages.action')</th> -->
                                     </tr>
                                 </thead>
 
@@ -161,7 +161,7 @@
                                         <td colspan="5"><strong>@lang('sale.total'):</strong></td>
                                         <td class="footer_total_debit"></td>
                                         <td class="footer_total_credit"></td>
-                                        <td></td>
+                                        <!-- <td></td> -->
                                     </tr>
                                 </tfoot>
                             </table>
@@ -399,9 +399,9 @@
                 { data: 'note', name: 'ATM.note' },
                 { data: 'added_by', name: 'added_by' },
                 { data: 'debit', name: 'amount', searchable: false },
-                { data: 'credit', name: 'amount', searchable: false },
+                { data: 'credit', name: 'amount', searchable: false }
                 //{data: 'balance', name: 'balance', searchable: false},
-                { data: 'action', name: 'action', searchable: false }
+                // { data: 'action', name: 'action', searchable: false }
             ],
             "fnDrawCallback": function (oSettings) {
                 __currency_convert_recursively($('#ledger'));
