@@ -21,6 +21,7 @@ use App\Utils\ProductUtil;
 use App\Utils\BusinessUtil;
 use Modules\Gym\Entities\GymPackage;
 use Modules\Gym\Services\SessionTrackingService;
+use Modules\Accounting\Utils\AccountingUtil;
 use App\Account;
 
 
@@ -35,6 +36,7 @@ class SubscriptionController extends Controller
     protected $businessUtil;
     protected $moduleUtil;
     protected $sessionTrackingService;
+    protected $accountingUtil;
 
     public function __construct(
         Util $commonUtil,
@@ -45,6 +47,7 @@ class SubscriptionController extends Controller
         ProductUtil $productUtil,
         BusinessUtil $businessUtil,
         SessionTrackingService $sessionTrackingService,
+        AccountingUtil $accountingUtil,
 
     ) {
         $this->commonUtil = $commonUtil;
@@ -55,6 +58,7 @@ class SubscriptionController extends Controller
         $this->productUtil = $productUtil;
         $this->businessUtil = $businessUtil;
         $this->sessionTrackingService = $sessionTrackingService;
+        $this->accountingUtil = $accountingUtil;
 
         $this->dummyPaymentLine = [
             'method' => 'cash',
@@ -368,6 +372,8 @@ class SubscriptionController extends Controller
 
             $this->transactionUtil->updatePaymentStatus($transaction->id, $transaction->final_total);
 
+            // Auto-map to accounting if package has accounting mapping configured
+            $this->accountingUtil->autoMapGymSubscription($transaction->id, auth()->user()->id);
 
             DB::commit();
 

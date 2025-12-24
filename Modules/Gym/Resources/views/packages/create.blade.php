@@ -137,6 +137,56 @@
                     'rows' => 3,
                 ]) !!}
             </div>
+            
+            {{-- Accounting Mapping Section --}}
+            @if(isset($accounting_accounts) && count($accounting_accounts) > 1)
+            <div class="panel panel-default">
+                <div class="panel-heading">
+                    <h4 class="panel-title">
+                        <i class="fa fa-book"></i> @lang('gym::lang.accounting_mapping')
+                    </h4>
+                </div>
+                <div class="panel-body">
+                    <p class="text-muted">@lang('gym::lang.accounting_mapping_help')</p>
+                    <div class="row">
+                        <div class="col-md-4">
+                            <div class="form-group">
+                                {!! Form::label('bank_account_id', __('gym::lang.bank_cash_account')) !!}
+                                {!! Form::select('bank_account_id', $accounting_accounts, null, [
+                                    'class' => 'form-control select2',
+                                    'style' => 'width: 100%',
+                                    'placeholder' => __('messages.please_select'),
+                                ]) !!}
+                                <p class="help-block text-muted small">@lang('gym::lang.bank_account_help')</p>
+                            </div>
+                        </div>
+                        <div class="col-md-4">
+                            <div class="form-group">
+                                {!! Form::label('revenue_account_id', __('gym::lang.revenue_account')) !!}
+                                {!! Form::select('revenue_account_id', $accounting_accounts, null, [
+                                    'class' => 'form-control select2',
+                                    'style' => 'width: 100%',
+                                    'placeholder' => __('messages.please_select'),
+                                ]) !!}
+                                <p class="help-block text-muted small">@lang('gym::lang.revenue_account_help')</p>
+                            </div>
+                        </div>
+                        <div class="col-md-4">
+                            <div class="form-group">
+                                {!! Form::label('tax_account_id', __('gym::lang.tax_account')) !!}
+                                {!! Form::select('tax_account_id', $accounting_accounts, null, [
+                                    'class' => 'form-control select2',
+                                    'style' => 'width: 100%',
+                                    'placeholder' => __('messages.please_select'),
+                                ]) !!}
+                                <p class="help-block text-muted small">@lang('gym::lang.tax_account_help')</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            @endif
+            
             <div class="form-group">
                 <div class="checkbox">
                     <label>

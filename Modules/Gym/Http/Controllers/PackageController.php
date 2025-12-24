@@ -9,6 +9,7 @@ use Modules\Gym\Entities\GymPackage;
 use Yajra\DataTables\Facades\DataTables;
 use App\Transaction;
 use Modules\Gym\Entities\GymClass;
+use Modules\Accounting\Entities\AccountingAccount;
 
 class PackageController extends Controller
 {
@@ -70,6 +71,12 @@ class PackageController extends Controller
                     
                     return $html;
                 })
+                ->addColumn('accounting_status', function ($row) {
+                    if ($row->hasAccountingMapping()) {
+                        return '<span class="label label-success"><i class="fa fa-check"></i> ' . __('gym::lang.auto_mapped') . '</span>';
+                    }
+                    return '<span class="label label-default"><i class="fa fa-times"></i> ' . __('gym::lang.not_mapped') . '</span>';
+                })
                 ->addColumn('action', function ($row) {
                     $html = '<a type="button" class="tw-dw-btn tw-dw-btn-xs tw-dw-btn-outline  tw-dw-btn-primary btn-modal-extra" href="' . action([\Modules\Gym\Http\Controllers\PackageController::class, 'edit'], ['gym_package' => $row->id]) . '">'
                         . __('messages.edit') . '</a>';
@@ -80,7 +87,7 @@ class PackageController extends Controller
 
                     return $html;
                 })
-                ->rawColumns(['created_at', 'action', 'amount', 'session_limit'])
+                ->rawColumns(['created_at', 'action', 'amount', 'session_limit', 'accounting_status'])
                 ->make(true);
         }
         return view('gym::packages.index');
@@ -95,7 +102,28 @@ class PackageController extends Controller
         $business_id = request()->session()->get('user.business_id');
         $durations = $this->duration;
         $classes = GymClass::where('business_id', $business_id)->get();
-        return view('gym::packages.create', compact('durations','classes'));
+        
+        // Get accounting accounts for dropdown
+        $accounting_accounts = $this->getAccountingAccountsDropdown($business_id);
+        
+        return view('gym::packages.create', compact('durations', 'classes', 'accounting_accounts'));
+    }
+
+    /**
+     * Get accounting accounts for dropdown
+     */
+    private function getAccountingAccountsDropdown($business_id)
+    {
+        $accounts = AccountingAccount::where('business_id', $business_id)
+            ->where('status', 'active')
+            ->orderBy('gl_code')
+            ->get()
+            ->mapWithKeys(function ($account) {
+                return [$account->id => $account->gl_code . ' - ' . $account->name];
+            })
+            ->toArray();
+        
+        return ['' => __('messages.please_select')] + $accounts;
     }
 
     /**
@@ -177,8 +205,11 @@ class PackageController extends Controller
         $durations = $this->duration;
 
         $classes = GymClass::where('business_id', $business_id)->get();
+        
+        // Get accounting accounts for dropdown
+        $accounting_accounts = $this->getAccountingAccountsDropdown($business_id);
 
-        return view('gym::packages.edit', compact('durations', 'package', 'classes'));
+        return view('gym::packages.edit', compact('durations', 'package', 'classes', 'accounting_accounts'));
     }
 
     /**
