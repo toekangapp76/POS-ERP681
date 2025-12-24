@@ -316,7 +316,37 @@
             if (!str) return 0;
             var cleaned = stripHtml(str);
             cleaned = cleaned.replace(/Rp\s*/gi, '').trim();
-            cleaned = cleaned.replace(/\./g, '').replace(',', '.');
+            cleaned = cleaned.replace(/[↑↓▲▼]/g, '').trim();
+            
+            // Check if it looks like a number
+            if (!cleaned.match(/^-?[\d.,]+$/)) {
+                return 0;
+            }
+            
+            // Detect format by finding the last occurrence of . or ,
+            var lastDot = cleaned.lastIndexOf('.');
+            var lastComma = cleaned.lastIndexOf(',');
+            
+            // If both exist, the one that comes last is the decimal separator
+            if (lastDot > lastComma) {
+                // Format: 1,234.56 (comma = thousand, dot = decimal) - International
+                cleaned = cleaned.replace(/,/g, ''); // Remove thousand separator
+            } else if (lastComma > lastDot) {
+                // Format: 1.234,56 (dot = thousand, comma = decimal) - Indonesian
+                cleaned = cleaned.replace(/\./g, '').replace(',', '.'); // Remove thousand, convert decimal
+            } else if (lastDot !== -1) {
+                // Only dot exists
+                if (cleaned.match(/\.\d{2}$/)) {
+                    // Likely decimal: 123.45
+                } else {
+                    // Likely thousand separator: 1.234
+                    cleaned = cleaned.replace(/\./g, '');
+                }
+            } else if (lastComma !== -1) {
+                // Only comma exists - treat as decimal
+                cleaned = cleaned.replace(',', '.');
+            }
+            
             var num = parseFloat(cleaned);
             return isNaN(num) ? 0 : num;
         }

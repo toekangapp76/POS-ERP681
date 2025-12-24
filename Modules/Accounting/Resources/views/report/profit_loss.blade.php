@@ -248,7 +248,7 @@
 
                     {{-- Net Profit/Loss Section --}}
                     <h4><strong><i class="fa fa-calculator"></i> @lang('accounting::lang.net_profit') / @lang('accounting::lang.net_loss')</strong></h4>
-                    <table class="table table-bordered">
+                    <table class="table table-bordered" id="net_profit_table">
                         <thead>
                             <tr class="{{ $net_profit >= 0 ? 'bg-green' : 'bg-blue' }}">
                                 <th style="font-size: 16px; vertical-align: middle;">
@@ -353,13 +353,37 @@
             var cleaned = str.replace(/Rp\s*/gi, '').trim();
             // Remove arrow icons text
             cleaned = cleaned.replace(/[↑↓▲▼]/g, '').trim();
-            // Indonesian format: dots for thousands, comma for decimal
             // Check if it looks like a number
             if (!cleaned.match(/^-?[\d.,]+$/)) {
                 return str; // Return original if not a number pattern
             }
-            // Remove dots (thousand separator), replace comma with dot (decimal)
-            cleaned = cleaned.replace(/\./g, '').replace(',', '.');
+            
+            // Detect format by finding the last occurrence of . or ,
+            var lastDot = cleaned.lastIndexOf('.');
+            var lastComma = cleaned.lastIndexOf(',');
+            
+            // If both exist, the one that comes last is the decimal separator
+            if (lastDot > lastComma) {
+                // Format: 1,234.56 (comma = thousand, dot = decimal) - International
+                cleaned = cleaned.replace(/,/g, ''); // Remove thousand separator
+            } else if (lastComma > lastDot) {
+                // Format: 1.234,56 (dot = thousand, comma = decimal) - Indonesian
+                cleaned = cleaned.replace(/\./g, '').replace(',', '.'); // Remove thousand, convert decimal
+            } else if (lastDot !== -1) {
+                // Only dot exists - could be decimal or thousand
+                // Check if there are 2 digits after the dot (likely decimal)
+                if (cleaned.match(/\.\d{2}$/)) {
+                    // Likely decimal: 123.45
+                    // Do nothing
+                } else {
+                    // Likely thousand separator: 1.234
+                    cleaned = cleaned.replace(/\./g, '');
+                }
+            } else if (lastComma !== -1) {
+                // Only comma exists - treat as decimal
+                cleaned = cleaned.replace(',', '.');
+            }
+            
             var num = parseFloat(cleaned);
             return isNaN(num) ? 0 : num;
         }
@@ -411,30 +435,41 @@
             var monthCount = {{ count($months) }};
             var totalCols = 2 + monthCount + (monthCount > 1 ? monthCount - 1 : 0) + 1;
             
+            // Clone tables to avoid modifying originals
+            var incomeTable = document.getElementById('income_report_table').cloneNode(true);
+            var expenseTable = document.getElementById('expense_report_table').cloneNode(true);
+            var netProfitTable = document.getElementById('net_profit_table').cloneNode(true);
+            
+            // Process all cells in cloned tables - strip HTML and convert numbers
+            [incomeTable, expenseTable, netProfitTable].forEach(function(table) {
+                $(table).find('td, th').each(function() {
+                    var text = $(this).text().trim();
+                    
+                    // Check if it looks like a currency value
+                    if (text.match(/Rp\s*-?[\d.,]+/) || text.match(/^-?[\d.,]+$/)) {
+                        var num = parseIndonesianNumber(text);
+                        $(this).text(num);
+                    } else {
+                        $(this).text(text);
+                    }
+                });
+            });
+            
             var html = '<table>';
             html += '<tr><th colspan="' + totalCols + '" style="text-align:center; font-size:18px;">Profit & Loss Report</th></tr>';
             html += '<tr><th colspan="' + totalCols + '" style="text-align:center;">{{@format_date($start_date)}} ~ {{@format_date($end_date)}}</th></tr>';
             html += '<tr><td colspan="' + totalCols + '">&nbsp;</td></tr>';
             
             // Income section
-            html += document.getElementById('income_report_table').outerHTML;
+            html += incomeTable.outerHTML;
             html += '<tr><td colspan="' + totalCols + '">&nbsp;</td></tr>';
             
             // Expense section
-            html += document.getElementById('expense_report_table').outerHTML;
+            html += expenseTable.outerHTML;
             html += '<tr><td colspan="' + totalCols + '">&nbsp;</td></tr>';
             
-            // Summary
-            html += '<tr style="background-color: ' + ({{$net_profit}} >= 0 ? '#00a65a' : '#dd4b39') + '; color: white;">';
-            html += '<th colspan="2" style="text-align:right;">{{ $net_profit >= 0 ? __("accounting::lang.net_profit") : __("accounting::lang.net_loss") }}</th>';
-            @foreach($months as $index => $month)
-                html += '<th style="text-align:right;">@format_currency($monthly_totals["net_profit"][$month["key"]] ?? 0)</th>';
-                @if($index > 0)
-                    html += '<th></th>';
-                @endif
-            @endforeach
-            html += '<th style="text-align:right;">@format_currency(abs($net_profit))</th>';
-            html += '</tr>';
+            // Net Profit/Loss section
+            html += netProfitTable.outerHTML;
             html += '</table>';
             
             var url = 'data:application/vnd.ms-excel,' + encodeURIComponent(html);
