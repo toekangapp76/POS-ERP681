@@ -137,6 +137,47 @@
                                     </td>
                                 </tr>
                             @endforeach
+
+                            {{-- R/E Current Year (Net Profit/Loss from P&L) --}}
+                            @if(isset($re_current_year))
+                                @php
+                                    // Add R/E Current Year to equity totals
+                                    foreach($months as $month) {
+                                        $monthly_totals_equity[$month['key']] += $re_current_year->monthly_balances[$month['key']] ?? 0;
+                                    }
+                                    
+                                    $re_last_balance = $last_key ? ($re_current_year->monthly_balances[$last_key] ?? 0) : 0;
+                                    $re_current_balance = $current_key ? ($re_current_year->monthly_balances[$current_key] ?? 0) : 0;
+                                    $re_difference = $re_current_balance - $re_last_balance;
+                                    $re_diff_color = $re_difference > 0 ? 'text-success' : ($re_difference < 0 ? 'text-danger' : '');
+                                @endphp
+                                <tr class="bg-success-light" style="background-color: #d4edda; font-weight: bold;">
+                                    <td>{{ $re_current_year->gl_code }}</td>
+                                    <td>
+                                        <i class="fa fa-calculator"></i> {{ $re_current_year->name }}
+                                        <small class="text-muted">(Auto dari P&L)</small>
+                                    </td>
+                                    <td>{{ __('accounting::lang.equity') }}</td>
+                                    <td class="text-right month-col">
+                                        <span data-orig-value="{{ $re_last_balance }}" class="{{ $re_last_balance >= 0 ? 'text-success' : 'text-danger' }}">
+                                            @format_currency($re_last_balance)
+                                        </span>
+                                    </td>
+                                    <td class="text-right month-col">
+                                        <span data-orig-value="{{ $re_current_balance }}" class="{{ $re_current_balance >= 0 ? 'text-success' : 'text-danger' }}">
+                                            @format_currency($re_current_balance)
+                                        </span>
+                                    </td>
+                                    <td class="text-right diff-col {{ $re_diff_color }}">
+                                        @if($re_difference > 0)
+                                            <i class="fa fa-arrow-up"></i>
+                                        @elseif($re_difference < 0)
+                                            <i class="fa fa-arrow-down"></i>
+                                        @endif
+                                        @format_currency(abs($re_difference))
+                                    </td>
+                                </tr>
+                            @endif
                         </tbody>
                         <tfoot>
                             {{-- Total Assets --}}

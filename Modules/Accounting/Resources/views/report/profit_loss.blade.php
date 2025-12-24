@@ -13,7 +13,7 @@
 
 <section class="content no-print" style="min-height:auto !important;">
     <div class="row">
-        <div class="col-md-3 col-md-offset-1">
+        <div class="col-md-3">
             <div class="form-group">
                 {!! Form::label('date_range_filter', __('report.date_range') . ':') !!}
                 {!! Form::text('date_range_filter', null, 
@@ -22,6 +22,13 @@
             </div>
         </div>
         <div class="col-md-3">
+            <div class="form-group">
+                {!! Form::label('location_id', __('purchase.business_location') . ':') !!}
+                {!! Form::select('location_id', $business_locations, $location_id, 
+                    ['class' => 'form-control select2', 'style' => 'width:100%', 'id' => 'location_filter']); !!}
+            </div>
+        </div>
+        <div class="col-md-2">
             <div class="form-group">
                 <label>&nbsp;</label>
                 <div class="checkbox">
@@ -496,6 +503,11 @@
             apply_filter();
         });
 
+        // Location filter change handler
+        $('#location_filter').on('change', function() {
+            apply_filter();
+        });
+
         function apply_filter(){
             var start = '';
             var end = '';
@@ -509,9 +521,16 @@
                     .endDate.format('YYYY-MM-DD');
             }
 
+            var location_id = $('#location_filter').val();
+
             const urlParams = new URLSearchParams(window.location.search);
             urlParams.set('start_date', start);
             urlParams.set('end_date', end);
+            if (location_id) {
+                urlParams.set('location_id', location_id);
+            } else {
+                urlParams.delete('location_id');
+            }
             window.location.search = urlParams;
         }
     });

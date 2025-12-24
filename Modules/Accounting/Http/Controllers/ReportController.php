@@ -263,8 +263,65 @@ class ReportController extends Controller
 
         $all_accounts = collect($all_accounts);
 
+        // Calculate Net Profit/Loss for R/E Current Year (from P&L accounts - gl_code >= 4)
+        $pl_accounts = AccountingAccount::where('business_id', $business_id)
+            ->where('status', 'active')
+            ->whereNotNull('gl_code')
+            ->where('gl_code', '!=', '')
+            ->whereRaw("CAST(SUBSTRING(gl_code, 1, 1) AS UNSIGNED) >= 4")
+            ->select('id', 'account_primary_type')
+            ->get();
+
+        $net_profit_monthly = [];
+        $total_net_profit = 0;
+
+        foreach ($months as $month) {
+            $month_income = 0;
+            $month_expense = 0;
+
+            foreach ($pl_accounts as $pl_account) {
+                $pl_balance = DB::table('accounting_accounts_transactions')
+                    ->where('accounting_account_id', $pl_account->id)
+                    ->where(function ($q) {
+                        $q->whereNull('sub_type')
+                            ->orWhere('sub_type', '!=', 'opening_balance');
+                    })
+                    ->whereDate('operation_date', '>=', $month['start'])
+                    ->whereDate('operation_date', '<=', $month['end'])
+                    ->select(
+                        DB::raw("COALESCE(SUM(IF(type = 'debit', amount, 0)), 0) as debit"),
+                        DB::raw("COALESCE(SUM(IF(type = 'credit', amount, 0)), 0) as credit")
+                    )
+                    ->first();
+
+                $debit = $pl_balance->debit ?? 0;
+                $credit = $pl_balance->credit ?? 0;
+
+                if ($pl_account->account_primary_type == 'income') {
+                    $month_income += ($credit - $debit);
+                } else {
+                    $month_expense += ($debit - $credit);
+                }
+            }
+
+            $net_profit_monthly[$month['key']] = $month_income - $month_expense;
+            $total_net_profit += $net_profit_monthly[$month['key']];
+        }
+
+        // R/E Current Year account info (GL Code: 3202-0000)
+        $re_current_year = (object) [
+            'id' => null,
+            'name' => 'R/E Current Year (Net Profit/Loss)',
+            'gl_code' => '3202-0000',
+            'account_primary_type' => 'equity',
+            'sub_type' => 'Retained Earnings',
+            'monthly_balances' => $net_profit_monthly,
+            'balance' => $total_net_profit,
+            'is_calculated' => true, // Flag to identify this is calculated, not from DB
+        ];
+
         return view('accounting::report.balance_sheet')
-            ->with(compact('all_accounts', 'start_date', 'end_date', 'months'));
+            ->with(compact('all_accounts', 'start_date', 'end_date', 'months', 're_current_year', 'net_profit_monthly', 'total_net_profit'));
     }
 
     public function accountReceivableAgeingReport()
@@ -386,6 +443,10 @@ class ReportController extends Controller
             abort(403, 'Unauthorized action.');
         }
 
+        // Get location filter
+        $location_id = request()->input('location_id', null);
+        $business_locations = BusinessLocation::forDropdown($business_id, true);
+
         if (!empty(request()->start_date) && !empty(request()->end_date)) {
             $start_date = request()->start_date;
             $end_date = request()->end_date;
@@ -444,19 +505,29 @@ class ReportController extends Controller
 
             foreach ($months as $month) {
                 // For P&L Report: Calculate ONLY period transactions (EXCLUDE opening_balance)
-                $period = DB::table('accounting_accounts_transactions')
-                    ->where('accounting_account_id', $account->id)
+                // Join with transactions table to filter by location
+                $query = DB::table('accounting_accounts_transactions')
+                    ->where('accounting_accounts_transactions.accounting_account_id', $account->id)
                     ->where(function ($q) {
-                        $q->whereNull('sub_type')
-                            ->orWhere('sub_type', '!=', 'opening_balance');
+                        $q->whereNull('accounting_accounts_transactions.sub_type')
+                            ->orWhere('accounting_accounts_transactions.sub_type', '!=', 'opening_balance');
                     })
-                    ->whereDate('operation_date', '>=', $month['start'])
-                    ->whereDate('operation_date', '<=', $month['end'])
-                    ->select(
-                        DB::raw("SUM(IF(type = 'debit', amount, 0)) as debit"),
-                        DB::raw("SUM(IF(type = 'credit', amount, 0)) as credit")
-                    )
-                    ->first();
+                    ->whereDate('accounting_accounts_transactions.operation_date', '>=', $month['start'])
+                    ->whereDate('accounting_accounts_transactions.operation_date', '<=', $month['end']);
+
+                // Apply location filter if specified
+                if (!empty($location_id)) {
+                    $query->leftJoin('transactions', 'accounting_accounts_transactions.transaction_id', '=', 'transactions.id')
+                        ->where(function ($q) use ($location_id) {
+                            $q->where('transactions.location_id', $location_id)
+                                ->orWhereNull('accounting_accounts_transactions.transaction_id'); // Include journal entries without transaction
+                        });
+                }
+
+                $period = $query->select(
+                    DB::raw("SUM(IF(accounting_accounts_transactions.type = 'debit', accounting_accounts_transactions.amount, 0)) as debit"),
+                    DB::raw("SUM(IF(accounting_accounts_transactions.type = 'credit', accounting_accounts_transactions.amount, 0)) as credit")
+                )->first();
 
                 $debit_balance = $period->debit ?? 0;
                 $credit_balance = $period->credit ?? 0;
@@ -513,6 +584,6 @@ class ReportController extends Controller
         $net_profit = $total_income - $total_expense;
 
         return view('accounting::report.profit_loss')
-            ->with(compact('income_accounts', 'expense_accounts', 'total_income', 'total_expense', 'net_profit', 'start_date', 'end_date', 'months', 'monthly_totals'));
+            ->with(compact('income_accounts', 'expense_accounts', 'total_income', 'total_expense', 'net_profit', 'start_date', 'end_date', 'months', 'monthly_totals', 'business_locations', 'location_id'));
     }
 }
