@@ -56,9 +56,13 @@ class ReportController extends Controller
         if (!empty($first_account)) {
             $ledger_url = route('accounting.ledger', $first_account);
         }
+         $journal_entry_url = null;
+        if (!empty($first_account)) {
+            $journal_entry_url = route('accounting.journal_entry', $first_account);
+        }
 
         return view('accounting::report.index')
-            ->with(compact('ledger_url'));
+            ->with(compact('ledger_url','journal_entry_url'));
     }
 
     /**
