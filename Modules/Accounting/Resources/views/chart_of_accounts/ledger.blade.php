@@ -5,7 +5,6 @@
 @section('content')
 
 @include('accounting::layouts.nav')
-
 <!-- Content Header (Page header) -->
 <section class="content-header">
     <h1>@lang('accounting::lang.ledger') - <span class="account-details-name">{{$account->name}}</span></h1>
