@@ -44,39 +44,38 @@
     
                 <div class="box-body table-responsive">
                     
-                    <table class="table table-striped table-bordered table-hover" id="balance_sheet_table">
+                    <table class="table table-striped table-bordered table-hover" id="balance_sheet_table" style="width:100%">
+                        @php
+                            $month_count = count($months);
+                            $current_month = $month_count > 0 ? $months[$month_count - 1] : null;
+                            $last_month = $month_count > 1 ? $months[$month_count - 2] : null;
+                            $current_key = $current_month['key'] ?? null;
+                            $last_key = $last_month['key'] ?? null;
+                            $current_range_label = $current_month
+                                ? \Carbon\Carbon::parse($current_month['start'])->format('d M') . ' - ' . \Carbon\Carbon::parse($current_month['end'])->format('d M')
+                                : '-';
+                            $last_range_label = $last_month
+                                ? \Carbon\Carbon::parse($last_month['start'])->format('d M') . ' - ' . \Carbon\Carbon::parse($last_month['end'])->format('d M')
+                                : '-';
+                        @endphp
                         <thead>
                             <tr>
-                                <th rowspan="2" class="text-center align-middle" style="vertical-align: middle;">@lang('accounting::lang.gl_code')</th>
-                                <th rowspan="2" class="text-center align-middle" style="vertical-align: middle;">@lang('user.name')</th>
-                                <th rowspan="2" class="text-center align-middle" style="vertical-align: middle;">@lang('accounting::lang.account_type')</th>
-                                <th rowspan="2" class="text-center align-middle" style="vertical-align: middle;">@lang('accounting::lang.account_sub_type')</th>
-                                @foreach($months as $index => $month)
-                                    <th class="text-center bg-info month-col">{{ $month['label'] }}</th>
-                                    @if($index > 0)
-                                        <th class="text-center bg-warning diff-col">Selisih</th>
-                                    @endif
-                                @endforeach
-                                <th rowspan="2" class="text-center bg-primary align-middle" style="vertical-align: middle;">Total</th>
-                            </tr>
-                            <tr>
-                                @foreach($months as $index => $month)
-                                    <th class="text-center text-muted month-col" style="font-size: 11px;">
-                                        {{ \Carbon\Carbon::parse($month['start'])->format('d M') }} - {{ \Carbon\Carbon::parse($month['end'])->format('d M') }}
-                                    </th>
-                                    @if($index > 0)
-                                        <th class="text-center text-muted diff-col" style="font-size: 10px;">
-                                            vs {{ $months[$index - 1]['label'] }}
-                                        </th>
-                                    @endif
-                                @endforeach
+                                <th class="text-center align-middle" style="vertical-align: middle;">@lang('accounting::lang.gl_code')</th>
+                                <th class="text-center align-middle" style="vertical-align: middle;">@lang('user.name')</th>
+                                <th class="text-center align-middle" style="vertical-align: middle;">@lang('accounting::lang.account_type')</th>
+                                <th class="text-center align-middle bg-info" style="vertical-align: middle;">
+                                    Last Month
+                                    <div class="text-muted" style="font-size: 11px;">{{ $last_range_label }}</div>
+                                </th>
+                                <th class="text-center align-middle bg-info" style="vertical-align: middle;">
+                                    Current Month
+                                    <div class="text-muted" style="font-size: 11px;">{{ $current_range_label }}</div>
+                                </th>
+                                <th class="text-center align-middle bg-warning diff-col" style="vertical-align: middle;">Varian</th>
                             </tr>
                         </thead>
                         <tbody>
                             @php
-                                $total_assets = 0;
-                                $total_liabilities = 0;
-                                $total_equity = 0;
                                 $monthly_totals_assets = [];
                                 $monthly_totals_liabilities = [];
                                 $monthly_totals_equity = [];
@@ -91,17 +90,14 @@
                             @foreach($all_accounts as $account)
                                 @php
                                     if ($account->account_primary_type == 'asset') {
-                                        $total_assets += $account->balance;
                                         foreach($months as $month) {
                                             $monthly_totals_assets[$month['key']] += $account->monthly_balances[$month['key']] ?? 0;
                                         }
                                     } elseif ($account->account_primary_type == 'liability') {
-                                        $total_liabilities += $account->balance;
                                         foreach($months as $month) {
                                             $monthly_totals_liabilities[$month['key']] += $account->monthly_balances[$month['key']] ?? 0;
                                         }
                                     } elseif ($account->account_primary_type == 'equity') {
-                                        $total_equity += $account->balance;
                                         foreach($months as $month) {
                                             $monthly_totals_equity[$month['key']] += $account->monthly_balances[$month['key']] ?? 0;
                                         }
@@ -111,119 +107,100 @@
                                     <td>{{ $account->gl_code ?? '-' }}</td>
                                     <td>{{ $account->name }}</td>
                                     <td>{{ __('accounting::lang.' . $account->account_primary_type) }}</td>
-                                    <td>{{ $account->sub_type ? __('accounting::lang.' . $account->sub_type) : '-' }}</td>
-                                    @foreach($months as $index => $month)
-                                        @php
-                                            $current_balance = $account->monthly_balances[$month['key']] ?? 0;
-                                            $prev_balance = $index > 0 ? ($account->monthly_balances[$months[$index - 1]['key']] ?? 0) : 0;
-                                            $difference = $current_balance - $prev_balance;
-                                        @endphp
-                                        <td class="text-right month-col">
-                                            <span data-orig-value="{{ $current_balance }}">@format_currency($current_balance)</span>
-                                        </td>
-                                        @if($index > 0)
-                                            @php
-                                                // For Assets & Equity: positive = good (green), negative = bad (red)
-                                                // For Liabilities: positive = bad (red/more debt), negative = good (green/less debt)
-                                                if ($account->account_primary_type == 'liability') {
-                                                    $diff_color = $difference > 0 ? 'text-danger' : ($difference < 0 ? 'text-success' : '');
-                                                } else {
-                                                    $diff_color = $difference > 0 ? 'text-success' : ($difference < 0 ? 'text-danger' : '');
-                                                }
-                                            @endphp
-                                            <td class="text-right diff-col {{ $diff_color }}">
-                                                @if($difference > 0)
-                                                    <i class="fa fa-arrow-up"></i>
-                                                @elseif($difference < 0)
-                                                    <i class="fa fa-arrow-down"></i>
-                                                @endif
-                                                @format_currency(abs($difference))
-                                            </td>
+                                    @php
+                                        $last_balance = $last_key ? ($account->monthly_balances[$last_key] ?? 0) : 0;
+                                        $current_balance = $current_key ? ($account->monthly_balances[$current_key] ?? 0) : 0;
+                                        $difference = $current_balance - $last_balance;
+                                    @endphp
+                                    <td class="text-right month-col">
+                                        <span data-orig-value="{{ $last_balance }}">@format_currency($last_balance)</span>
+                                    </td>
+                                    <td class="text-right month-col">
+                                        <span data-orig-value="{{ $current_balance }}">@format_currency($current_balance)</span>
+                                    </td>
+                                    @php
+                                        // For Assets & Equity: positive = good (green), negative = bad (red)
+                                        // For Liabilities: positive = bad (red/more debt), negative = good (green/less debt)
+                                        if ($account->account_primary_type == 'liability') {
+                                            $diff_color = $difference > 0 ? 'text-danger' : ($difference < 0 ? 'text-success' : '');
+                                        } else {
+                                            $diff_color = $difference > 0 ? 'text-success' : ($difference < 0 ? 'text-danger' : '');
+                                        }
+                                    @endphp
+                                    <td class="text-right diff-col {{ $diff_color }}">
+                                        @if($difference > 0)
+                                            <i class="fa fa-arrow-up"></i>
+                                        @elseif($difference < 0)
+                                            <i class="fa fa-arrow-down"></i>
                                         @endif
-                                    @endforeach
-                                    <td class="text-right"><strong><span data-orig-value="{{ $account->balance }}">@format_currency($account->balance)</span></strong></td>
+                                        @format_currency(abs($difference))
+                                    </td>
                                 </tr>
                             @endforeach
                         </tbody>
                         <tfoot>
                             {{-- Total Assets --}}
                             <tr class="bg-success">
-                                <th colspan="4" class="text-right">@lang('accounting::lang.total_assets'):</th>
-                                @foreach($months as $index => $month)
-                                    @php
-                                        $current_asset_total = $monthly_totals_assets[$month['key']] ?? 0;
-                                        $prev_asset_total = $index > 0 ? ($monthly_totals_assets[$months[$index - 1]['key']] ?? 0) : 0;
-                                        $asset_diff = $current_asset_total - $prev_asset_total;
-                                    @endphp
-                                    <th class="text-right month-col">@format_currency($current_asset_total)</th>
-                                    @if($index > 0)
-                                        <th class="text-right diff-col {{ $asset_diff > 0 ? 'text-success' : ($asset_diff < 0 ? 'text-danger' : '') }}" style="background-color: #d4edda;">
-                                            @if($asset_diff > 0) <i class="fa fa-arrow-up"></i> @elseif($asset_diff < 0) <i class="fa fa-arrow-down"></i> @endif
-                                            @format_currency(abs($asset_diff))
-                                        </th>
-                                    @endif
-                                @endforeach
-                                <th class="text-right total-assets">@format_currency($total_assets)</th>
+                                <th colspan="3" class="text-right">@lang('accounting::lang.total_assets'):</th>
+                                @php
+                                    $last_asset_total = $last_key ? ($monthly_totals_assets[$last_key] ?? 0) : 0;
+                                    $current_asset_total = $current_key ? ($monthly_totals_assets[$current_key] ?? 0) : 0;
+                                    $asset_diff = $current_asset_total - $last_asset_total;
+                                @endphp
+                                <th class="text-right month-col">@format_currency($last_asset_total)</th>
+                                <th class="text-right month-col">@format_currency($current_asset_total)</th>
+                                <th class="text-right diff-col {{ $asset_diff > 0 ? 'text-success' : ($asset_diff < 0 ? 'text-danger' : '') }}" style="background-color: #d4edda;">
+                                    @if($asset_diff > 0) <i class="fa fa-arrow-up"></i> @elseif($asset_diff < 0) <i class="fa fa-arrow-down"></i> @endif
+                                    @format_currency(abs($asset_diff))
+                                </th>
                             </tr>
                             
                             {{-- Total Liabilities --}}
                             <tr class="bg-warning">
-                                <th colspan="4" class="text-right">@lang('accounting::lang.total_liabilities'):</th>
-                                @foreach($months as $index => $month)
-                                    @php
-                                        $current_liab_total = $monthly_totals_liabilities[$month['key']] ?? 0;
-                                        $prev_liab_total = $index > 0 ? ($monthly_totals_liabilities[$months[$index - 1]['key']] ?? 0) : 0;
-                                        $liab_diff = $current_liab_total - $prev_liab_total;
-                                    @endphp
-                                    <th class="text-right month-col">@format_currency($current_liab_total)</th>
-                                    @if($index > 0)
-                                        <th class="text-right diff-col {{ $liab_diff > 0 ? 'text-danger' : ($liab_diff < 0 ? 'text-success' : '') }}" style="background-color: #fff3cd;">
-                                            @if($liab_diff > 0) <i class="fa fa-arrow-up"></i> @elseif($liab_diff < 0) <i class="fa fa-arrow-down"></i> @endif
-                                            @format_currency(abs($liab_diff))
-                                        </th>
-                                    @endif
-                                @endforeach
-                                <th class="text-right total-liabilities">@format_currency($total_liabilities)</th>
+                                <th colspan="3" class="text-right">@lang('accounting::lang.total_liabilities'):</th>
+                                @php
+                                    $last_liab_total = $last_key ? ($monthly_totals_liabilities[$last_key] ?? 0) : 0;
+                                    $current_liab_total = $current_key ? ($monthly_totals_liabilities[$current_key] ?? 0) : 0;
+                                    $liab_diff = $current_liab_total - $last_liab_total;
+                                @endphp
+                                <th class="text-right month-col">@format_currency($last_liab_total)</th>
+                                <th class="text-right month-col">@format_currency($current_liab_total)</th>
+                                <th class="text-right diff-col {{ $liab_diff > 0 ? 'text-danger' : ($liab_diff < 0 ? 'text-success' : '') }}" style="background-color: #fff3cd;">
+                                    @if($liab_diff > 0) <i class="fa fa-arrow-up"></i> @elseif($liab_diff < 0) <i class="fa fa-arrow-down"></i> @endif
+                                    @format_currency(abs($liab_diff))
+                                </th>
                             </tr>
                             
                             {{-- Total Equity --}}
                             <tr class="bg-info">
-                                <th colspan="4" class="text-right">@lang('accounting::lang.total_equity'):</th>
-                                @foreach($months as $index => $month)
-                                    @php
-                                        $current_equity_total = $monthly_totals_equity[$month['key']] ?? 0;
-                                        $prev_equity_total = $index > 0 ? ($monthly_totals_equity[$months[$index - 1]['key']] ?? 0) : 0;
-                                        $equity_diff = $current_equity_total - $prev_equity_total;
-                                    @endphp
-                                    <th class="text-right month-col">@format_currency($current_equity_total)</th>
-                                    @if($index > 0)
-                                        <th class="text-right diff-col {{ $equity_diff > 0 ? 'text-success' : ($equity_diff < 0 ? 'text-danger' : '') }}" style="background-color: #d1ecf1;">
-                                            @if($equity_diff > 0) <i class="fa fa-arrow-up"></i> @elseif($equity_diff < 0) <i class="fa fa-arrow-down"></i> @endif
-                                            @format_currency(abs($equity_diff))
-                                        </th>
-                                    @endif
-                                @endforeach
-                                <th class="text-right total-equity">@format_currency($total_equity)</th>
+                                <th colspan="3" class="text-right">@lang('accounting::lang.total_equity'):</th>
+                                @php
+                                    $last_equity_total = $last_key ? ($monthly_totals_equity[$last_key] ?? 0) : 0;
+                                    $current_equity_total = $current_key ? ($monthly_totals_equity[$current_key] ?? 0) : 0;
+                                    $equity_diff = $current_equity_total - $last_equity_total;
+                                @endphp
+                                <th class="text-right month-col">@format_currency($last_equity_total)</th>
+                                <th class="text-right month-col">@format_currency($current_equity_total)</th>
+                                <th class="text-right diff-col {{ $equity_diff > 0 ? 'text-success' : ($equity_diff < 0 ? 'text-danger' : '') }}" style="background-color: #d1ecf1;">
+                                    @if($equity_diff > 0) <i class="fa fa-arrow-up"></i> @elseif($equity_diff < 0) <i class="fa fa-arrow-down"></i> @endif
+                                    @format_currency(abs($equity_diff))
+                                </th>
                             </tr>
                             
                             {{-- Total Liabilities + Equity --}}
                             <tr class="bg-primary">
-                                <th colspan="4" class="text-right">@lang('accounting::lang.total_liab_owners'):</th>
-                                @foreach($months as $index => $month)
-                                    @php
-                                        $current_liab_eq = ($monthly_totals_liabilities[$month['key']] ?? 0) + ($monthly_totals_equity[$month['key']] ?? 0);
-                                        $prev_liab_eq = $index > 0 ? (($monthly_totals_liabilities[$months[$index - 1]['key']] ?? 0) + ($monthly_totals_equity[$months[$index - 1]['key']] ?? 0)) : 0;
-                                        $liab_eq_diff = $current_liab_eq - $prev_liab_eq;
-                                    @endphp
-                                    <th class="text-right month-col">@format_currency($current_liab_eq)</th>
-                                    @if($index > 0)
-                                        <th class="text-right diff-col" style="background-color: #cce5ff;">
-                                            @if($liab_eq_diff > 0) <i class="fa fa-arrow-up"></i> @elseif($liab_eq_diff < 0) <i class="fa fa-arrow-down"></i> @endif
-                                            @format_currency(abs($liab_eq_diff))
-                                        </th>
-                                    @endif
-                                @endforeach
-                                <th class="text-right total-liab-equity">@format_currency($total_liabilities + $total_equity)</th>
+                                <th colspan="3" class="text-right">@lang('accounting::lang.total_liab_owners'):</th>
+                                @php
+                                    $last_liab_eq = ($last_key ? ($monthly_totals_liabilities[$last_key] ?? 0) : 0) + ($last_key ? ($monthly_totals_equity[$last_key] ?? 0) : 0);
+                                    $current_liab_eq = ($current_key ? ($monthly_totals_liabilities[$current_key] ?? 0) : 0) + ($current_key ? ($monthly_totals_equity[$current_key] ?? 0) : 0);
+                                    $liab_eq_diff = $current_liab_eq - $last_liab_eq;
+                                @endphp
+                                <th class="text-right month-col">@format_currency($last_liab_eq)</th>
+                                <th class="text-right month-col">@format_currency($current_liab_eq)</th>
+                                <th class="text-right diff-col" style="background-color: #cce5ff;">
+                                    @if($liab_eq_diff > 0) <i class="fa fa-arrow-up"></i> @elseif($liab_eq_diff < 0) <i class="fa fa-arrow-down"></i> @endif
+                                    @format_currency(abs($liab_eq_diff))
+                                </th>
                             </tr>
                         </tfoot>
                     </table>
@@ -243,11 +220,6 @@
 
 <script type="text/javascript">
     $(document).ready(function(){
-
-        // Calculate column count for DataTable
-        var monthCount = {{ count($months) }};
-        var differenceCount = monthCount > 0 ? monthCount - 1 : 0;
-        var totalColumns = 4 + monthCount + differenceCount + 1; // base cols + months + differences + total
 
         // Helper function to strip HTML tags
         function stripHtml(html) {
@@ -281,8 +253,8 @@
                         columns: ':visible',
                         format: {
                             body: function(data, row, column, node) {
-                                // For columns with currency (columns 4 onwards), extract numeric value
-                                if (column >= 4) {
+                                // For columns with currency (columns 3 onwards), extract numeric value
+                                if (column >= 3) {
                                     return parseIndonesianNumber(data);
                                 }
                                 // Strip HTML from other columns
@@ -301,7 +273,7 @@
                         columns: ':visible',
                         format: {
                             body: function(data, row, column, node) {
-                                if (column >= 4) {
+                                if (column >= 3) {
                                     var num = parseIndonesianNumber(data);
                                     // Format for PDF display with Indonesian locale
                                     return num.toLocaleString('id-ID', {minimumFractionDigits: 2, maximumFractionDigits: 2});

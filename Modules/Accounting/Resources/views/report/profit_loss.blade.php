@@ -146,7 +146,7 @@
                                     @endphp
                                     <th class="text-right month-col">@format_currency($current_income)</th>
                                     @if($index > 0)
-                                        <th class="text-right diff-col {{ $income_diff_color }}" style="background-color: #d4edda;">
+                                        <th class="text-right diff-col {{ $income_diff_color }}" style="background-color: #00c6ff;">
                                             @if($income_diff > 0) <i class="fa fa-arrow-up"></i> @elseif($income_diff < 0) <i class="fa fa-arrow-down"></i> @endif
                                             @format_currency(abs($income_diff))
                                         </th>
@@ -163,7 +163,7 @@
                     <h4 class="text-danger"><strong><i class="fa fa-arrow-down"></i> @lang('accounting::lang.expenses')</strong></h4>
                     <table class="table table-striped table-bordered" id="expense_report_table">
                         <thead>
-                            <tr class="danger">
+                            <tr class="gray">
                                 <th rowspan="2" style="width:120px; vertical-align: middle;">@lang('accounting::lang.gl_code')</th>
                                 <th rowspan="2" style="vertical-align: middle;">@lang('user.name')</th>
                                 @foreach($months as $index => $month)
@@ -174,7 +174,7 @@
                                 @endforeach
                                 <th class="text-right bg-primary" rowspan="2" style="width:150px; vertical-align: middle;">Total</th>
                             </tr>
-                            <tr class="danger">
+                            <tr class="gray">
                                 @foreach($months as $index => $month)
                                     <th class="text-center text-muted month-col" style="font-size: 10px;">
                                         {{ \Carbon\Carbon::parse($month['start'])->format('d M') }} - {{ \Carbon\Carbon::parse($month['end'])->format('d M') }}
@@ -221,7 +221,7 @@
                             @endforelse
                         </tbody>
                         <tfoot>
-                            <tr class="danger">
+                            <tr class="gray">
                                 <th colspan="2" class="text-right"><strong>@lang('accounting::lang.total_expenses')</strong></th>
                                 @foreach($months as $index => $month)
                                     @php
@@ -233,7 +233,7 @@
                                     @endphp
                                     <th class="text-right month-col">@format_currency($current_expense)</th>
                                     @if($index > 0)
-                                        <th class="text-right diff-col {{ $expense_diff_color }}" style="background-color: #f8d7da;">
+                                        <th class="text-right diff-col {{ $expense_diff_color }}" style="background-color: #39cccc;">
                                             @if($expense_diff > 0) <i class="fa fa-arrow-up"></i> @elseif($expense_diff < 0) <i class="fa fa-arrow-down"></i> @endif
                                             @format_currency(abs($expense_diff))
                                         </th>
@@ -250,7 +250,7 @@
                     <h4><strong><i class="fa fa-calculator"></i> @lang('accounting::lang.net_profit') / @lang('accounting::lang.net_loss')</strong></h4>
                     <table class="table table-bordered">
                         <thead>
-                            <tr class="{{ $net_profit >= 0 ? 'bg-green' : 'bg-red' }}">
+                            <tr class="{{ $net_profit >= 0 ? 'bg-green' : 'bg-blue' }}">
                                 <th style="font-size: 16px; vertical-align: middle;">
                                     <strong>
                                         @if($net_profit >= 0)
@@ -263,14 +263,14 @@
                                 @foreach($months as $index => $month)
                                     <th class="text-center month-col">{{ $month['label'] }}</th>
                                     @if($index > 0)
-                                        <th class="text-center diff-col bg-warning">Selisih</th>
+                                        <th class="text-center diff-col bg-teal">Selisih</th>
                                     @endif
                                 @endforeach
                                 <th class="text-center bg-primary">Total</th>
                             </tr>
                         </thead>
                         <tbody>
-                            <tr class="{{ $net_profit >= 0 ? 'bg-green' : 'bg-red' }}">
+                            <tr class="{{ $net_profit >= 0 ? 'bg-cyan' : 'bg-blue' }}">
                                 <td style="font-size: 16px;"><strong>Nilai</strong></td>
                                 @foreach($months as $index => $month)
                                     @php
@@ -286,7 +286,7 @@
                                         </strong>
                                     </td>
                                     @if($index > 0)
-                                        <td class="text-right diff-col {{ $net_diff_color }}" style="background-color: {{ $net_diff >= 0 ? '#d4edda' : '#f8d7da' }};">
+                                        <td class="text-right diff-col {{ $net_diff_color }}" style="background-color: {{ $net_diff >= 0 ? '#00c6ff' : '#39cccc' }};">
                                             @if($net_diff > 0) <i class="fa fa-arrow-up"></i> @elseif($net_diff < 0) <i class="fa fa-arrow-down"></i> @endif
                                             @format_currency(abs($net_diff))
                                         </td>
@@ -308,11 +308,11 @@
                             </div>
                             <div class="col-md-4 text-center">
                                 <h5>@lang('accounting::lang.total_expenses')</h5>
-                                <h3 class="text-danger">@format_currency($total_expense)</h3>
+                                <h3 class="text-primary">@format_currency($total_expense)</h3>
                             </div>
                             <div class="col-md-4 text-center">
                                 <h5>{{ $net_profit >= 0 ? __('accounting::lang.net_profit') : __('accounting::lang.net_loss') }}</h5>
-                                <h3 class="{{ $net_profit >= 0 ? 'text-success' : 'text-danger' }}">@format_currency(abs($net_profit))</h3>
+                                <h3 class="{{ $net_profit >= 0 ? 'text-success' : 'text-primary' }}">@format_currency(abs($net_profit))</h3>
                             </div>
                         </div>
                     </div>
@@ -507,6 +507,14 @@
     .bg-red {
         background-color: #dd4b39 !important;
         color: #fff;
+    }
+
+    .bg-blue{
+        background-color: #3099c4 !important;
+        color: #fff;
+    }
+    .table>thead>tr>td.gray{
+        background-color: #cecece;
     }
 
     .bg-green th, .bg-green td,
