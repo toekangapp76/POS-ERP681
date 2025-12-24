@@ -323,6 +323,8 @@ return [
     'add_default_accounts_help' => 'Apakah Anda ingin membuat akun default? Akun default dapat diedit/dihapus setelah dibuat',
     'add_default_accounts' => 'Buat Akun Default',
     'journal_entry' => 'Entri Jurnal',
+    'journal_entry_description' => 'Jurnal entry berisi pencatatan transaksi keuangan secara kronologis yang mencantumkan akun debit dan kredit untuk setiap transaksi sebagai tahap awal dalam proses akuntansi.',
+    'journal_entry_add_account' => 'Tambahkan beberapa akun untuk melihat laporan jounal entry',
     'debit' => 'Debet',
     'credit' => 'Kredit',
     'total' => 'Total',

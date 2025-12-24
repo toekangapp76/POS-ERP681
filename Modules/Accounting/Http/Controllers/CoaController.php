@@ -1531,6 +1531,153 @@ class CoaController extends Controller
             ->with(compact('account', 'current_bal', 'all_accounts'));
     }
 
+      /**
+     * Displays the ledger of the account
+     *
+     * @param  int  $account_id
+     * @return Response
+     */
+    public function journal_entry($account_id)
+    {
+        $business_id = request()->session()->get('user.business_id');
+
+        if (! (auth()->user()->can('superadmin') ||
+            $this->moduleUtil->hasThePermissionInSubscription($business_id, 'accounting_module')) ||
+            ! (auth()->user()->can('accounting.manage_accounts'))) {
+            abort(403, 'Unauthorized action.');
+        }
+
+        $account = AccountingAccount::where('business_id', $business_id)
+                        ->with(['account_sub_type', 'detail_type'])
+                        ->findorFail($account_id);
+
+        if (request()->ajax()) {
+            $start_date = request()->input('start_date');
+            $end_date = request()->input('end_date');
+            $account_ids = request()->input('account_ids');
+
+            // Use provided account IDs or default to current account
+            if (empty($account_ids)) {
+                $account_ids = [$account->id];
+            } elseif (!is_array($account_ids)) {
+                $account_ids = [$account_ids];
+            }
+
+            $transactions = AccountingAccountsTransaction::whereIn('accounting_account_id', $account_ids)
+                            ->leftjoin('accounting_acc_trans_mappings as ATM', 'accounting_accounts_transactions.acc_trans_mapping_id', '=', 'ATM.id')
+                            ->leftjoin('transactions as T', 'accounting_accounts_transactions.transaction_id', '=', 'T.id')
+                            ->leftjoin('users AS U', 'accounting_accounts_transactions.created_by', 'U.id')
+                            ->leftjoin('accounting_accounts as AA', 'accounting_accounts_transactions.accounting_account_id', '=', 'AA.id')
+                            ->select('accounting_accounts_transactions.operation_date',
+                                'accounting_accounts_transactions.sub_type',
+                                'accounting_accounts_transactions.type',
+                                'ATM.ref_no as a_ref', 'ATM.note',
+                                'accounting_accounts_transactions.amount',
+                                'AA.name as account_name',
+                                'AA.gl_code as account_gl_code',
+                                DB::raw("CONCAT(COALESCE(U.surname, ''),' ',COALESCE(U.first_name, ''),' ',COALESCE(U.last_name,'')) as added_by"),
+                                'T.invoice_no', 'T.ref_no'
+                            )
+                              ->orderBy('AA.name', 'ASC');
+            if (! empty($start_date) && ! empty($end_date)) {
+                $transactions->whereDate('accounting_accounts_transactions.operation_date', '>=', $start_date)
+                        ->whereDate('accounting_accounts_transactions.operation_date', '<=', $end_date);
+            }
+
+            return DataTables::of($transactions)
+                    ->editColumn('operation_date', function ($row) {
+                        return $this->accountingUtil->format_date($row->operation_date, true);
+                    })
+                    ->addColumn('account_name', function ($row) {
+                        $account_display = $row->account_name;
+                        if (!empty($row->account_gl_code)) {
+                            $account_display .= ' (' . $row->account_gl_code . ')';
+                        }
+                        return '<span class="label label-default">' . $account_display . '</span>';
+                    })
+                    ->editColumn('ref_no', function ($row) {
+                        $description = '';
+
+                        if ($row->sub_type == 'journal_entry') {
+                            $description = $row->a_ref;
+                        }
+
+                        if ($row->sub_type == 'opening_balance') {
+                            $description = '<b>'.__('accounting::lang.opening_balance').'</b>';
+                        }
+
+                        if ($row->sub_type == 'sell') {
+                            $description = $row->invoice_no;
+                        }
+
+                        if ($row->sub_type == 'expense') {
+                            $description = $row->ref_no;
+                        }
+
+                        return $description;
+                    })
+                    ->addColumn('debit', function ($row) {
+                        if ($row->type == 'debit') {
+                            return '<span class="debit" data-orig-value="'.$row->amount.'">'.$this->accountingUtil->num_f($row->amount, true).'</span>';
+                        }
+
+                        return '';
+                    })
+                    ->addColumn('credit', function ($row) {
+                        if ($row->type == 'credit') {
+                            return '<span class="credit"  data-orig-value="'.$row->amount.'">'.$this->accountingUtil->num_f($row->amount, true).'</span>';
+                        }
+
+                        return '';
+                    })
+                    // ->addColumn('balance', function ($row) use ($bal_before_start_date, $start_date) {
+                    //     //TODO:: Need to fix same balance showing for transactions having same operation date
+                    //     $current_bal = AccountingAccountsTransaction::where('accounting_account_id',
+                    //                         $row->account_id)
+                    //                     ->where('operation_date', '>=', $start_date)
+                    //                     ->where('operation_date', '<=', $row->operation_date)
+                    //                     ->select(DB::raw("SUM(IF(type='credit', amount, -1 * amount)) as balance"))
+                    //                     ->first()->balance;
+                    //     $bal = $bal_before_start_date + $current_bal;
+                    //     return '<span class="balance" data-orig-value="' . $bal . '">' . $this->accountingUtil->num_f($bal, true) . '</span>';
+                    // })
+                    // ->editColumn('action', function ($row) {
+                    //     $action = '';
+
+                    //     return $action;
+                    // })
+                    ->filterColumn('added_by', function ($query, $keyword) {
+                        $query->whereRaw("CONCAT(COALESCE(u.surname, ''), ' ', COALESCE(u.first_name, ''), ' ', COALESCE(u.last_name, '')) like ?", ["%{$keyword}%"]);
+                    })
+                    ->rawColumns(['ref_no', 'credit', 'debit', 'balance','account_name'])
+                    ->make(true);
+        }
+
+        $current_bal = AccountingAccount::leftjoin('accounting_accounts_transactions as AAT',
+                            'AAT.accounting_account_id', '=', 'accounting_accounts.id')
+                        ->where('business_id', $business_id)
+                        ->where('accounting_accounts.id', $account->id)
+                        ->select([DB::raw($this->accountingUtil->balanceFormula())]);
+        $current_bal = $current_bal->first()->balance;
+
+        // Get all accounts for multiselect dropdown
+        $all_accounts = AccountingAccount::where('business_id', $business_id)
+                        ->where('status', 'active')
+                        ->orderBy('name')
+                        ->get()
+                        ->mapWithKeys(function ($acc) {
+                            $name = $acc->name;
+                            if (!empty($acc->gl_code)) {
+                                $name .= ' (' . $acc->gl_code . ')';
+                            }
+                            return [$acc->id => $name];
+                        })
+                        ->toArray();
+
+        return view('accounting::chart_of_accounts.journal_entry')
+            ->with(compact('account', 'current_bal', 'all_accounts'));
+    }
+
     public function getAccountDetails()
     {
         $business_id = request()->session()->get('user.business_id');

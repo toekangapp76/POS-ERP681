@@ -19,8 +19,9 @@ Route::middleware('web', 'SetSessionData', 'auth', 'language', 'timezone', 'Admi
     Route::get('get-account-sub-types', [\Modules\Accounting\Http\Controllers\CoaController::class, 'getAccountSubTypes']);
     Route::get('get-account-details-types', [\Modules\Accounting\Http\Controllers\CoaController::class, 'getAccountDetailsType']);
     Route::resource('chart-of-accounts', \Modules\Accounting\Http\Controllers\CoaController::class);
-    Route::get('ledger/{id}', [\Modules\Accounting\Http\Controllers\CoaController::class, 'ledger'])->name('accounting.ledger');
-    Route::get('get-account-details', [\Modules\Accounting\Http\Controllers\CoaController::class, 'getAccountDetails'])->name('accounting.getAccountDetails');
+    Route::match(['get', 'post'], 'ledger/{id}', [\Modules\Accounting\Http\Controllers\CoaController::class, 'ledger'])->name('accounting.ledger');
+    Route::match(['get', 'post'], 'journal_entry/{id}', [\Modules\Accounting\Http\Controllers\CoaController::class, 'journal_entry'])->name('accounting.journal_entry');
+    Route::match(['get', 'post'], 'get-account-details', [\Modules\Accounting\Http\Controllers\CoaController::class, 'getAccountDetails'])->name('accounting.getAccountDetails');
     Route::get('activate-deactivate/{id}', [\Modules\Accounting\Http\Controllers\CoaController::class, 'activateDeactivate']);
     Route::get('create-default-accounts', [\Modules\Accounting\Http\Controllers\CoaController::class, 'createDefaultAccounts'])->name('accounting.create-default-accounts');
 

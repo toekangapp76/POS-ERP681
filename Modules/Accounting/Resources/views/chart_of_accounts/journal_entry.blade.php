@@ -1,6 +1,6 @@
 @extends('layouts.app')
 
-@section('title', __('accounting::lang.ledger'))
+@section('title', __('accounting::lang.journal_entry'))
 
 @section('content')
 
@@ -8,7 +8,7 @@
 
 <!-- Content Header (Page header) -->
 <section class="content-header">
-    <h1>@lang('accounting::lang.ledger') - <span class="account-details-name">{{$account->name}}</span></h1>
+    <h1>@lang('accounting::lang.journal_entry') - <span class="account-details-name">{{$account->name}}</span></h1>
 </section>
 
 <section class="content">
@@ -139,7 +139,7 @@
                 <div class="box-body">
                     @can('account.access')
                         <div class="table-responsive">
-                            <table class="table table-bordered table-striped" id="ledger">
+                            <table class="table table-bordered table-striped" id="journal_entry">
                                 <thead>
                                     <tr>
                                         <th>@lang('messages.date')</th>
@@ -188,8 +188,8 @@
             $('#account_filter').val(selectedValues);
             updateSelectedCountDisplay();
             updateAccountDetails();
-            if (typeof ledger !== 'undefined') {
-                ledger.ajax.reload();
+            if (typeof journal_entry !== 'undefined') {
+                journal_entry.ajax.reload();
             }
         }
 
@@ -300,7 +300,7 @@
             function (start, end) {
                 $('#transaction_date_range').val(start.format(moment_date_format) + ' ~ ' + end.format(moment_date_format));
 
-                ledger.ajax.reload();
+                journal_entry.ajax.reload();
             }
         );
 
@@ -352,7 +352,7 @@
         }
 
         // Account Book
-        ledger = $('#ledger').DataTable({
+        journal_entry = $('#journal_entry').DataTable({
             processing: true,
             serverSide: true,
             dom: 'Bfrtip',
@@ -407,7 +407,7 @@
                 }
             ],
             ajax: {
-                url: '{{action([\Modules\Accounting\Http\Controllers\CoaController::class, 'ledger'], [$account->id])}}',
+                url: '{{action([\Modules\Accounting\Http\Controllers\CoaController::class, 'journal_entry'], [$account->id])}}',
                 type: 'POST',
                 data: function (d) {
                     var start = '';
@@ -435,7 +435,7 @@
                 // { data: 'action', name: 'action', searchable: false }
             ],
             "fnDrawCallback": function (oSettings) {
-                __currency_convert_recursively($('#ledger'));
+                __currency_convert_recursively($('#journal_entry'));
             },
             "footerCallback": function (row, data, start, end, display) {
                 var footer_total_debit = 0;
@@ -452,7 +452,7 @@
         });
         $('#transaction_date_range').on('cancel.daterangepicker', function (ev, picker) {
             $('#transaction_date_range').val('');
-            ledger.ajax.reload();
+            journal_entry.ajax.reload();
         });
     });
 </script>

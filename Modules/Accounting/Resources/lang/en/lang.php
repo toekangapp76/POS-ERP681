@@ -326,6 +326,8 @@ return [
     'add_default_accounts_help' => 'Would you like us to create default accounts? Default accounts can be edited/deleted after it is created',
     'add_default_accounts' => 'Create Default Accounts',
     'journal_entry' => 'Journal Entry',
+    'journal_entry_description' => 'The journal entry records financial transactions in chronological order, showing the debit and credit details for each transaction.',
+    'journal_entry_add_account' => 'Add some account to view jounal entry report',
     'debit' => 'Debit',
     'credit' => 'Credit',
     'total' => 'Total',

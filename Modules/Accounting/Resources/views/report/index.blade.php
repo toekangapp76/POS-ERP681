@@ -50,6 +50,20 @@
                 </div>
 
                 <div class="box-body">
+                    @lang( 'accounting::lang.journal_entry_description')
+                    <br/>
+                    <a @if($journal_entry_url) href="{{$journal_entry_url}}" @else onclick="alert(' @lang( 'accounting::lang.journal_entry_add_account') ')" @endif class="btn btn-primary btn-sm pt-2">@lang( 'accounting::lang.view_report')</a>
+                </div>
+
+            </div>
+        </div>
+          <div class="col-md-6">
+            <div class="box box-warning">
+                <div class="box-header with-border">
+                    <h3 class="box-title">@lang( 'accounting::lang.ledger')</h3>
+                </div>
+
+                <div class="box-body">
                     @lang( 'accounting::lang.ledger_report_description')
                     <br/>
                     <a @if($ledger_url) href="{{$ledger_url}}" @else onclick="alert(' @lang( 'accounting::lang.ledger_add_account') ')" @endif class="btn btn-primary btn-sm pt-2">@lang( 'accounting::lang.view_report')</a>
