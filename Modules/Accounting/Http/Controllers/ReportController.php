@@ -58,7 +58,7 @@ class ReportController extends Controller
         }
          $journal_entry_url = null;
         if (!empty($first_account)) {
-            $journal_entry_url = route('accounting.journal_entry', $first_account);
+            $journal_entry_url = route('journal-entry.index', $first_account);
         }
 
         return view('accounting::report.index')
