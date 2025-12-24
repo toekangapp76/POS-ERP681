@@ -307,5 +307,17 @@
     'no_active_subscription_checkin_denied' => 'Check-in denied: No active membership found',
     'quota_exhausted_checkin_denied' => 'Check-in denied: Membership quota has been exhausted',
     'check_in_denied' => 'Check-in Denied',
+    
+    // Accounting Mapping
+    'accounting_mapping' => 'Accounting Mapping',
+    'accounting_mapping_help' => 'Configure accounting accounts for automatic journal entries when this package is sold.',
+    'bank_cash_account' => 'Bank/Cash Account',
+    'bank_account_help' => 'Debit: Account to receive payment',
+    'revenue_account' => 'Revenue Account',
+    'revenue_account_help' => 'Credit: Income/Revenue account',
+    'tax_account' => 'Tax Account (PPN)',
+    'tax_account_help' => 'Credit: Tax liability account (optional)',
+    'auto_mapped' => 'Auto Mapped',
+    'not_mapped' => 'Not Mapped',
   ] 
 ?>

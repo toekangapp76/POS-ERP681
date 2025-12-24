@@ -37,6 +37,9 @@
                             @lang('gym::lang.session_limit')
                         </th>
                         <th>
+                            @lang('gym::lang.accounting_mapping')
+                        </th>
+                        <th>
                             @lang('lang_v1.created_at')
                         </th>
                         <th>
@@ -84,6 +87,12 @@
                     {
                         data: 'session_limit',
                         name: 'session_limit',
+                        orderable: false,
+                        searchable: false
+                    },
+                    {
+                        data: 'accounting_status',
+                        name: 'accounting_status',
                         orderable: false,
                         searchable: false
                     },

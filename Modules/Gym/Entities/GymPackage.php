@@ -4,6 +4,7 @@ namespace Modules\Gym\Entities;
 
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
+use Modules\Accounting\Entities\AccountingAccount;
 
 class GymPackage extends Model
 {
@@ -23,6 +24,38 @@ class GymPackage extends Model
         'session_count_limit' => 'integer',
         'enabled' => 'boolean',
     ];
+
+    /**
+     * Revenue Account relationship (Credit untuk pendapatan membership)
+     */
+    public function revenueAccount()
+    {
+        return $this->belongsTo(AccountingAccount::class, 'revenue_account_id');
+    }
+
+    /**
+     * Bank/Cash Account relationship (Debit untuk penerimaan)
+     */
+    public function bankAccount()
+    {
+        return $this->belongsTo(AccountingAccount::class, 'bank_account_id');
+    }
+
+    /**
+     * Tax Account relationship (Credit untuk PPN)
+     */
+    public function taxAccount()
+    {
+        return $this->belongsTo(AccountingAccount::class, 'tax_account_id');
+    }
+
+    /**
+     * Check if this package has accounting mapping configured
+     */
+    public function hasAccountingMapping(): bool
+    {
+        return !empty($this->revenue_account_id) && !empty($this->bank_account_id);
+    }
 
     /**
      * Check if this package has session time limit enabled (hours/minutes)
