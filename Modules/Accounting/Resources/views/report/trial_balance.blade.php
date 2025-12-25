@@ -10,9 +10,10 @@
     <div class="row">
         <div class="col-md-3 col-md-offset-1">
             <div class="form-group">
-                {!! Form::label('month_filter', __('lang_v1.month') . ':') !!}
-                {!! Form::month('month_filter', $month, 
-                    ['class' => 'form-control', 'id' => 'month_filter']); !!}
+                {!! Form::label('date_range_filter', __('report.date_range') . ':') !!}
+                {!! Form::text('date_range_filter', null,
+                    ['placeholder' => __('lang_v1.select_a_date_range'),
+                    'class' => 'form-control', 'readonly', 'id' => 'date_range_filter']); !!}
             </div>
         </div>
     </div>
@@ -185,14 +186,31 @@
             }
         });
 
-        // Month filter change handler
-        $('#month_filter').on('change', function() {
-            var month = $(this).val();
-            if (month) {
+        dateRangeSettings.startDate = moment('{{$start_date}}');
+        dateRangeSettings.endDate = moment('{{$end_date}}');
+        $('#date_range_filter').daterangepicker(
+            dateRangeSettings,
+            function(start, end) {
+                $('#date_range_filter').val(start.format(moment_date_format) + ' ~ ' + end.format(moment_date_format));
+
                 const urlParams = new URLSearchParams(window.location.search);
-                urlParams.set('month', month);
+                urlParams.set('start_date', start.format('YYYY-MM-DD'));
+                urlParams.set('end_date', end.format('YYYY-MM-DD'));
+                urlParams.delete('month');
                 window.location.search = urlParams;
             }
+        );
+        $('#date_range_filter').val(
+            moment('{{$start_date}}').format(moment_date_format) + ' ~ ' + moment('{{$end_date}}').format(moment_date_format)
+        );
+
+        $('#date_range_filter').on('cancel.daterangepicker', function(ev, picker) {
+            $('#date_range_filter').val('');
+            const urlParams = new URLSearchParams(window.location.search);
+            urlParams.delete('start_date');
+            urlParams.delete('end_date');
+            urlParams.delete('month');
+            window.location.search = urlParams;
         });
     });
 
