@@ -11,7 +11,7 @@ env:
   FTP_HOST: ${{ secrets.FTP_HOST }}
   FTP_USER: ${{ secrets.FTP_USER }}
   FTP_PASSWORD: ${{ secrets.FTP_PASSWORD }}
-  DEPLOY_PATH: /public_html/Ascend 
+  DEPLOY_PATH: /public_html/Ascend/ 
 
 jobs:
   deploy:
