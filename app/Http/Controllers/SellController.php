@@ -916,7 +916,6 @@ class SellController extends Controller
 
         $sell = $query->firstOrFail();
         
-        // For gym_subscription, use a different view
         if ($sell->type == 'gym_subscription') {
             return $this->showGymSubscription($sell);
         }
