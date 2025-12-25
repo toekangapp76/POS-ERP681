@@ -53,6 +53,9 @@ Route::middleware('web', 'SetSessionData', 'auth', 'language', 'timezone', 'Admi
     Route::get('reports/profit-loss',
     [\Modules\Accounting\Http\Controllers\ReportController::class, 'profitLoss'])->name('accounting.profitLoss');
 
+    Route::get('reports/pnl-ytd',
+    [\Modules\Accounting\Http\Controllers\ReportController::class, 'pnlYtd'])->name('accounting.pnlYtd');
+
     Route::get('transactions', [\Modules\Accounting\Http\Controllers\TransactionController::class, 'index']);
     Route::get('transactions/map', [\Modules\Accounting\Http\Controllers\TransactionController::class, 'map']);
     Route::post('transactions/save-map', [\Modules\Accounting\Http\Controllers\TransactionController::class, 'saveMap']);

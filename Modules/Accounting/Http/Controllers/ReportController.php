@@ -183,14 +183,61 @@ class ReportController extends Controller
         $re_debit_balance = $re_period_profit < 0 ? abs($re_period_profit) : 0;
         $re_credit_balance = $re_period_profit > 0 ? $re_period_profit : 0;
 
+        // Determine if start_date is at or before the fiscal year start
+        // If start_date <= fiscal year start, beginning balance should be 0
+        $fiscal_year_start = $base_start_date;
+        $is_start_of_year = \Carbon\Carbon::parse($start_date)->lte(\Carbon\Carbon::parse($fiscal_year_start));
+
         foreach ($all_accounts as $account) {
             // Calculate beginning balance (all transactions up to the day before start_date)
-            $beginning = DB::table('accounting_accounts_transactions as AAT')
-                ->join('accounting_accounts as AA', 'AAT.accounting_account_id', '=', 'AA.id')
-                ->where('AAT.accounting_account_id', $account->id)
-                ->whereDate('AAT.operation_date', '<=', $beginning_balance_date)
-                ->select(DB::raw($balance_formula))
-                ->first();
+            // But only count transactions from fiscal year start onwards for P&L accounts
+            // For balance sheet accounts (asset, liability, equity), include all historical transactions
+            $beginning_balance = 0;
+
+            if (!$is_start_of_year) {
+                // Only calculate beginning balance if we're not at the start of fiscal year
+                $gl_code_first = !empty($account->gl_code) ? substr($account->gl_code, 0, 1) : '0';
+                $is_pl_account = is_numeric($gl_code_first) && (int)$gl_code_first >= 4;
+
+                if ($is_pl_account) {
+                    // For P&L accounts (gl_code >= 4), beginning balance is from fiscal year start to day before selected start_date
+                    // This represents YTD balance before the selected period
+                    $beginning = DB::table('accounting_accounts_transactions as AAT')
+                        ->join('accounting_accounts as AA', 'AAT.accounting_account_id', '=', 'AA.id')
+                        ->where('AAT.accounting_account_id', $account->id)
+                        ->whereDate('AAT.operation_date', '>=', $fiscal_year_start)
+                        ->whereDate('AAT.operation_date', '<=', $beginning_balance_date)
+                        ->select(DB::raw($balance_formula))
+                        ->first();
+                    $beginning_balance = $beginning->balance ?? 0;
+                } else {
+                    // For balance sheet accounts, include ALL historical transactions
+                    $beginning = DB::table('accounting_accounts_transactions as AAT')
+                        ->join('accounting_accounts as AA', 'AAT.accounting_account_id', '=', 'AA.id')
+                        ->where('AAT.accounting_account_id', $account->id)
+                        ->whereDate('AAT.operation_date', '<=', $beginning_balance_date)
+                        ->select(DB::raw($balance_formula))
+                        ->first();
+                    $beginning_balance = $beginning->balance ?? 0;
+                }
+            } else {
+                // At start of fiscal year - P&L accounts have 0 beginning balance
+                // Balance sheet accounts still have their full historical balance
+                $gl_code_first = !empty($account->gl_code) ? substr($account->gl_code, 0, 1) : '0';
+                $is_pl_account = is_numeric($gl_code_first) && (int)$gl_code_first >= 4;
+
+                if (!$is_pl_account) {
+                    // Balance sheet accounts keep their historical balance
+                    $beginning = DB::table('accounting_accounts_transactions as AAT')
+                        ->join('accounting_accounts as AA', 'AAT.accounting_account_id', '=', 'AA.id')
+                        ->where('AAT.accounting_account_id', $account->id)
+                        ->whereDate('AAT.operation_date', '<=', $beginning_balance_date)
+                        ->select(DB::raw($balance_formula))
+                        ->first();
+                    $beginning_balance = $beginning->balance ?? 0;
+                }
+                // P&L accounts have 0 beginning balance at start of fiscal year
+            }
 
             // Calculate period transactions (debit and credit in the date range)
             $period = DB::table('accounting_accounts_transactions as AAT')
@@ -203,7 +250,6 @@ class ReportController extends Controller
                 )
                 ->first();
 
-            $beginning_balance = $beginning->balance ?? 0;
             $debit_balance = $period->debit ?? 0;
             $credit_balance = $period->credit ?? 0;
             if (in_array($account->account_primary_type, ['asset', 'expense'])) {
@@ -222,6 +268,11 @@ class ReportController extends Controller
                 'credit_balance' => $credit_balance,
                 'ending_balance' => $ending_balance,
             ]);
+        }
+
+        // Recalculate R/E opening balance based on whether we're at start of fiscal year
+        if ($is_start_of_year) {
+            $re_opening_balance = 0;
         }
 
         $re_index = $accounts->search(function ($row) {
@@ -707,6 +758,188 @@ class ReportController extends Controller
         $net_profit = $total_income - $total_expense;
 
         return view('accounting::report.profit_loss')
+            ->with(compact('income_accounts', 'expense_accounts', 'total_income', 'total_expense', 'net_profit', 'start_date', 'end_date', 'months', 'monthly_totals', 'gym_categories', 'gym_category_id'));
+    }
+
+    /**
+     * Profit and Loss YTD (Year-to-Date) Report
+     * Similar to Balance Sheet but for P&L accounts
+     *
+     * @return Response
+     */
+    public function pnlYtd()
+    {
+        $business_id = request()->session()->get('user.business_id');
+
+        if (
+            !(auth()->user()->can('superadmin') ||
+                $this->moduleUtil->hasThePermissionInSubscription($business_id, 'accounting_module')) ||
+            !(auth()->user()->can('accounting.view_reports'))
+        ) {
+            abort(403, 'Unauthorized action.');
+        }
+
+        // Gym category filter
+        $gym_category_id = request()->input('gym_category_id', null);
+        $gym_categories = [];
+        try {
+            $gym_categories = GymCategory::forDropdown($business_id, false);
+        } catch (\Exception $e) {
+            // Gym module not installed
+        }
+
+        if (!empty(request()->end_date)) {
+            $selected_end = \Carbon\Carbon::parse(request()->end_date)->endOfMonth();
+            $business_start = Business::where('id', $business_id)->value('start_date');
+
+            if (!empty($business_start)) {
+                $business_start = \Carbon\Carbon::parse($business_start)->startOfDay();
+                if ($business_start->greaterThan($selected_end)) {
+                    $start_date = $selected_end->copy()->startOfMonth()->format('Y-m-d');
+                } else {
+                    $start_date = $business_start->format('Y-m-d');
+                }
+            } else {
+                $start_date = $selected_end->copy()->startOfYear()->format('Y-m-d');
+            }
+
+            $end_date = $selected_end->format('Y-m-d');
+        } else {
+            $fy = $this->businessUtil->getCurrentFinancialYear($business_id);
+            $start_date = $fy['start'];
+            $end_date = $fy['end'];
+        }
+
+        // Generate list of months in the date range
+        $months = [];
+        $current = \Carbon\Carbon::parse($start_date)->startOfMonth();
+        $end = \Carbon\Carbon::parse($end_date)->endOfMonth();
+
+        while ($current <= $end) {
+            $months[] = [
+                'key' => $current->format('Y-m'),
+                'label' => $current->translatedFormat('M Y'),
+                'start' => $current->copy()->startOfMonth()->format('Y-m-d'),
+                'end' => $current->copy()->endOfMonth()->format('Y-m-d'),
+            ];
+            $current->addMonth();
+        }
+
+        // Get all active P&L accounts (gl_code >= 4)
+        $all_accounts = AccountingAccount::where('business_id', $business_id)
+            ->where('status', 'active')
+            ->whereNotNull('gl_code')
+            ->where('gl_code', '!=', '')
+            ->whereRaw("CAST(SUBSTRING(gl_code, 1, 1) AS UNSIGNED) >= 4")
+            ->select('id', 'name', 'gl_code', 'account_primary_type')
+            ->orderBy('gl_code')
+            ->get();
+
+        $income_accounts = collect();
+        $expense_accounts = collect();
+        $total_income = 0;
+        $total_expense = 0;
+
+        // Initialize monthly totals
+        $monthly_totals = [
+            'income' => [],
+            'expense' => [],
+            'net_profit' => [],
+        ];
+        foreach ($months as $month) {
+            $monthly_totals['income'][$month['key']] = 0;
+            $monthly_totals['expense'][$month['key']] = 0;
+            $monthly_totals['net_profit'][$month['key']] = 0;
+        }
+
+        foreach ($all_accounts as $account) {
+            $monthly_balances = [];
+            $cumulative_balance = 0; // Track cumulative YTD balance
+            $has_any_balance = false;
+
+            foreach ($months as $month) {
+                // Calculate monthly balance (EXCLUDE opening_balance)
+                $query = DB::table('accounting_accounts_transactions')
+                    ->where('accounting_accounts_transactions.accounting_account_id', $account->id)
+                    ->where(function ($q) {
+                        $q->whereNull('accounting_accounts_transactions.sub_type')
+                            ->orWhere('accounting_accounts_transactions.sub_type', '!=', 'opening_balance');
+                    })
+                    ->whereDate('accounting_accounts_transactions.operation_date', '>=', $month['start'])
+                    ->whereDate('accounting_accounts_transactions.operation_date', '<=', $month['end']);
+
+                // Apply gym category filter if specified
+                if (!empty($gym_category_id)) {
+                    $query->leftJoin('transactions', 'accounting_accounts_transactions.transaction_id', '=', 'transactions.id')
+                        ->leftJoin('gym_packages', 'transactions.gym_package_id', '=', 'gym_packages.id')
+                        ->where(function ($q) use ($gym_category_id) {
+                            $q->where('gym_packages.gym_category_id', $gym_category_id)
+                                ->orWhereNull('accounting_accounts_transactions.transaction_id');
+                        });
+                }
+
+                $period = $query->select(
+                    DB::raw("SUM(IF(accounting_accounts_transactions.type = 'debit', accounting_accounts_transactions.amount, 0)) as debit"),
+                    DB::raw("SUM(IF(accounting_accounts_transactions.type = 'credit', accounting_accounts_transactions.amount, 0)) as credit")
+                )->first();
+
+                $debit_balance = $period->debit ?? 0;
+                $credit_balance = $period->credit ?? 0;
+
+                // For income: credit - debit = positive income
+                // For expense: debit - credit = positive expense
+                $month_balance = $account->account_primary_type == 'income'
+                    ? ($credit_balance - $debit_balance)
+                    : ($debit_balance - $credit_balance);
+
+                // Add to cumulative YTD balance
+                $cumulative_balance += $month_balance;
+
+                // Store cumulative YTD balance for this month
+                $monthly_balances[$month['key']] = $cumulative_balance;
+
+                if ($month_balance != 0) {
+                    $has_any_balance = true;
+                }
+
+                // Add to monthly totals (cumulative)
+                if ($account->account_primary_type == 'income') {
+                    $monthly_totals['income'][$month['key']] += $cumulative_balance;
+                } else {
+                    $monthly_totals['expense'][$month['key']] += $cumulative_balance;
+                }
+            }
+
+            // Only include accounts that have activity during the period
+            if ($has_any_balance) {
+                $account_data = (object) [
+                    'id' => $account->id,
+                    'name' => $account->name,
+                    'gl_code' => $account->gl_code,
+                    'account_primary_type' => $account->account_primary_type,
+                    'monthly_balances' => $monthly_balances,
+                    'balance' => $cumulative_balance, // Final YTD balance
+                ];
+
+                if ($account->account_primary_type == 'income') {
+                    $income_accounts->push($account_data);
+                    $total_income += $cumulative_balance;
+                } else {
+                    $expense_accounts->push($account_data);
+                    $total_expense += $cumulative_balance;
+                }
+            }
+        }
+
+        // Calculate net profit per month (cumulative)
+        foreach ($months as $month) {
+            $monthly_totals['net_profit'][$month['key']] =
+                $monthly_totals['income'][$month['key']] - $monthly_totals['expense'][$month['key']];
+        }
+
+        $net_profit = $total_income - $total_expense;
+
+        return view('accounting::report.pnl_ytd')
             ->with(compact('income_accounts', 'expense_accounts', 'total_income', 'total_expense', 'net_profit', 'start_date', 'end_date', 'months', 'monthly_totals', 'gym_categories', 'gym_category_id'));
     }
 }

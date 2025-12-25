@@ -443,6 +443,8 @@ return [
     'add_more_row' => 'Add more row',
     'profit_loss' => 'Profit & Loss',
     'profit_loss_description' => 'This report shows income and expenses from accounts with GL Code starting from 4 and above. It calculates the net profit or loss for the selected period.',
+    'pnl_ytd' => 'Profit & Loss YTD',
+    'pnl_ytd_description' => 'This report shows cumulative Year-to-Date (YTD) income and expenses. Values are accumulated from the start of the fiscal year to the selected month.',
     'total_income' => 'Total Income',
     'total_expenses' => 'Total Expenses',
     'net_profit' => 'Net Profit',

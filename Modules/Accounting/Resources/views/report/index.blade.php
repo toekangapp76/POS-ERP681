@@ -44,6 +44,21 @@
         </div>
 
         <div class="col-md-6">
+            <div class="box box-info">
+                <div class="box-header with-border">
+                    <h3 class="box-title"><i class="fa fa-bar-chart"></i> @lang( 'accounting::lang.pnl_ytd')</h3>
+                </div>
+
+                <div class="box-body">
+                    @lang( 'accounting::lang.pnl_ytd_description')
+                    <br/>
+                    <a href="{{route('accounting.pnlYtd')}}" class="btn btn-info btn-sm pt-2">@lang( 'accounting::lang.view_report')</a>
+                </div>
+
+            </div>
+        </div>
+
+        <div class="col-md-6">
             <div class="box box-warning">
                 <div class="box-header with-border">
                     <h3 class="box-title">@lang( 'accounting::lang.journal_entry')</h3>
