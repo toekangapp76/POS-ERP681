@@ -12,13 +12,43 @@
 </section>
 
 <section class="content">
+    @php
+        $selected_end = \Carbon\Carbon::parse($end_date);
+        $selected_month = $selected_end->format('m');
+        $selected_year = $selected_end->format('Y');
+
+        $year_start = (int) \Carbon\Carbon::parse($start_date)->format('Y');
+        $year_end = (int) $selected_year;
+        if ($year_start > $year_end) {
+            $tmp = $year_start;
+            $year_start = $year_end;
+            $year_end = $tmp;
+        }
+
+        $year_options = [];
+        for ($year = $year_start; $year <= $year_end; $year++) {
+            $year_options[$year] = $year;
+        }
+
+        $month_options = [];
+        for ($month = 1; $month <= 12; $month++) {
+            $value = str_pad($month, 2, '0', STR_PAD_LEFT);
+            $month_options[$value] = \Carbon\Carbon::createFromDate(null, $month, 1)->translatedFormat('F');
+        }
+    @endphp
     <div class="row">
         <div class="col-md-3 col-md-offset-1">
             <div class="form-group">
-                {!! Form::label('date_range_filter', __('report.date_range') . ':') !!}
-                {!! Form::text('date_range_filter', null, 
-                    ['placeholder' => __('lang_v1.select_a_date_range'), 
-                    'class' => 'form-control', 'readonly', 'id' => 'date_range_filter']); !!}
+                <div class="row">
+                    <div class="col-xs-6">
+                        {!! Form::label('month_filter', __('lang_v1.month') . ':') !!}
+                        {!! Form::select('month_filter', $month_options, $selected_month, ['class' => 'form-control', 'id' => 'month_filter']) !!}
+                    </div>
+                    <div class="col-xs-6">
+                        {!! Form::label('year_filter', __('lang_v1.year') . ':') !!}
+                        {!! Form::select('year_filter', $year_options, $selected_year, ['class' => 'form-control', 'id' => 'year_filter']) !!}
+                    </div>
+                </div>
             </div>
         </div>
         <div class="col-md-3">
@@ -39,7 +69,6 @@
             <div class="box box-warning">
                 <div class="box-header with-border text-center">
                     <h2 class="box-title">@lang( 'accounting::lang.balance_sheet')</h2>
-                    <p>{{@format_date($start_date)}} ~ {{@format_date($end_date)}}</p>
                 </div>
     
                 <div class="box-body table-responsive">
@@ -51,11 +80,12 @@
                             $last_month = $month_count > 1 ? $months[$month_count - 2] : null;
                             $current_key = $current_month['key'] ?? null;
                             $last_key = $last_month['key'] ?? null;
-                            $current_range_label = $current_month
-                                ? \Carbon\Carbon::parse($current_month['start'])->format('d M') . ' - ' . \Carbon\Carbon::parse($current_month['end'])->format('d M')
+                            $period_start = $month_count > 0 ? \Carbon\Carbon::parse($months[0]['start']) : null;
+                            $current_range_label = ($current_month && $period_start)
+                                ? 'as at ' . \Carbon\Carbon::parse($current_month['end'])->format('M')
                                 : '-';
-                            $last_range_label = $last_month
-                                ? \Carbon\Carbon::parse($last_month['start'])->format('d M') . ' - ' . \Carbon\Carbon::parse($last_month['end'])->format('d M')
+                            $last_range_label = ($last_month && $period_start)
+                                ? ' as at ' . \Carbon\Carbon::parse($last_month['end'])->format('M')
                                 : '-';
                         @endphp
                         <thead>
@@ -108,8 +138,18 @@
                                     <td>{{ $account->name }}</td>
                                     <td>{{ __('accounting::lang.' . $account->account_primary_type) }}</td>
                                     @php
-                                        $last_balance = $last_key ? ($account->monthly_balances[$last_key] ?? 0) : 0;
-                                        $current_balance = $current_key ? ($account->monthly_balances[$current_key] ?? 0) : 0;
+                                        $last_balance = 0;
+                                        $current_balance = 0;
+                                        $running_balance = 0;
+                                        foreach ($months as $month) {
+                                            $running_balance += $account->monthly_balances[$month['key']] ?? 0;
+                                            if ($last_key && $month['key'] === $last_key) {
+                                                $last_balance = $running_balance;
+                                            }
+                                            if ($current_key && $month['key'] === $current_key) {
+                                                $current_balance = $running_balance;
+                                            }
+                                        }
                                         $difference = $current_balance - $last_balance;
                                     @endphp
                                     <td class="text-right month-col">
@@ -119,13 +159,7 @@
                                         <span data-orig-value="{{ $current_balance }}">@format_currency($current_balance)</span>
                                     </td>
                                     @php
-                                        // For Assets & Equity: positive = good (green), negative = bad (red)
-                                        // For Liabilities: positive = bad (red/more debt), negative = good (green/less debt)
-                                        if ($account->account_primary_type == 'liability') {
-                                            $diff_color = $difference > 0 ? 'text-danger' : ($difference < 0 ? 'text-success' : '');
-                                        } else {
-                                            $diff_color = $difference > 0 ? 'text-success' : ($difference < 0 ? 'text-danger' : '');
-                                        }
+                                        $diff_color = $difference > 0 ? 'text-success' : ($difference < 0 ? 'text-danger' : '');
                                     @endphp
                                     <td class="text-right diff-col {{ $diff_color }}">
                                         @if($difference > 0)
@@ -146,8 +180,18 @@
                                         $monthly_totals_equity[$month['key']] += $re_current_year->monthly_balances[$month['key']] ?? 0;
                                     }
                                     
-                                    $re_last_balance = $last_key ? ($re_current_year->monthly_balances[$last_key] ?? 0) : 0;
-                                    $re_current_balance = $current_key ? ($re_current_year->monthly_balances[$current_key] ?? 0) : 0;
+                                    $re_last_balance = 0;
+                                    $re_current_balance = 0;
+                                    $re_running_balance = 0;
+                                    foreach ($months as $month) {
+                                        $re_running_balance += $re_current_year->monthly_balances[$month['key']] ?? 0;
+                                        if ($last_key && $month['key'] === $last_key) {
+                                            $re_last_balance = $re_running_balance;
+                                        }
+                                        if ($current_key && $month['key'] === $current_key) {
+                                            $re_current_balance = $re_running_balance;
+                                        }
+                                    }
                                     $re_difference = $re_current_balance - $re_last_balance;
                                     $re_diff_color = $re_difference > 0 ? 'text-success' : ($re_difference < 0 ? 'text-danger' : '');
                                 @endphp
@@ -184,8 +228,18 @@
                             <tr class="bg-success">
                                 <th colspan="3" class="text-right">@lang('accounting::lang.total_assets'):</th>
                                 @php
-                                    $last_asset_total = $last_key ? ($monthly_totals_assets[$last_key] ?? 0) : 0;
-                                    $current_asset_total = $current_key ? ($monthly_totals_assets[$current_key] ?? 0) : 0;
+                                    $last_asset_total = 0;
+                                    $current_asset_total = 0;
+                                    $running_asset_total = 0;
+                                    foreach ($months as $month) {
+                                        $running_asset_total += $monthly_totals_assets[$month['key']] ?? 0;
+                                        if ($last_key && $month['key'] === $last_key) {
+                                            $last_asset_total = $running_asset_total;
+                                        }
+                                        if ($current_key && $month['key'] === $current_key) {
+                                            $current_asset_total = $running_asset_total;
+                                        }
+                                    }
                                     $asset_diff = $current_asset_total - $last_asset_total;
                                 @endphp
                                 <th class="text-right month-col">@format_currency($last_asset_total)</th>
@@ -200,13 +254,23 @@
                             <tr class="bg-warning">
                                 <th colspan="3" class="text-right">@lang('accounting::lang.total_liabilities'):</th>
                                 @php
-                                    $last_liab_total = $last_key ? ($monthly_totals_liabilities[$last_key] ?? 0) : 0;
-                                    $current_liab_total = $current_key ? ($monthly_totals_liabilities[$current_key] ?? 0) : 0;
+                                    $last_liab_total = 0;
+                                    $current_liab_total = 0;
+                                    $running_liab_total = 0;
+                                    foreach ($months as $month) {
+                                        $running_liab_total += $monthly_totals_liabilities[$month['key']] ?? 0;
+                                        if ($last_key && $month['key'] === $last_key) {
+                                            $last_liab_total = $running_liab_total;
+                                        }
+                                        if ($current_key && $month['key'] === $current_key) {
+                                            $current_liab_total = $running_liab_total;
+                                        }
+                                    }
                                     $liab_diff = $current_liab_total - $last_liab_total;
                                 @endphp
                                 <th class="text-right month-col">@format_currency($last_liab_total)</th>
                                 <th class="text-right month-col">@format_currency($current_liab_total)</th>
-                                <th class="text-right diff-col {{ $liab_diff > 0 ? 'text-danger' : ($liab_diff < 0 ? 'text-success' : '') }}" style="background-color: #fff3cd;">
+                                <th class="text-right diff-col {{ $liab_diff > 0 ? 'text-success' : ($liab_diff < 0 ? 'text-danger' : '') }}" style="background-color: #fff3cd;">
                                     @if($liab_diff > 0) <i class="fa fa-arrow-up"></i> @elseif($liab_diff < 0) <i class="fa fa-arrow-down"></i> @endif
                                     @format_currency(abs($liab_diff))
                                 </th>
@@ -216,8 +280,18 @@
                             <tr class="bg-info">
                                 <th colspan="3" class="text-right">@lang('accounting::lang.total_equity'):</th>
                                 @php
-                                    $last_equity_total = $last_key ? ($monthly_totals_equity[$last_key] ?? 0) : 0;
-                                    $current_equity_total = $current_key ? ($monthly_totals_equity[$current_key] ?? 0) : 0;
+                                    $last_equity_total = 0;
+                                    $current_equity_total = 0;
+                                    $running_equity_total = 0;
+                                    foreach ($months as $month) {
+                                        $running_equity_total += $monthly_totals_equity[$month['key']] ?? 0;
+                                        if ($last_key && $month['key'] === $last_key) {
+                                            $last_equity_total = $running_equity_total;
+                                        }
+                                        if ($current_key && $month['key'] === $current_key) {
+                                            $current_equity_total = $running_equity_total;
+                                        }
+                                    }
                                     $equity_diff = $current_equity_total - $last_equity_total;
                                 @endphp
                                 <th class="text-right month-col">@format_currency($last_equity_total)</th>
@@ -232,8 +306,8 @@
                             <tr class="bg-primary">
                                 <th colspan="3" class="text-right">@lang('accounting::lang.total_liab_owners'):</th>
                                 @php
-                                    $last_liab_eq = ($last_key ? ($monthly_totals_liabilities[$last_key] ?? 0) : 0) + ($last_key ? ($monthly_totals_equity[$last_key] ?? 0) : 0);
-                                    $current_liab_eq = ($current_key ? ($monthly_totals_liabilities[$current_key] ?? 0) : 0) + ($current_key ? ($monthly_totals_equity[$current_key] ?? 0) : 0);
+                                    $last_liab_eq = $last_liab_total + $last_equity_total;
+                                    $current_liab_eq = $current_liab_total + $current_equity_total;
                                     $liab_eq_diff = $current_liab_eq - $last_liab_eq;
                                 @endphp
                                 <th class="text-right month-col">@format_currency($last_liab_eq)</th>
@@ -383,37 +457,25 @@
             table.columns.adjust().draw();
         });
 
-        dateRangeSettings.startDate = moment('{{$start_date}}');
-        dateRangeSettings.endDate = moment('{{$end_date}}');
-
-        $('#date_range_filter').daterangepicker(
-            dateRangeSettings,
-            function (start, end) {
-                $('#date_range_filter').val(start.format(moment_date_format) + ' ~ ' + end.format(moment_date_format));
-                apply_filter();
-            }
-        );
-        $('#date_range_filter').on('cancel.daterangepicker', function(ev, picker) {
-            $('#date_range_filter').val('');
+        $('#month_filter, #year_filter').on('change', function() {
             apply_filter();
         });
 
         function apply_filter(){
-            var start = '';
             var end = '';
+            var month = $('#month_filter').val();
+            var year = $('#year_filter').val();
 
-            if ($('#date_range_filter').val()) {
-                start = $('input#date_range_filter')
-                    .data('daterangepicker')
-                    .startDate.format('YYYY-MM-DD');
-                end = $('input#date_range_filter')
-                    .data('daterangepicker')
-                    .endDate.format('YYYY-MM-DD');
+            if (month && year) {
+                var selected = moment(year + '-' + month, 'YYYY-MM', true);
+                if (selected.isValid()) {
+                    end = selected.endOf('month').format('YYYY-MM-DD');
+                }
             }
 
             const urlParams = new URLSearchParams(window.location.search);
-            urlParams.set('start_date', start);
             urlParams.set('end_date', end);
+            urlParams.delete('start_date');
             window.location.search = urlParams;
         }
     });
