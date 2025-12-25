@@ -3,6 +3,7 @@
 namespace App;
 
 use Illuminate\Database\Eloquent\Model;
+use Modules\Accounting\Entities\AccountingAccount;
 
 class Product extends Model
 {
@@ -23,6 +24,38 @@ class Product extends Model
     protected $casts = [
         'sub_unit_ids' => 'array',
     ];
+
+    /**
+     * Revenue Account relationship (Credit untuk pendapatan penjualan)
+     */
+    public function revenueAccount()
+    {
+        return $this->belongsTo(AccountingAccount::class, 'revenue_account_id');
+    }
+
+    /**
+     * Inventory/COGS Account relationship (Debit untuk persediaan/HPP)
+     */
+    public function inventoryAccount()
+    {
+        return $this->belongsTo(AccountingAccount::class, 'inventory_account_id');
+    }
+
+    /**
+     * Tax Account relationship (Credit untuk PPN)
+     */
+    public function taxAccount()
+    {
+        return $this->belongsTo(AccountingAccount::class, 'tax_account_id');
+    }
+
+    /**
+     * Check if this product has accounting mapping configured
+     */
+    public function hasAccountingMapping(): bool
+    {
+        return !empty($this->revenue_account_id) && !empty($this->inventory_account_id);
+    }
 
     /**
      * Get the products image.

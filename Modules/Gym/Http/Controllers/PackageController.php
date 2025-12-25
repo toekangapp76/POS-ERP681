@@ -9,6 +9,7 @@ use Modules\Gym\Entities\GymPackage;
 use Yajra\DataTables\Facades\DataTables;
 use App\Transaction;
 use Modules\Gym\Entities\GymClass;
+use Modules\Gym\Entities\GymCategory;
 use Modules\Accounting\Entities\AccountingAccount;
 
 class PackageController extends Controller
@@ -103,10 +104,13 @@ class PackageController extends Controller
         $durations = $this->duration;
         $classes = GymClass::where('business_id', $business_id)->get();
         
+        // Get gym categories for dropdown
+        $gym_categories = GymCategory::forDropdown($business_id);
+        
         // Get accounting accounts for dropdown
         $accounting_accounts = $this->getAccountingAccountsDropdown($business_id);
         
-        return view('gym::packages.create', compact('durations', 'classes', 'accounting_accounts'));
+        return view('gym::packages.create', compact('durations', 'classes', 'accounting_accounts', 'gym_categories'));
     }
 
     /**
@@ -206,10 +210,13 @@ class PackageController extends Controller
 
         $classes = GymClass::where('business_id', $business_id)->get();
         
+        // Get gym categories for dropdown
+        $gym_categories = GymCategory::forDropdown($business_id);
+        
         // Get accounting accounts for dropdown
         $accounting_accounts = $this->getAccountingAccountsDropdown($business_id);
 
-        return view('gym::packages.edit', compact('durations', 'package', 'classes', 'accounting_accounts'));
+        return view('gym::packages.edit', compact('durations', 'package', 'classes', 'accounting_accounts', 'gym_categories'));
     }
 
     /**

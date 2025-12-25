@@ -45,6 +45,10 @@
                         <li @if (request()->segment(1) == 'gym' && request()->segment(2) == 'gym-packages') class="active" @endif><a
                                 href="{{ action([Modules\Gym\Http\Controllers\PackageController::class, 'index']) }}">@lang('gym::lang.packages')</a>
                         </li>
+
+                        <li @if (request()->segment(1) == 'gym' && request()->segment(2) == 'gym-categories') class="active" @endif><a
+                                href="{{ action([Modules\Gym\Http\Controllers\GymCategoryController::class, 'index']) }}">@lang('gym::lang.gym_categories')</a>
+                        </li>
                     </ul>
                 @endcan
                 @can('gym.manage_class')

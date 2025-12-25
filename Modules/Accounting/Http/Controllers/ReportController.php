@@ -11,6 +11,7 @@ use Illuminate\Http\Response;
 use Illuminate\Routing\Controller;
 use Modules\Accounting\Entities\AccountingAccount;
 use Modules\Accounting\Utils\AccountingUtil;
+use Modules\Gym\Entities\GymCategory;
 
 class ReportController extends Controller
 {
@@ -457,9 +458,14 @@ class ReportController extends Controller
             abort(403, 'Unauthorized action.');
         }
 
-        // Get location filter
-        $location_id = request()->input('location_id', null);
-        $business_locations = BusinessLocation::forDropdown($business_id, true);
+        // gym category filter
+        $gym_category_id = request()->input('gym_category_id', null);
+        $gym_categories = [];
+        try {
+            $gym_categories = GymCategory::forDropdown($business_id, false);
+        } catch (\Exception $e) {
+            // Module gym terinstall ??
+        }
 
         if (!empty(request()->start_date) && !empty(request()->end_date)) {
             $start_date = request()->start_date;
@@ -519,7 +525,7 @@ class ReportController extends Controller
 
             foreach ($months as $month) {
                 // For P&L Report: Calculate ONLY period transactions (EXCLUDE opening_balance)
-                // Join with transactions table to filter by location
+                // Join with transactions table to filter by gym category
                 $query = DB::table('accounting_accounts_transactions')
                     ->where('accounting_accounts_transactions.accounting_account_id', $account->id)
                     ->where(function ($q) {
@@ -529,11 +535,12 @@ class ReportController extends Controller
                     ->whereDate('accounting_accounts_transactions.operation_date', '>=', $month['start'])
                     ->whereDate('accounting_accounts_transactions.operation_date', '<=', $month['end']);
 
-                // Apply location filter if specified
-                if (!empty($location_id)) {
+                // Apply gym category filter if specified
+                if (!empty($gym_category_id)) {
                     $query->leftJoin('transactions', 'accounting_accounts_transactions.transaction_id', '=', 'transactions.id')
-                        ->where(function ($q) use ($location_id) {
-                            $q->where('transactions.location_id', $location_id)
+                        ->leftJoin('gym_packages', 'transactions.gym_package_id', '=', 'gym_packages.id')
+                        ->where(function ($q) use ($gym_category_id) {
+                            $q->where('gym_packages.gym_category_id', $gym_category_id)
                                 ->orWhereNull('accounting_accounts_transactions.transaction_id'); // Include journal entries without transaction
                         });
                 }
@@ -598,6 +605,6 @@ class ReportController extends Controller
         $net_profit = $total_income - $total_expense;
 
         return view('accounting::report.profit_loss')
-            ->with(compact('income_accounts', 'expense_accounts', 'total_income', 'total_expense', 'net_profit', 'start_date', 'end_date', 'months', 'monthly_totals', 'business_locations', 'location_id'));
+            ->with(compact('income_accounts', 'expense_accounts', 'total_income', 'total_expense', 'net_profit', 'start_date', 'end_date', 'months', 'monthly_totals', 'gym_categories', 'gym_category_id'));
     }
 }

@@ -1416,6 +1416,16 @@ class CoaController extends Controller
                 $account_ids = [$account_ids];
             }
 
+            // Hitung Opening Balance
+            $opening_balance = 0;
+            if (!empty($start_date)) {
+                $opening_query = AccountingAccountsTransaction::whereIn('accounting_account_id', $account_ids)
+                    ->whereDate('operation_date', '<', $start_date)
+                    ->select(DB::raw("SUM(IF(type='debit', amount, 0)) - SUM(IF(type='credit', amount, 0)) as balance"))
+                    ->first();
+                $opening_balance = $opening_query->balance ?? 0;
+            }
+
             $transactions = AccountingAccountsTransaction::whereIn('accounting_account_id', $account_ids)
                             ->leftjoin('accounting_acc_trans_mappings as ATM', 'accounting_accounts_transactions.acc_trans_mapping_id', '=', 'ATM.id')
                             ->leftjoin('transactions as T', 'accounting_accounts_transactions.transaction_id', '=', 'T.id')
@@ -1483,22 +1493,10 @@ class CoaController extends Controller
 
                         return '';
                     })
-                    // ->addColumn('balance', function ($row) use ($bal_before_start_date, $start_date) {
-                    //     //TODO:: Need to fix same balance showing for transactions having same operation date
-                    //     $current_bal = AccountingAccountsTransaction::where('accounting_account_id',
-                    //                         $row->account_id)
-                    //                     ->where('operation_date', '>=', $start_date)
-                    //                     ->where('operation_date', '<=', $row->operation_date)
-                    //                     ->select(DB::raw("SUM(IF(type='credit', amount, -1 * amount)) as balance"))
-                    //                     ->first()->balance;
-                    //     $bal = $bal_before_start_date + $current_bal;
-                    //     return '<span class="balance" data-orig-value="' . $bal . '">' . $this->accountingUtil->num_f($bal, true) . '</span>';
-                    // })
-                    // ->editColumn('action', function ($row) {
-                    //     $action = '';
-
-                    //     return $action;
-                    // })
+                    ->addColumn('balance', function ($row) {
+                        $amount = $row->type == 'debit' ? $row->amount : -$row->amount;
+                        return '<span class="balance-cell" data-type="'.$row->type.'" data-amount="'.$row->amount.'" data-change="'.$amount.'"></span>';
+                    })
                     ->filterColumn('added_by', function ($query, $keyword) {
                         $query->whereRaw("CONCAT(COALESCE(u.surname, ''), ' ', COALESCE(u.first_name, ''), ' ', COALESCE(u.last_name, '')) like ?", ["%{$keyword}%"]);
                     })
@@ -1527,6 +1525,7 @@ class CoaController extends Controller
                         })
                         ->toArray();
 
+        // Pass opening_balance for client-side balance calculation
         return view('accounting::chart_of_accounts.ledger')
             ->with(compact('account', 'current_bal', 'all_accounts'));
     }

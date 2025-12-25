@@ -26,6 +26,16 @@
                     'placeholder' => __('gym::lang.name'),
                 ]) !!}
             </div>
+            
+            <div class="form-group">
+                {!! Form::label('gym_category_id', __('gym::lang.gym_category')) !!}
+                {!! Form::select('gym_category_id', $gym_categories, $package->gym_category_id, [
+                    'class' => 'form-control select2',
+                    'placeholder' => __('messages.please_select'),
+                    'style' => 'width: 100%',
+                ]) !!}
+            </div>
+            
             <div class="form-group">
                 {!! Form::label('amount', __('gym::lang.amount') . '*') !!}
                 {!! Form::number('amount', $package->amount, [

@@ -26,6 +26,14 @@ class GymPackage extends Model
     ];
 
     /**
+     * Get the category for this package
+     */
+    public function gymCategory()
+    {
+        return $this->belongsTo(GymCategory::class, 'gym_category_id');
+    }
+
+    /**
      * Revenue Account relationship (Credit untuk pendapatan membership)
      */
     public function revenueAccount()

@@ -23,9 +23,9 @@
         </div>
         <div class="col-md-3">
             <div class="form-group">
-                {!! Form::label('location_id', __('purchase.business_location') . ':') !!}
-                {!! Form::select('location_id', $business_locations, $location_id, 
-                    ['class' => 'form-control select2', 'style' => 'width:100%', 'id' => 'location_filter']); !!}
+                {!! Form::label('gym_category_id', __('gym::lang.gym_category') . ':') !!}
+                {!! Form::select('gym_category_id', $gym_categories, $gym_category_id, 
+                    ['class' => 'form-control select2', 'style' => 'width:100%', 'id' => 'gym_category_filter', 'placeholder' => __('messages.all')]); !!}
             </div>
         </div>
         <div class="col-md-2">
@@ -503,8 +503,8 @@
             apply_filter();
         });
 
-        // Location filter change handler
-        $('#location_filter').on('change', function() {
+        // Gym Category filter change handler
+        $('#gym_category_filter').on('change', function() {
             apply_filter();
         });
 
@@ -521,15 +521,15 @@
                     .endDate.format('YYYY-MM-DD');
             }
 
-            var location_id = $('#location_filter').val();
+            var gym_category_id = $('#gym_category_filter').val();
 
             const urlParams = new URLSearchParams(window.location.search);
             urlParams.set('start_date', start);
             urlParams.set('end_date', end);
-            if (location_id) {
-                urlParams.set('location_id', location_id);
+            if (gym_category_id) {
+                urlParams.set('gym_category_id', gym_category_id);
             } else {
-                urlParams.delete('location_id');
+                urlParams.delete('gym_category_id');
             }
             window.location.search = urlParams;
         }

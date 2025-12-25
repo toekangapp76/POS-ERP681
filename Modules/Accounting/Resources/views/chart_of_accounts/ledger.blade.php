@@ -148,7 +148,7 @@
                                         <th>@lang('lang_v1.added_by')</th>
                                         <th>@lang('account.debit')</th>
                                         <th>@lang('account.credit')</th>
-                                        <!-- <th>@lang( 'lang_v1.balance' )</th> -->
+                                        <th>@lang( 'lang_v1.balance' )</th>
                                         <!-- <th>@lang('messages.action')</th> -->
                                     </tr>
                                 </thead>
@@ -160,7 +160,7 @@
                                         <td colspan="5"><strong>@lang('sale.total'):</strong></td>
                                         <td class="footer_total_debit"></td>
                                         <td class="footer_total_credit"></td>
-                                        <!-- <td></td> -->
+                                        <td class="footer_total_balance"></td>
                                     </tr>
                                 </tfoot>
                             </table>
@@ -360,11 +360,11 @@
                     extend: 'excel',
                     text: '<i class="fa fa-file-excel-o"></i> Excel',
                     exportOptions: {
-                        columns: [0, 1, 2, 3, 4, 5, 6],
+                        columns: [0, 1, 2, 3, 4, 5, 6, 7],
                         format: {
                             body: function (data, row, column, node) {
-                                // For columns with currency (columns 5-6), extract numeric value
-                                if (column >= 5 && column <= 6) {
+                                // For columns with currency (columns 5-7), extract numeric value
+                                if (column >= 5 && column <= 7) {
                                     var $el = $(data);
                                     if ($el.data('orig-value') !== undefined) {
                                         return parseFloat($el.data('orig-value'));
@@ -381,10 +381,10 @@
                     extend: 'pdf',
                     text: '<i class="fa fa-file-pdf-o"></i> PDF',
                     exportOptions: {
-                        columns: [0, 1, 2, 3, 4, 5, 6],
+                        columns: [0, 1, 2, 3, 4, 5, 6, 7],
                         format: {
                             body: function (data, row, column, node) {
-                                if (column >= 5 && column <= 6) {
+                                if (column >= 5 && column <= 7) {
                                     var $el = $(data);
                                     if ($el.data('orig-value') !== undefined) {
                                         return parseFloat($el.data('orig-value')).toLocaleString('id-ID', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
@@ -401,7 +401,7 @@
                     extend: 'print',
                     text: '<i class="fa fa-print"></i> Print',
                     exportOptions: {
-                        columns: [0, 1, 2, 3, 4, 5, 6]
+                        columns: [0, 1, 2, 3, 4, 5, 6, 7]
                     }
                 }
             ],
@@ -429,24 +429,52 @@
                 { data: 'note', name: 'ATM.note' },
                 { data: 'added_by', name: 'added_by' },
                 { data: 'debit', name: 'amount', searchable: false },
-                { data: 'credit', name: 'amount', searchable: false }
-                //{data: 'balance', name: 'balance', searchable: false},
+                { data: 'credit', name: 'amount', searchable: false },
+                { data: 'balance', name: 'balance', searchable: false, orderable: false }
                 // { data: 'action', name: 'action', searchable: false }
             ],
             "fnDrawCallback": function (oSettings) {
                 __currency_convert_recursively($('#ledger'));
+                
+                // Calculate running balance for each row
+                var runningBalance = 0;
+                var api = this.api();
+                
+                api.rows({ page: 'current' }).every(function(rowIdx) {
+                    var data = this.data();
+                    var $balanceCell = $(data.balance);
+                    var change = parseFloat($balanceCell.data('change')) || 0;
+                    
+                    runningBalance += change;
+                    
+                    // Update the balance cell in the table
+                    var $row = $(api.row(rowIdx).node());
+                    var balanceClass = runningBalance >= 0 ? 'text-success' : 'text-danger';
+                    $row.find('td:eq(7)').html('<span class="' + balanceClass + '" data-orig-value="' + runningBalance + '">' + __currency_trans_from_en(Math.abs(runningBalance), true) + (runningBalance < 0 ? ' (Cr)' : ' (Dr)') + '</span>');
+                });
             },
             "footerCallback": function (row, data, start, end, display) {
                 var footer_total_debit = 0;
                 var footer_total_credit = 0;
+                var final_balance = 0;
 
                 for (var r in data) {
                     footer_total_debit += $(data[r].debit).data('orig-value') ? parseFloat($(data[r].debit).data('orig-value')) : 0;
                     footer_total_credit += $(data[r].credit).data('orig-value') ? parseFloat($(data[r].credit).data('orig-value')) : 0;
+                    
+                    // Calculate balance change from each row
+                    var $balanceCell = $(data[r].balance);
+                    var change = parseFloat($balanceCell.data('change')) || 0;
+                    final_balance += change;
                 }
 
                 $('.footer_total_debit').html(__currency_trans_from_en(footer_total_debit));
                 $('.footer_total_credit').html(__currency_trans_from_en(footer_total_credit));
+                
+                // Display final balance
+                var balanceClass = final_balance >= 0 ? 'text-success' : 'text-danger';
+                var balanceText = __currency_trans_from_en(Math.abs(final_balance), true) + (final_balance < 0 ? ' (Cr)' : ' (Dr)');
+                $('.footer_total_balance').html('<span class="' + balanceClass + '">' + balanceText + '</span>');
             }
         });
         $('#transaction_date_range').on('cancel.daterangepicker', function (ev, picker) {

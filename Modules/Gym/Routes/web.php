@@ -28,6 +28,8 @@ Route::middleware('web', 'auth', 'language', 'AdminSidebarMenu')->prefix('gym')-
     Route::get('dashboard', [Modules\Gym\Http\Controllers\DashBoardController::class, 'index']);
 
     Route::resource('members', Modules\Gym\Http\Controllers\MemberController::class);
+    
+    Route::resource('gym-categories', Modules\Gym\Http\Controllers\GymCategoryController::class);
 
     Route::get('member/{id}/profile', [Modules\Gym\Http\Controllers\MemberController::class, 'member_profile']);
     Route::get('member/{id}/id-card', [Modules\Gym\Http\Controllers\MemberController::class, 'id_card']);

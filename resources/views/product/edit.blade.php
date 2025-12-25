@@ -326,6 +326,51 @@
         @include('layouts.partials.module_form_part')
         </div>
     @endcomponent
+    
+    {{-- Accounting Mapping Section --}}
+    @if(isset($accounting_accounts) && count($accounting_accounts) > 1)
+    @component('components.widget', ['class' => 'box-primary'])
+    <div class="row">
+        <div class="col-md-12">
+            <h4><i class="fa fa-book"></i> @lang('lang_v1.accounting_mapping')</h4>
+            <p class="text-muted">@lang('lang_v1.accounting_mapping_help')</p>
+        </div>
+        <div class="col-md-4">
+            <div class="form-group">
+                {!! Form::label('revenue_account_id', __('lang_v1.revenue_account')) !!}
+                {!! Form::select('revenue_account_id', $accounting_accounts, $product->revenue_account_id, [
+                    'class' => 'form-control select2',
+                    'style' => 'width: 100%',
+                    'placeholder' => __('messages.please_select'),
+                ]) !!}
+                <p class="help-block text-muted small">@lang('lang_v1.revenue_account_help')</p>
+            </div>
+        </div>
+        <div class="col-md-4">
+            <div class="form-group">
+                {!! Form::label('inventory_account_id', __('lang_v1.inventory_account')) !!}
+                {!! Form::select('inventory_account_id', $accounting_accounts, $product->inventory_account_id, [
+                    'class' => 'form-control select2',
+                    'style' => 'width: 100%',
+                    'placeholder' => __('messages.please_select'),
+                ]) !!}
+                <p class="help-block text-muted small">@lang('lang_v1.inventory_account_help')</p>
+            </div>
+        </div>
+        <div class="col-md-4">
+            <div class="form-group">
+                {!! Form::label('tax_account_id', __('lang_v1.tax_account')) !!}
+                {!! Form::select('tax_account_id', $accounting_accounts, $product->tax_account_id, [
+                    'class' => 'form-control select2',
+                    'style' => 'width: 100%',
+                    'placeholder' => __('messages.please_select'),
+                ]) !!}
+                <p class="help-block text-muted small">@lang('lang_v1.tax_account_help')</p>
+            </div>
+        </div>
+    </div>
+    @endcomponent
+    @endif
 
     @component('components.widget', ['class' => 'box-primary'])
         <div class="row">
