@@ -41,12 +41,17 @@ jobs:
 
       - name: Install Composer dependencies
         run: |
-          composer install --no-dev --optimize-autoloader --no-interaction --prefer-dist
+          composer install --no-dev --optimize-autoloader --no-interaction --prefer-dist --no-scripts
 
       - name: Create .env file
         run: |
           cp .env.example .env
           php artisan key:generate --ansi
+
+      - name: Run post-autoload-dump scripts
+        run: |
+          composer dump-autoload --optimize --no-dev
+          php artisan package:discover --ansi
 
       - name: Setup Node.js
         uses: actions/setup-node@v4
