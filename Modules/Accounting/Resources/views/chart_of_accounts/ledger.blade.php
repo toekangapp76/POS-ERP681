@@ -1,13 +1,13 @@
 @extends('layouts.app')
 
-@section('title', __('accounting::lang.ledger'))
+@section('title', __('accounting::lang.general_ledger'))
 
 @section('content')
 
 @include('accounting::layouts.nav')
 <!-- Content Header (Page header) -->
 <section class="content-header">
-    <h1>@lang('accounting::lang.ledger') - <span class="account-details-name">{{$account->name}}</span></h1>
+    <h1>@lang('accounting::lang.general_ledger') - <span class="account-details-name">{{$account->name}}</span></h1>
 </section>
 
 <section class="content">
@@ -148,7 +148,7 @@
                                         <th>@lang('lang_v1.added_by')</th>
                                         <th>@lang('account.debit')</th>
                                         <th>@lang('account.credit')</th>
-                                        <!-- <th>@lang( 'lang_v1.balance' )</th> -->
+                                        <th>@lang('lang_v1.balance')</th>
                                         <!-- <th>@lang('messages.action')</th> -->
                                     </tr>
                                 </thead>
@@ -160,7 +160,7 @@
                                         <td colspan="5"><strong>@lang('sale.total'):</strong></td>
                                         <td class="footer_total_debit"></td>
                                         <td class="footer_total_credit"></td>
-                                        <!-- <td></td> -->
+                                        <td></td>
                                     </tr>
                                 </tfoot>
                             </table>
@@ -350,6 +350,104 @@
             return isNaN(num) ? 0 : num;
         }
 
+        function buildBalanceRow(label, balance) {
+            var formatted = __currency_trans_from_en(balance, true);
+            return '<tr class="account-group-row bg-gray">' +
+                '<td colspan="5"><strong>' + label + '</strong></td>' +
+                '<td></td>' +
+                '<td></td>' +
+                '<td class="text-right"><span class="balance" data-orig-value="' + balance + '">' + formatted + '</span></td>' +
+            '</tr>';
+        }
+
+        function insertAccountBalanceRows(api) {
+            var rows = api.rows({ page: 'current' }).nodes();
+            var data = api.rows({ page: 'current' }).data().toArray();
+            var json = api.ajax.json() || {};
+            var openingBalances = json.opening_balances || {};
+            var endingBalances = json.ending_balances || {};
+
+            $('#ledger tbody tr.account-group-row').remove();
+
+            for (var i = 0; i < data.length; i++) {
+                var accountId = data[i].account_id;
+                if (!accountId) {
+                    continue;
+                }
+
+                var prevAccountId = i > 0 ? data[i - 1].account_id : null;
+                var nextAccountId = i < data.length - 1 ? data[i + 1].account_id : null;
+
+                if (accountId !== prevAccountId) {
+                    var opening = openingBalances[accountId] !== undefined ? parseFloat(openingBalances[accountId]) : 0;
+                    $(rows).eq(i).before(buildBalanceRow('Beginning Balance', opening));
+                }
+
+                if (accountId !== nextAccountId) {
+                    var ending = endingBalances[accountId] !== undefined ? parseFloat(endingBalances[accountId]) : 0;
+                    $(rows).eq(i).after(buildBalanceRow('Ending Balance', ending));
+                }
+            }
+        }
+
+        function formatBalanceNumber(balance) {
+            var num = parseFloat(balance);
+            return isNaN(num) ? 0 : num;
+        }
+
+        function formatBalanceLocale(balance) {
+            return formatBalanceNumber(balance).toLocaleString('id-ID', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+        }
+
+        function buildExportRow(label, balance, formatBalance) {
+            var row = ['', '', '', '', '', '', '', ''];
+            row[0] = label;
+            row[7] = formatBalance(balance);
+            return row;
+        }
+
+        function buildExportBody(rowData, bodyRows, openingBalances, endingBalances, formatBalance) {
+            var newBody = [];
+            if (!rowData || !bodyRows) {
+                return bodyRows || [];
+            }
+
+            var count = Math.min(rowData.length, bodyRows.length);
+            for (var i = 0; i < count; i++) {
+                var accountId = rowData[i].account_id;
+                var prevAccountId = i > 0 ? rowData[i - 1].account_id : null;
+                var nextAccountId = i < count - 1 ? rowData[i + 1].account_id : null;
+
+                if (accountId && accountId !== prevAccountId) {
+                    var opening = openingBalances[accountId] !== undefined ? openingBalances[accountId] : 0;
+                    newBody.push(buildExportRow('Beginning Balance', opening, formatBalance));
+                }
+
+                newBody.push(bodyRows[i]);
+
+                if (accountId && accountId !== nextAccountId) {
+                    var ending = endingBalances[accountId] !== undefined ? endingBalances[accountId] : 0;
+                    newBody.push(buildExportRow('Ending Balance', ending, formatBalance));
+                }
+            }
+
+            return newBody;
+        }
+
+        function buildPrintRow(label, balance) {
+            var formatted = formatBalanceLocale(balance);
+            return '<tr class="account-group-row bg-gray">' +
+                '<td>' + label + '</td>' +
+                '<td></td>' +
+                '<td></td>' +
+                '<td></td>' +
+                '<td></td>' +
+                '<td></td>' +
+                '<td></td>' +
+                '<td class="text-right">' + formatted + '</td>' +
+            '</tr>';
+        }
+
         // Account Book
         ledger = $('#ledger').DataTable({
             processing: true,
@@ -360,11 +458,11 @@
                     extend: 'excel',
                     text: '<i class="fa fa-file-excel-o"></i> Excel',
                     exportOptions: {
-                        columns: [0, 1, 2, 3, 4, 5, 6],
+                        columns: [0, 1, 2, 3, 4, 5, 6, 7],
                         format: {
                             body: function (data, row, column, node) {
-                                // For columns with currency (columns 5-6), extract numeric value
-                                if (column >= 5 && column <= 6) {
+                                // For columns with currency (columns 5-7), extract numeric value
+                                if (column >= 5 && column <= 7) {
                                     var $el = $(data);
                                     if ($el.data('orig-value') !== undefined) {
                                         return parseFloat($el.data('orig-value'));
@@ -375,16 +473,27 @@
                                 return stripHtml(data);
                             }
                         }
+                    },
+                    customizeData: function (data) {
+                        var json = ledger.ajax.json() || {};
+                        var rowData = ledger.rows({ search: 'applied', order: 'applied' }).data().toArray();
+                        data.body = buildExportBody(
+                            rowData,
+                            data.body,
+                            json.opening_balances || {},
+                            json.ending_balances || {},
+                            formatBalanceNumber
+                        );
                     }
                 },
                 {
                     extend: 'pdf',
                     text: '<i class="fa fa-file-pdf-o"></i> PDF',
                     exportOptions: {
-                        columns: [0, 1, 2, 3, 4, 5, 6],
+                        columns: [0, 1, 2, 3, 4, 5, 6, 7],
                         format: {
                             body: function (data, row, column, node) {
-                                if (column >= 5 && column <= 6) {
+                                if (column >= 5 && column <= 7) {
                                     var $el = $(data);
                                     if ($el.data('orig-value') !== undefined) {
                                         return parseFloat($el.data('orig-value')).toLocaleString('id-ID', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
@@ -395,13 +504,71 @@
                                 return stripHtml(data);
                             }
                         }
+                    },
+                    customize: function (doc) {
+                        var json = ledger.ajax.json() || {};
+                        var rowData = ledger.rows({ search: 'applied', order: 'applied' }).data().toArray();
+                        var table = null;
+                        for (var i = 0; i < doc.content.length; i++) {
+                            if (doc.content[i].table) {
+                                table = doc.content[i];
+                                break;
+                            }
+                        }
+                        if (!table || !table.table || !table.table.body) {
+                            return;
+                        }
+                        var body = table.table.body;
+                        var header = body.length ? body[0] : [];
+                        var dataBody = body.length ? body.slice(1) : [];
+                        var newBody = buildExportBody(
+                            rowData,
+                            dataBody,
+                            json.opening_balances || {},
+                            json.ending_balances || {},
+                            formatBalanceLocale
+                        );
+                        table.table.body = [header].concat(newBody);
                     }
                 },
                 {
                     extend: 'print',
                     text: '<i class="fa fa-print"></i> Print',
                     exportOptions: {
-                        columns: [0, 1, 2, 3, 4, 5, 6]
+                        columns: [0, 1, 2, 3, 4, 5, 6, 7]
+                    },
+                    customize: function (win) {
+                        var json = ledger.ajax.json() || {};
+                        var rowData = ledger.rows({ search: 'applied', order: 'applied' }).data().toArray();
+                        var openingBalances = json.opening_balances || {};
+                        var endingBalances = json.ending_balances || {};
+                        var $table = $(win.document.body).find('table');
+                        var $tbody = $table.find('tbody');
+                        var origRows = $tbody.find('tr').toArray();
+                        var count = Math.min(rowData.length, origRows.length);
+                        var newHtml = '';
+
+                        for (var i = 0; i < count; i++) {
+                            var accountId = rowData[i].account_id;
+                            var prevAccountId = i > 0 ? rowData[i - 1].account_id : null;
+                            var nextAccountId = i < count - 1 ? rowData[i + 1].account_id : null;
+
+                            if (accountId && accountId !== prevAccountId) {
+                                var opening = openingBalances[accountId] !== undefined ? openingBalances[accountId] : 0;
+                                newHtml += buildPrintRow('Beginning Balance', opening);
+                            }
+
+                            newHtml += origRows[i].outerHTML;
+
+                            if (accountId && accountId !== nextAccountId) {
+                                var ending = endingBalances[accountId] !== undefined ? endingBalances[accountId] : 0;
+                                newHtml += buildPrintRow('Ending Balance', ending);
+                            }
+                        }
+
+                        if (newHtml) {
+                            $tbody.html(newHtml);
+                        }
                     }
                 }
             ],
@@ -429,11 +596,12 @@
                 { data: 'note', name: 'ATM.note' },
                 { data: 'added_by', name: 'added_by' },
                 { data: 'debit', name: 'amount', searchable: false },
-                { data: 'credit', name: 'amount', searchable: false }
-                //{data: 'balance', name: 'balance', searchable: false},
+                { data: 'credit', name: 'amount', searchable: false },
+                { data: 'balance', name: 'balance', searchable: false }
                 // { data: 'action', name: 'action', searchable: false }
             ],
             "fnDrawCallback": function (oSettings) {
+                insertAccountBalanceRows(this.api());
                 __currency_convert_recursively($('#ledger'));
             },
             "footerCallback": function (row, data, start, end, display) {

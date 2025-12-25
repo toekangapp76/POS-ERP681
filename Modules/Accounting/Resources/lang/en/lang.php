@@ -357,6 +357,7 @@ return [
     '3rd_quarter' => '3rd Quarter',
     '4th_quarter' => '4th Quarter',
     'ledger' => 'Ledger',
+    'general_ledger' => 'General Ledger',
     'reports' => 'Reports',
     'view_report' => 'View Report',
     'ledger_report' => 'Ledger Report',

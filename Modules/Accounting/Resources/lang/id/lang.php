@@ -351,6 +351,7 @@ return [
     '3rd_quarter' => 'Kuartal 3',
     '4th_quarter' => 'Kuartal 4',
     'ledger' => 'Buku Besar',
+    'general_ledger' => 'Jurnal Umum',
     'select_all' => 'Pilih semua',
     'deselect_all' => 'Hapus pilihan',
     'selected_count' => ':count terpilih',
