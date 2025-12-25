@@ -28,6 +28,9 @@
                             @lang('gym::lang.name')
                         </th>
                         <th>
+                            @lang('gym::lang.category')
+                        </th>
+                        <th>
                             @lang('gym::lang.amount')
                         </th>
                         <th>
@@ -75,6 +78,11 @@
                 columns: [{
                         data: 'name',
                         name: 'gym_packages.name'
+                    },
+                    {
+                        data: 'category',
+                        name: 'gym_categories.name',
+                        orderable: false
                     },
                     {
                         data: 'amount',

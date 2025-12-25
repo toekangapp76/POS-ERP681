@@ -297,4 +297,30 @@ return [
     // Agent / Coach
     'agent' => 'Agen / Pelatih',
     'unlimited' => 'Tak Terbatas',
+    
+    // Accounting Mapping
+    'accounting_mapping' => 'Pemetaan Akuntansi',
+    'accounting_mapping_help' => 'Konfigurasi akun akuntansi untuk jurnal otomatis saat paket ini terjual.',
+    'bank_cash_account' => 'Akun Bank/Kas',
+    'bank_account_help' => 'Debit: Akun untuk menerima pembayaran',
+    'revenue_account' => 'Akun Pendapatan',
+    'revenue_account_help' => 'Kredit: Akun pendapatan/revenue',
+    'tax_account' => 'Akun Pajak (PPN)',
+    'tax_account_help' => 'Kredit: Akun kewajiban pajak (opsional)',
+    'auto_mapped' => 'Terpetakan Otomatis',
+    'not_mapped' => 'Belum Terpetakan',
+    
+    // Gym Categories
+    'gym_categories' => 'Kategori Gym',
+    'gym_category' => 'Kategori Gym',
+    'add_gym_category' => 'Tambah Kategori Gym',
+    'edit_gym_category' => 'Edit Kategori Gym',
+    'category_name' => 'Nama Kategori',
+    'category_description' => 'Deskripsi Kategori',
+    'category_added_success' => 'Kategori gym berhasil ditambahkan',
+    'category_updated_success' => 'Kategori gym berhasil diperbarui',
+    'category_deleted_success' => 'Kategori gym berhasil dihapus',
+    'select_category' => 'Pilih Kategori',
+    'all_categories' => 'Semua Kategori',
+    'category' => 'Kategori',
 ];

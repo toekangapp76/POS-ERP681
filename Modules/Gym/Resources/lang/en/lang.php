@@ -319,5 +319,19 @@
     'tax_account_help' => 'Credit: Tax liability account (optional)',
     'auto_mapped' => 'Auto Mapped',
     'not_mapped' => 'Not Mapped',
+    
+    // Gym Categories
+    'gym_categories' => 'Gym Categories',
+    'gym_category' => 'Gym Category',
+    'add_gym_category' => 'Add Gym Category',
+    'edit_gym_category' => 'Edit Gym Category',
+    'category_name' => 'Category Name',
+    'category_description' => 'Category Description',
+    'category_added_success' => 'Gym category added successfully',
+    'category_updated_success' => 'Gym category updated successfully',
+    'category_deleted_success' => 'Gym category deleted successfully',
+    'select_category' => 'Select Category',
+    'all_categories' => 'All Categories',
+    'category' => 'Category',
   ] 
 ?>

@@ -36,12 +36,20 @@ class PackageController extends Controller
         $business_id = request()->session()->get('user.business_id');
 
         if (request()->ajax()) {
-            $packages = GymPackage::where('business_id', $business_id);
+            $packages = GymPackage::where('gym_packages.business_id', $business_id)
+                ->leftJoin('gym_categories', 'gym_packages.gym_category_id', '=', 'gym_categories.id')
+                ->select('gym_packages.*', 'gym_categories.name as category_name');
             return Datatables::of($packages)
                 ->editColumn('created_at', '{{@format_datetime($created_at)}}')
                 ->editColumn('amount', '<span>@format_currency($amount)')
                 ->editColumn('duration', function ($row) {
                     return $this->duration[$row->duration] ?? $row->duration;
+                })
+                ->addColumn('category', function ($row) {
+                    if (!empty($row->category_name)) {
+                        return '<span class="label label-primary">' . $row->category_name . '</span>';
+                    }
+                    return '<span class="text-muted">-</span>';
                 })
                 ->addColumn('session_limit', function ($row) {
                     $html = '';
@@ -88,7 +96,7 @@ class PackageController extends Controller
 
                     return $html;
                 })
-                ->rawColumns(['created_at', 'action', 'amount', 'session_limit', 'accounting_status'])
+                ->rawColumns(['created_at', 'action', 'amount', 'session_limit', 'accounting_status', 'category'])
                 ->make(true);
         }
         return view('gym::packages.index');
