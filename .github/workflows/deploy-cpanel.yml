@@ -40,17 +40,17 @@ jobs:
       - name: Install Composer dependencies
         run: composer install --ignore-platform-reqs --no-dev --no-interaction --no-scripts
 
-      - name: Setup Node.js
-        uses: actions/setup-node@v4
-        with:
-          node-version: '20'
-          cache: 'npm'
+    #   - name: Setup Node.js
+    #     uses: actions/setup-node@v4
+    #     with:
+    #       node-version: '20'
+    #       cache: 'npm'
 
-      - name: Install NPM dependencies
-        run: npm ci
+    #   - name: Install NPM dependencies
+    #     run: npm ci
 
-      - name: Build assets
-        run: npm run production
+    #   - name: Build assets
+    #     run: npm run production
 
       - name: Prepare deployment files
         run: |
