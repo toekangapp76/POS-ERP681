@@ -5102,9 +5102,17 @@ class TransactionUtil extends Util
                     '=',
                     'tos.id'
                 )
-                ->where('transactions.business_id', $business_id)
-                ->where('transactions.type', $sale_type)
-                ->select(
+                ->leftJoin('gym_packages as gp', 'transactions.gym_package_id', '=', 'gp.id')
+                ->where('transactions.business_id', $business_id);
+        
+        // Handle multiple sale types (sell + gym_subscription)
+        if (is_array($sale_type)) {
+            $sells->whereIn('transactions.type', $sale_type);
+        } else {
+            $sells->where('transactions.type', $sale_type);
+        }
+        
+        $sells->select(
                     'transactions.id',
                     'transactions.transaction_date',
                     'transactions.type',
@@ -5142,6 +5150,8 @@ class TransactionUtil extends Util
                     'transactions.custom_field_2',
                     'transactions.custom_field_3',
                     'transactions.custom_field_4',
+                    'transactions.gym_package_id',
+                    'gp.name as gym_package_name',
                     DB::raw('DATE_FORMAT(transactions.transaction_date, "%Y/%m/%d") as sale_date'),
                     DB::raw("CONCAT(COALESCE(u.surname, ''),' ',COALESCE(u.first_name, ''),' ',COALESCE(u.last_name,'')) as added_by"),
                     DB::raw('(SELECT SUM(IF(TP.is_return = 1,-1*TP.amount,TP.amount)) FROM transaction_payments AS TP WHERE
@@ -5162,7 +5172,17 @@ class TransactionUtil extends Util
                     DB::raw("CONCAT(COALESCE(dp.surname, ''),' ',COALESCE(dp.first_name, ''),' ',COALESCE(dp.last_name,'')) as delivery_person")
                 );
 
-        if ($sale_type == 'sell') {
+        if (is_array($sale_type)) {
+            // For mixed types, only apply final status to sell type
+            $sells->where(function($query) use ($sale_type) {
+                $query->where(function($q) {
+                    $q->where('transactions.type', 'sell')
+                      ->where('transactions.status', 'final');
+                })->orWhere(function($q) {
+                    $q->where('transactions.type', 'gym_subscription');
+                });
+            });
+        } elseif ($sale_type == 'sell') {
             $sells->where('transactions.status', 'final');
         }
 

@@ -94,11 +94,17 @@ class SellController extends Controller
             $shipping_statuses = $this->transactionUtil->shipping_statuses();
 
             $sale_type = ! empty(request()->input('sale_type')) ? request()->input('sale_type') : 'sell';
+            
+            // Include gym_subscription when sale_type is sell and include_gym_subscription is true
+            $include_gym_subscription = request()->input('include_gym_subscription', false);
+            if ($sale_type == 'sell' && $include_gym_subscription) {
+                $sale_type = ['sell', 'gym_subscription'];
+            }
 
             $sells = $this->transactionUtil->getListSells($business_id, $sale_type);
 
             // only display sell invoice we add it because project invoive show in sell list
-            if($sale_type == 'sell'){
+            if($sale_type == 'sell' || (is_array($sale_type) && in_array('sell', $sale_type))){
                 $sells->where(function ($query) {
                     $query->where('transactions.sub_type', '!=', 'project_invoice')
                           ->orWhereNull('transactions.sub_type');
@@ -902,13 +908,18 @@ class SellController extends Controller
                     ->where('id', $id)
                     ->with(['contact', 'delivery_person_user', 'sell_lines' => function ($q) {
                         $q->whereNull('parent_sell_line_id');
-                    }, 'sell_lines.product', 'sell_lines.product.unit', 'sell_lines.product.second_unit', 'sell_lines.variations', 'sell_lines.variations.product_variation', 'payment_lines', 'sell_lines.modifiers', 'sell_lines.lot_details', 'tax', 'sell_lines.sub_unit', 'table', 'service_staff', 'sell_lines.service_staff', 'types_of_service', 'sell_lines.warranties', 'media']);
+                    }, 'sell_lines.product', 'sell_lines.product.unit', 'sell_lines.product.second_unit', 'sell_lines.variations', 'sell_lines.variations.product_variation', 'payment_lines', 'sell_lines.modifiers', 'sell_lines.lot_details', 'tax', 'sell_lines.sub_unit', 'table', 'service_staff', 'sell_lines.service_staff', 'types_of_service', 'sell_lines.warranties', 'media', 'gym_package']);
 
         if (! auth()->user()->can('sell.view') && ! auth()->user()->can('direct_sell.access') && auth()->user()->can('view_own_sell_only')) {
             $query->where('transactions.created_by', request()->session()->get('user.id'));
         }
 
         $sell = $query->firstOrFail();
+        
+        // For gym_subscription, use a different view
+        if ($sell->type == 'gym_subscription') {
+            return $this->showGymSubscription($sell);
+        }
 
         $activities = Activity::forSubject($sell)
            ->with(['causer', 'subject'])
@@ -972,6 +983,34 @@ class SellController extends Controller
                 'status_color_in_activity',
                 'sales_orders',
                 'line_taxes'
+            ));
+    }
+
+    /**
+     * Display the specified gym subscription transaction.
+     *
+     * @param  Transaction  $sell
+     * @return \Illuminate\Http\Response
+     */
+    protected function showGymSubscription($sell)
+    {
+        $business_id = request()->session()->get('user.business_id');
+        
+        // Eager load relationships needed for the view
+        $sell->load(['gym_package.gymCategory', 'payment_lines', 'contact', 'location', 'created_by_user']);
+        
+        $payment_types = $this->transactionUtil->payment_types($sell->location_id, true);
+        
+        $activities = Activity::forSubject($sell)
+           ->with(['causer', 'subject'])
+           ->latest()
+           ->get();
+
+        return view('sale_pos.show_gym_subscription')
+            ->with(compact(
+                'sell',
+                'payment_types',
+                'activities'
             ));
     }
 

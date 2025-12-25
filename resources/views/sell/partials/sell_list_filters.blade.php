@@ -80,3 +80,16 @@
     </div>
 </div>
 @endif
+{{-- @if((empty($only) || in_array('include_gym_subscription', $only)) && in_array('Gym', $enabled_modules ?? [])) --}}
+<div class="col-md-3" style="margin-bottom: 7px;">
+    <div class="form-group">
+        <div class="checkbox">
+            <label>
+                <br>
+              {!! Form::checkbox('include_gym_subscription', 1, false, 
+              [ 'class' => 'input-icheck', 'id' => 'include_gym_subscription']); !!} {{ __('gym::lang.include_gym_subscription') }}
+            </label>
+        </div>
+    </div>
+</div>
+{{-- @endif --}}

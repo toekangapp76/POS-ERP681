@@ -333,5 +333,11 @@
     'select_category' => 'Select Category',
     'all_categories' => 'All Categories',
     'category' => 'Category',
+    
+    // Sells integration
+    'include_gym_subscription' => 'Include Gym Subscriptions',
+    'subscription_details' => 'Subscription Details',
+    'package_details' => 'Package Details',
+    'gym_subscription' => 'Gym Subscription',
   ] 
 ?>

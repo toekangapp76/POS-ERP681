@@ -603,46 +603,27 @@
             "fnDrawCallback": function (oSettings) {
                 insertAccountBalanceRows(this.api());
                 __currency_convert_recursively($('#ledger'));
-                
-                // Calculate running balance for each row
-                var runningBalance = 0;
-                var api = this.api();
-                
-                api.rows({ page: 'current' }).every(function(rowIdx) {
-                    var data = this.data();
-                    var $balanceCell = $(data.balance);
-                    var change = parseFloat($balanceCell.data('change')) || 0;
-                    
-                    runningBalance += change;
-                    
-                    // Update the balance cell in the table
-                    var $row = $(api.row(rowIdx).node());
-                    var balanceClass = runningBalance >= 0 ? 'text-success' : 'text-danger';
-                    $row.find('td:eq(7)').html('<span class="' + balanceClass + '" data-orig-value="' + runningBalance + '">' + __currency_trans_from_en(Math.abs(runningBalance), true) + (runningBalance < 0 ? ' (Cr)' : ' (Dr)') + '</span>');
-                });
             },
             "footerCallback": function (row, data, start, end, display) {
                 var footer_total_debit = 0;
                 var footer_total_credit = 0;
-                var final_balance = 0;
 
                 for (var r in data) {
                     footer_total_debit += $(data[r].debit).data('orig-value') ? parseFloat($(data[r].debit).data('orig-value')) : 0;
                     footer_total_credit += $(data[r].credit).data('orig-value') ? parseFloat($(data[r].credit).data('orig-value')) : 0;
-                    
-                    // Calculate balance change from each row
-                    var $balanceCell = $(data[r].balance);
-                    var change = parseFloat($balanceCell.data('change')) || 0;
-                    final_balance += change;
                 }
 
                 $('.footer_total_debit').html(__currency_trans_from_en(footer_total_debit));
                 $('.footer_total_credit').html(__currency_trans_from_en(footer_total_credit));
                 
-                // Display final balance
-                var balanceClass = final_balance >= 0 ? 'text-success' : 'text-danger';
-                var balanceText = __currency_trans_from_en(Math.abs(final_balance), true) + (final_balance < 0 ? ' (Cr)' : ' (Dr)');
-                $('.footer_total_balance').html('<span class="' + balanceClass + '">' + balanceText + '</span>');
+                // Get ending balance from response for footer display
+                var json = this.api().ajax.json() || {};
+                var endingBalances = json.ending_balances || {};
+                var totalEndingBalance = 0;
+                for (var accId in endingBalances) {
+                    totalEndingBalance += parseFloat(endingBalances[accId]) || 0;
+                }
+                $('.footer_total_balance').html(__currency_trans_from_en(totalEndingBalance, true));
             }
         });
         $('#transaction_date_range').on('cancel.daterangepicker', function (ev, picker) {

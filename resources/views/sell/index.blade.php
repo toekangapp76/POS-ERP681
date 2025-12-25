@@ -183,6 +183,10 @@
                             d.only_subscriptions = 1;
                         }
 
+                        if ($('#include_gym_subscription').is(':checked')) {
+                            d.include_gym_subscription = 1;
+                        }
+
                         if ($('#payment_method').length) {
                             d.payment_method = $('#payment_method').val();
                         }
@@ -370,6 +374,10 @@
                 });
 
             $('#only_subscriptions').on('ifChanged', function(event) {
+                sell_table.ajax.reload();
+            });
+
+            $('#include_gym_subscription').on('ifChanged', function(event) {
                 sell_table.ajax.reload();
             });
         });
