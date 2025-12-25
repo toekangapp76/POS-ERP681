@@ -84,8 +84,10 @@ class ReportController extends Controller
             abort(403, 'Unauthorized action.');
         }
 
-        // Handle month filter instead of date range
-        if (!empty(request()->month)) {
+        if (!empty(request()->start_date) && !empty(request()->end_date)) {
+            $start_date = request()->start_date;
+            $end_date = request()->end_date;
+        } elseif (!empty(request()->month)) {
             $month = request()->month; // Format: YYYY-MM
             $start_date = $month . '-01';
             $end_date = date('Y-m-t', strtotime($start_date)); // Last day of month
@@ -93,36 +95,108 @@ class ReportController extends Controller
             // Default to current month
             $start_date = date('Y-m-01');
             $end_date = date('Y-m-t');
-            $month = date('Y-m');
         }
 
-        // Calculate beginning balance date (end of previous month)
+        // Calculate beginning balance date (end of previous day)
         $beginning_balance_date = date('Y-m-d', strtotime($start_date . ' -1 day'));
 
         // Get all active accounts
         $all_accounts = AccountingAccount::where('business_id', $business_id)
             ->where('status', 'active')
-            ->select('id', 'name', 'gl_code')
+            ->select('id', 'name', 'gl_code', 'account_primary_type')
             ->orderBy('gl_code')
             ->get();
 
         $accounts = collect();
+        $balance_formula = $this->accountingUtil->balanceFormula('AA', 'AAT');
+
+        $pl_accounts = AccountingAccount::where('business_id', $business_id)
+            ->where('status', 'active')
+            ->whereNotNull('gl_code')
+            ->where('gl_code', '!=', '')
+            ->whereRaw("CAST(SUBSTRING(gl_code, 1, 1) AS UNSIGNED) >= 4")
+            ->select('id', 'account_primary_type')
+            ->get();
+
+        $business_start = Business::where('id', $business_id)->value('start_date');
+        $selected_end = \Carbon\Carbon::parse($end_date);
+        if (!empty($business_start)) {
+            $business_start = \Carbon\Carbon::parse($business_start)->startOfDay();
+            if ($business_start->gt($selected_end)) {
+                $base_start_date = $selected_end->copy()->startOfMonth()->format('Y-m-d');
+            } else {
+                $base_start_date = $business_start->format('Y-m-d');
+            }
+        } else {
+            $base_start_date = $selected_end->copy()->startOfYear()->format('Y-m-d');
+        }
+
+        $period_start = $start_date;
+        if (\Carbon\Carbon::parse($period_start)->lt(\Carbon\Carbon::parse($base_start_date))) {
+            $period_start = $base_start_date;
+        }
+
+        $opening_profit_end = \Carbon\Carbon::parse($period_start)->subDay()->format('Y-m-d');
+
+        $calculate_net_profit = function ($from_date, $to_date) use ($pl_accounts) {
+            if (empty($from_date) || empty($to_date)) {
+                return 0;
+            }
+
+            if (\Carbon\Carbon::parse($from_date)->gt(\Carbon\Carbon::parse($to_date))) {
+                return 0;
+            }
+
+            $income = 0;
+            $expense = 0;
+            foreach ($pl_accounts as $pl_account) {
+                $pl_balance = DB::table('accounting_accounts_transactions')
+                    ->where('accounting_account_id', $pl_account->id)
+                    ->where(function ($q) {
+                        $q->whereNull('sub_type')
+                            ->orWhere('sub_type', '!=', 'opening_balance');
+                    })
+                    ->whereDate('operation_date', '>=', $from_date)
+                    ->whereDate('operation_date', '<=', $to_date)
+                    ->select(
+                        DB::raw("COALESCE(SUM(IF(type = 'debit', amount, 0)), 0) as debit"),
+                        DB::raw("COALESCE(SUM(IF(type = 'credit', amount, 0)), 0) as credit")
+                    )
+                    ->first();
+
+                $debit = $pl_balance->debit ?? 0;
+                $credit = $pl_balance->credit ?? 0;
+
+                if ($pl_account->account_primary_type == 'income') {
+                    $income += ($credit - $debit);
+                } else {
+                    $expense += ($debit - $credit);
+                }
+            }
+
+            return $income - $expense;
+        };
+
+        $re_opening_balance = $calculate_net_profit($base_start_date, $opening_profit_end);
+        $re_period_profit = $calculate_net_profit($period_start, $end_date);
+        $re_ending_balance = $re_opening_balance + $re_period_profit;
+        $re_debit_balance = $re_period_profit < 0 ? abs($re_period_profit) : 0;
+        $re_credit_balance = $re_period_profit > 0 ? $re_period_profit : 0;
 
         foreach ($all_accounts as $account) {
             // Calculate beginning balance (all transactions up to the day before start_date)
-            $beginning = DB::table('accounting_accounts_transactions')
-                ->where('accounting_account_id', $account->id)
-                ->whereDate('operation_date', '<=', $beginning_balance_date)
-                ->select(
-                    DB::raw("SUM(IF(type = 'debit', amount, 0)) - SUM(IF(type = 'credit', amount, 0)) as balance")
-                )
+            $beginning = DB::table('accounting_accounts_transactions as AAT')
+                ->join('accounting_accounts as AA', 'AAT.accounting_account_id', '=', 'AA.id')
+                ->where('AAT.accounting_account_id', $account->id)
+                ->whereDate('AAT.operation_date', '<=', $beginning_balance_date)
+                ->select(DB::raw($balance_formula))
                 ->first();
 
             // Calculate period transactions (debit and credit in the date range)
-            $period = DB::table('accounting_accounts_transactions')
-                ->where('accounting_account_id', $account->id)
-                ->whereDate('operation_date', '>=', $start_date)
-                ->whereDate('operation_date', '<=', $end_date)
+            $period = DB::table('accounting_accounts_transactions as AAT')
+                ->where('AAT.accounting_account_id', $account->id)
+                ->whereDate('AAT.operation_date', '>=', $start_date)
+                ->whereDate('AAT.operation_date', '<=', $end_date)
                 ->select(
                     DB::raw("SUM(IF(type = 'debit', amount, 0)) as debit"),
                     DB::raw("SUM(IF(type = 'credit', amount, 0)) as credit")
@@ -132,7 +206,11 @@ class ReportController extends Controller
             $beginning_balance = $beginning->balance ?? 0;
             $debit_balance = $period->debit ?? 0;
             $credit_balance = $period->credit ?? 0;
-            $ending_balance = $beginning_balance + $debit_balance - $credit_balance;
+            if (in_array($account->account_primary_type, ['asset', 'expense'])) {
+                $ending_balance = $beginning_balance + $debit_balance - $credit_balance;
+            } else {
+                $ending_balance = $beginning_balance + $credit_balance - $debit_balance;
+            }
 
             // Include ALL accounts (including those with zero balance)
             $accounts->push((object) [
@@ -146,8 +224,32 @@ class ReportController extends Controller
             ]);
         }
 
+        $re_index = $accounts->search(function ($row) {
+            return !empty($row->gl_code) && $row->gl_code === '3202-0000';
+        });
+
+        $re_row = (object) [
+            'id' => null,
+            'name' => 'R/E Current Year (Net Profit/Loss)',
+            'gl_code' => '3202-0000',
+            'beginning_balance' => $re_opening_balance,
+            'debit_balance' => $re_debit_balance,
+            'credit_balance' => $re_credit_balance,
+            'ending_balance' => $re_ending_balance,
+        ];
+
+        if ($re_index !== false) {
+            $accounts[$re_index] = $re_row;
+        } else {
+            $accounts->push($re_row);
+        }
+
+        $accounts = $accounts->sortBy(function ($row) {
+            return $row->gl_code ?? '';
+        })->values();
+
         return view('accounting::report.trial_balance')
-            ->with(compact('accounts', 'start_date', 'end_date', 'month'));
+            ->with(compact('accounts', 'start_date', 'end_date'));
     }
 
     /**
