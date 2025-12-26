@@ -132,6 +132,10 @@
     </div>
 </div>
 
+<div class="modal fade contact_modal" tabindex="-1" role="dialog" aria-labelledby="gridSystemModalLabel">
+    @include('contact.create', ['quick_add' => true])
+</div>
+
 @endsection
 
 @section('javascript')
@@ -255,6 +259,93 @@ $(document).ready(function() {
                 });
             }
         });
+    });
+
+    $(document).on('click', '.add_new_member', function() {
+        $('#booking_modal').find('select#contact_id').select2('close');
+        var name = $(this).data('name');
+        $('.contact_modal')
+            .find('input#name')
+            .val(name);
+        $('.contact_modal')
+            .find('select#contact_type')
+            .val('customer')
+            .closest('div.contact_type_div')
+            .addClass('hide');
+        $('.contact_modal').modal('show');
+    });
+
+    $('form#quick_add_contact')
+        .submit(function(e) {
+            e.preventDefault();
+        })
+        .validate({
+            rules: {
+                contact_id: {
+                    remote: {
+                        url: '/contacts/check-contacts-id',
+                        type: 'post',
+                        data: {
+                            contact_id: function() {
+                                return $('form#quick_add_contact').find('input#contact_id').val();
+                            },
+                            hidden_id: function() {
+                                var hidden = $('form#quick_add_contact').find('#hidden_id');
+                                if (hidden.length) {
+                                    return hidden.val();
+                                }
+                                return '';
+                            },
+                        },
+                    },
+                },
+            },
+            messages: {
+                contact_id: {
+                    remote: LANG.contact_id_already_exists,
+                },
+            },
+            submitHandler: function(form) {
+                var data = $(form).serialize();
+                $.ajax({
+                    method: 'POST',
+                    url: $(form).attr('action'),
+                    dataType: 'json',
+                    data: data,
+                    beforeSend: function() {
+                        __disable_submit_button($(form).find('button[type="submit"]'));
+                    },
+                    success: function(result) {
+                        if (result.success == true) {
+                            var memberSelect = $('#booking_modal').find('select#contact_id');
+                            var labelParts = [];
+                            if (result.data.supplier_business_name) {
+                                labelParts.push(result.data.supplier_business_name);
+                            }
+                            if (result.data.name) {
+                                labelParts.push(result.data.name);
+                            }
+                            var label = labelParts.join(' - ');
+                            if (result.data.contact_id) {
+                                label = (label ? label + ' ' : '') + '(' + result.data.contact_id + ')';
+                            }
+                            var newOption = new Option(label || result.data.name, result.data.id, true, true);
+                            memberSelect.append(newOption).trigger('change');
+                            $('div.contact_modal').modal('hide');
+                            toastr.success(result.msg);
+                        } else {
+                            toastr.error(result.msg);
+                        }
+                    },
+                });
+            },
+        });
+
+    $('.contact_modal').on('hidden.bs.modal', function() {
+        $('form#quick_add_contact')
+            .find('button[type="submit"]')
+            .removeAttr('disabled');
+        $('form#quick_add_contact')[0].reset();
     });
 });
 

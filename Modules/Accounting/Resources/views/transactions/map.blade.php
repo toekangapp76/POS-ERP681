@@ -22,6 +22,22 @@
     </h4>
 </div>
 <div class="modal-body">
+    @if(in_array($type, ['sell', 'purchase', 'expense', 'gym_subscription']))
+    <div class="row">
+        <div class="col-md-6">
+            <div class="form-group">
+                {!! Form::label('booking_date', __('gym::lang.booking_date') . ':' ) !!}
+                <div class="input-group">
+                    <span class="input-group-addon">
+                        <i class="fa fa-calendar"></i>
+                    </span>
+                    {!! Form::text('booking_date', @format_datetime($transaction->transaction_date ?? 'now'), ['class' => 'form-control', 'readonly', 'id' => 'booking_date']) !!}
+                </div>
+            </div>
+        </div>
+    </div>
+    @endif
+
     <div class="row">
         <div class="col-md-6">
             <div class="form-group">
@@ -113,3 +129,16 @@
 {!! Form::close() !!}
 	</div><!-- /.modal-content -->
 </div><!-- /.modal-dialog -->
+
+@if(in_array($type, ['sell', 'purchase', 'expense', 'gym_subscription']))
+<script type="text/javascript">
+    $(document).ready(function() {
+        if ($('#booking_date').length) {
+            $('#booking_date').datetimepicker({
+                format: moment_date_format + ' ' + moment_time_format,
+                ignoreReadonly: true
+            });
+        }
+    });
+</script>
+@endif

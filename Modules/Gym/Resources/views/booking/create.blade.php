@@ -20,6 +20,11 @@
                         'id' => 'contact_id',
                         'placeholder' => __('gym::lang.select_member')
                     ]) !!}
+                    <span class="input-group-btn">
+                        <button type="button" class="btn btn-default bg-white btn-flat add_new_member" data-name="" @if(!auth()->user()->can('customer.create')) disabled @endif>
+                            <i class="fa fa-plus-circle text-primary fa-lg"></i>
+                        </button>
+                    </span>
                 </div>
                 <small class="text-muted">@lang('gym::lang.member_optional_walkin')</small>
             </div>

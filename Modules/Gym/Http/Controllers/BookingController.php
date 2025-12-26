@@ -4,6 +4,7 @@ namespace Modules\Gym\Http\Controllers;
 
 use App\BusinessLocation;
 use App\Contact;
+use App\CustomerGroup;
 use App\Transaction;
 use App\User;
 use App\Utils\Util;
@@ -48,13 +49,17 @@ class BookingController extends Controller
         $classes = GymClass::forDropdown($business_id);
         $agents = User::forDropdown($business_id, false);
         $booking_statuses = GymBooking::getStatuses();
+        $types = Contact::getContactTypes();
+        $customer_groups = CustomerGroup::forDropdown($business_id);
 
         return view('gym::booking.index', compact(
             'business_locations',
             'members',
             'classes',
             'agents',
-            'booking_statuses'
+            'booking_statuses',
+            'types',
+            'customer_groups'
         ));
     }
 

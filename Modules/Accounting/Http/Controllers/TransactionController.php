@@ -716,6 +716,13 @@ class TransactionController extends Controller
                 $payment_account = $request->get('payment_account');
                 $ppn_account = $request->get('ppn_account');
                 $discount_account = $request->get('discount_account');
+                $booking_date = $request->get('booking_date');
+
+                if (!empty($booking_date) && in_array($type, ['sell', 'purchase', 'expense', 'gym_subscription'])) {
+                    $transaction = Transaction::where('business_id', $business_id)->where('id', $id)->firstOrFail();
+                    $transaction->transaction_date = $this->transactionUtil->uf_date($booking_date, true);
+                    $transaction->save();
+                }
 
                 $this->accountingUtil->saveMap($type, $id, $user_id, $business_id, $deposit_to, $payment_account, $ppn_account, $discount_account);
 

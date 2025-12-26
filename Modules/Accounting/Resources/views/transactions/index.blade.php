@@ -268,6 +268,8 @@
                             purchase_payment_table.ajax.reload();
                         } else if(transaction_type == 'expense'){
                             transaction_expense_table.ajax.reload();
+                        } else if(transaction_type == 'gym_subscription'){
+                            gym_subscription_table.ajax.reload();
                         }
                     } else {
                         toastr.error(result.msg);
