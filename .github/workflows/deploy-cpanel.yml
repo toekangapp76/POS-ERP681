@@ -12,6 +12,9 @@ env:
   FTP_USER: ${{ secrets.FTP_USER }}
   FTP_PASSWORD: ${{ secrets.FTP_PASSWORD }}
   DEPLOY_PATH: /public_html/Ascend/ 
+  REMOTE_HOST: ${{ secrets.REMOTE_HOST }}
+  REMOTE_USER: ${{ secrets.REMOTE_USER }}
+  REMOTE_PATH: ${{ secrets.REMOTE_PATH }} 
 
 jobs:
   deploy:
@@ -67,48 +70,27 @@ jobs:
           rm -f webpack.mix.js
           rm -f vite.config.js 2>/dev/null || true
 
-    #   - name: Deploy to cPanel via FTP
-    #     uses: SamKirkland/FTP-Deploy-Action@v4.3.4
-    #     with:
-    #       server: ${{ secrets.FTP_HOST }}
-    #       username: ${{ secrets.FTP_USER }}
-    #       password: ${{ secrets.FTP_PASSWORD }}
-    #       server-dir: ${{ env.DEPLOY_PATH }}
-    #       exclude: |
-    #         **/.git*
-    #         **/.git*/**
-    #         **/node_modules/**
-    #         **/tests/**
-    #         .env
-    #         .env.example
-    #         phpunit.xml
-    #         package.json
-    #         package-lock.json
-    #         webpack.mix.js
-    #         vite.config.js
-    
       - name: Deploy via SFTP
         uses: wangyucode/sftp-upload-action@v2.0.2
         with:
-            host: ${{ secrets.FTP_HOST }}
-            port: 21
-            username: ${{ secrets.FTP_USER }}
-            password: ${{ secrets.FTP_PASSWORD }}
-            localDir: './.'
-            remoteDir: ${{ env.DEPLOY_PATH }}
-            # skipCreateDir: false
-            exclude: |
-                **/.git*
-                **/.git*/**
-                **/node_modules/**
-                **/tests/**
-                .env
-                .env.example
-                phpunit.xml
-                package.json
-                package-lock.json
-                webpack.mix.js
-                vite.config.js
+          host: ${{ secrets.FTP_HOST }}
+          port: 21
+          username: ${{ secrets.FTP_USER }}
+          password: ${{ secrets.FTP_PASSWORD }}
+          localDir: './.'
+          remoteDir: ${{ env.DEPLOY_PATH }}
+          exclude: |
+            **/.git*
+            **/.git*/**
+            **/node_modules/**
+            **/tests/**
+            .env
+            .env.example
+            phpunit.xml
+            package.json
+            package-lock.json
+            webpack.mix.js
+            vite.config.js
 
     #   - name: Run post-deployment commands via SSH (Optional)
     #     uses: appleboy/ssh-action@v1.0.0
