@@ -339,5 +339,14 @@
     'subscription_details' => 'Subscription Details',
     'package_details' => 'Package Details',
     'gym_subscription' => 'Gym Subscription',
+    
+    // Subscription CRUD
+    'edit_subscription' => 'Edit Subscription',
+    'update_subscription' => 'Update Subscription',
+    'delete_subscription' => 'Delete Subscription',
+    'confirm_delete_subscription' => 'Are you sure you want to delete this subscription?',
+    'subscription_updated_success' => 'Subscription updated successfully',
+    'subscription_deleted_success' => 'Subscription deleted successfully',
+    'all' => 'All',
   ] 
 ?>

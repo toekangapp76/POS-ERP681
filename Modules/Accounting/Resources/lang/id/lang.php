@@ -455,4 +455,13 @@ return [
     'total_equity' => 'Total Ekuitas',
     'accounts_selected' => 'akun dipilih',
     'select_account' => 'Pilih Akun',
+    
+    // PNL Reports
+    'pnl_bisnis' => 'L/R per Kategori Bisnis',
+    'pnl_bisnis_description' => 'Laporan ini menampilkan Laba & Rugi yang dikelompokkan berdasarkan kategori bisnis GYM. Setiap kolom kategori menunjukkan pendapatan dan pengeluaran yang dialokasikan ke kategori tersebut.',
+    'nett_loss' => 'Rugi Bersih',
+    'last_month' => 'Bulan Lalu',
+    'current_month' => 'Bulan Ini',
+    'varian' => 'Varian',
+    'all' => 'Semua',
 ];

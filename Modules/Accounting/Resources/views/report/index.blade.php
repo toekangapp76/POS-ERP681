@@ -59,6 +59,21 @@
         </div>
 
         <div class="col-md-6">
+            <div class="box box-success">
+                <div class="box-header with-border">
+                    <h3 class="box-title"><i class="fa fa-pie-chart"></i> @lang( 'accounting::lang.pnl_bisnis')</h3>
+                </div>
+
+                <div class="box-body">
+                    @lang( 'accounting::lang.pnl_bisnis_description')
+                    <br/>
+                    <a href="{{route('accounting.pnlBisnis')}}" class="btn btn-success btn-sm pt-2">@lang( 'accounting::lang.view_report')</a>
+                </div>
+
+            </div>
+        </div>
+
+        <div class="col-md-6">
             <div class="box box-warning">
                 <div class="box-header with-border">
                     <h3 class="box-title">@lang( 'accounting::lang.journal_entry')</h3>

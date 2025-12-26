@@ -942,4 +942,190 @@ class ReportController extends Controller
         return view('accounting::report.pnl_ytd')
             ->with(compact('income_accounts', 'expense_accounts', 'total_income', 'total_expense', 'net_profit', 'start_date', 'end_date', 'months', 'monthly_totals', 'gym_categories', 'gym_category_id'));
     }
+
+    
+    public function pnlBisnis()
+    {
+        $business_id = request()->session()->get('user.business_id');
+
+        if (
+            !(auth()->user()->can('superadmin') ||
+                $this->moduleUtil->hasThePermissionInSubscription($business_id, 'accounting_module')) ||
+            !(auth()->user()->can('accounting.view_reports'))
+        ) {
+            abort(403, 'Unauthorized action.');
+        }
+
+        // Get gym categories
+        $gym_categories = [];
+        try {
+            $gym_categories = GymCategory::where('business_id', $business_id)
+                ->select('id', 'name')
+                ->orderBy('name')
+                ->get();
+        } catch (\Exception $e) {
+            // Gym module not installed
+        }
+
+        if (!empty(request()->start_date) && !empty(request()->end_date)) {
+            $start_date = request()->start_date;
+            $end_date = request()->end_date;
+        } else {
+            $fy = $this->businessUtil->getCurrentFinancialYear($business_id);
+            $start_date = $fy['start'];
+            $end_date = $fy['end'];
+        }
+
+        // Get all active P&L accounts (gl_code >= 4)
+        $all_accounts = AccountingAccount::where('business_id', $business_id)
+            ->where('status', 'active')
+            ->whereNotNull('gl_code')
+            ->where('gl_code', '!=', '')
+            ->whereRaw("CAST(SUBSTRING(gl_code, 1, 1) AS UNSIGNED) >= 4")
+            ->select('id', 'name', 'gl_code', 'account_primary_type')
+            ->orderBy('gl_code')
+            ->get();
+
+        $income_accounts = collect();
+        $expense_accounts = collect();
+        $total_income = 0;
+        $total_expense = 0;
+
+        // Initialize category totals
+        $category_totals = [
+            'income' => [],
+            'expense' => [],
+        ];
+        foreach ($gym_categories as $category) {
+            $category_totals['income'][$category->id] = 0;
+            $category_totals['expense'][$category->id] = 0;
+        }
+        // Also for "Other" (no category)
+        $category_totals['income']['other'] = 0;
+        $category_totals['expense']['other'] = 0;
+
+        foreach ($all_accounts as $account) {
+            $category_balances = [];
+            $total_balance = 0;
+            $has_any_balance = false;
+
+            // Calculate balance for each gym category
+            foreach ($gym_categories as $category) {
+                $query = DB::table('accounting_accounts_transactions')
+                    ->leftJoin('transactions', 'accounting_accounts_transactions.transaction_id', '=', 'transactions.id')
+                    ->leftJoin('gym_packages', 'transactions.gym_package_id', '=', 'gym_packages.id')
+                    ->where('accounting_accounts_transactions.accounting_account_id', $account->id)
+                    ->where(function ($q) {
+                        $q->whereNull('accounting_accounts_transactions.sub_type')
+                            ->orWhere('accounting_accounts_transactions.sub_type', '!=', 'opening_balance');
+                    })
+                    ->whereDate('accounting_accounts_transactions.operation_date', '>=', $start_date)
+                    ->whereDate('accounting_accounts_transactions.operation_date', '<=', $end_date)
+                    ->where('gym_packages.gym_category_id', $category->id);
+
+                $period = $query->select(
+                    DB::raw("SUM(IF(accounting_accounts_transactions.type = 'debit', accounting_accounts_transactions.amount, 0)) as debit"),
+                    DB::raw("SUM(IF(accounting_accounts_transactions.type = 'credit', accounting_accounts_transactions.amount, 0)) as credit")
+                )->first();
+
+                $debit_balance = $period->debit ?? 0;
+                $credit_balance = $period->credit ?? 0;
+
+                if ($account->account_primary_type == 'income') {
+                    $balance = $credit_balance - $debit_balance;
+                } else {
+                    $balance = $debit_balance - $credit_balance;
+                }
+
+                $category_balances[$category->id] = $balance;
+                $total_balance += $balance;
+
+                if ($balance != 0) {
+                    $has_any_balance = true;
+                }
+            }
+
+            // Calculate "Other" balance (transactions without gym package or without category)
+            $other_query = DB::table('accounting_accounts_transactions')
+                ->leftJoin('transactions', 'accounting_accounts_transactions.transaction_id', '=', 'transactions.id')
+                ->leftJoin('gym_packages', 'transactions.gym_package_id', '=', 'gym_packages.id')
+                ->where('accounting_accounts_transactions.accounting_account_id', $account->id)
+                ->where(function ($q) {
+                    $q->whereNull('accounting_accounts_transactions.sub_type')
+                        ->orWhere('accounting_accounts_transactions.sub_type', '!=', 'opening_balance');
+                })
+                ->whereDate('accounting_accounts_transactions.operation_date', '>=', $start_date)
+                ->whereDate('accounting_accounts_transactions.operation_date', '<=', $end_date)
+                ->where(function ($q) {
+                    $q->whereNull('transactions.gym_package_id')
+                        ->orWhereNull('gym_packages.gym_category_id');
+                });
+
+            $other_period = $other_query->select(
+                DB::raw("SUM(IF(accounting_accounts_transactions.type = 'debit', accounting_accounts_transactions.amount, 0)) as debit"),
+                DB::raw("SUM(IF(accounting_accounts_transactions.type = 'credit', accounting_accounts_transactions.amount, 0)) as credit")
+            )->first();
+
+            $other_debit = $other_period->debit ?? 0;
+            $other_credit = $other_period->credit ?? 0;
+
+            if ($account->account_primary_type == 'income') {
+                $other_balance = $other_credit - $other_debit;
+            } else {
+                $other_balance = $other_debit - $other_credit;
+            }
+
+            $category_balances['other'] = $other_balance;
+            $total_balance += $other_balance;
+
+            if ($other_balance != 0) {
+                $has_any_balance = true;
+            }
+
+            // Only include accounts with balance
+            if ($has_any_balance) {
+                $account_data = (object) [
+                    'gl_code' => $account->gl_code,
+                    'name' => $account->name,
+                    'account_primary_type' => $account->account_primary_type,
+                    'category_balances' => $category_balances,
+                    'balance' => $total_balance,
+                ];
+
+                if ($account->account_primary_type == 'income') {
+                    $income_accounts->push($account_data);
+                    $total_income += $total_balance;
+                    
+                    // Update category totals
+                    foreach ($gym_categories as $category) {
+                        $category_totals['income'][$category->id] += $category_balances[$category->id];
+                    }
+                    $category_totals['income']['other'] += $other_balance;
+                } else {
+                    $expense_accounts->push($account_data);
+                    $total_expense += $total_balance;
+                    
+                    // Update category totals
+                    foreach ($gym_categories as $category) {
+                        $category_totals['expense'][$category->id] += $category_balances[$category->id];
+                    }
+                    $category_totals['expense']['other'] += $other_balance;
+                }
+            }
+        }
+
+        $net_profit = $total_income - $total_expense;
+
+        // Calculate net profit per category
+        $category_net_profit = [];
+        foreach ($gym_categories as $category) {
+            $category_net_profit[$category->id] = 
+                $category_totals['income'][$category->id] - $category_totals['expense'][$category->id];
+        }
+        $category_net_profit['other'] = $category_totals['income']['other'] - $category_totals['expense']['other'];
+
+        return view('accounting::report.pnl_bisnis')
+            ->with(compact('income_accounts', 'expense_accounts', 'total_income', 'total_expense', 'net_profit', 
+                'start_date', 'end_date', 'gym_categories', 'category_totals', 'category_net_profit'));
+    }
 }

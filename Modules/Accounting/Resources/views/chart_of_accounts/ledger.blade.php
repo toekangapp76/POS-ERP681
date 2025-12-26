@@ -452,7 +452,8 @@
         ledger = $('#ledger').DataTable({
             processing: true,
             serverSide: true,
-            dom: 'Bfrtip',
+            dom: 'lBfrtip',
+            lengthMenu: [[10, 25, 50, 100, -1], [10, 25, 50, 100, "@lang('accounting::lang.all')"]],
             buttons: [
                 {
                     extend: 'excel',
