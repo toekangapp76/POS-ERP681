@@ -323,4 +323,13 @@ return [
     'select_category' => 'Pilih Kategori',
     'all_categories' => 'Semua Kategori',
     'category' => 'Kategori',
+    
+    // Subscription CRUD
+    'edit_subscription' => 'Edit Langganan',
+    'update_subscription' => 'Perbarui Langganan',
+    'delete_subscription' => 'Hapus Langganan',
+    'confirm_delete_subscription' => 'Apakah Anda yakin ingin menghapus langganan ini?',
+    'subscription_updated_success' => 'Langganan berhasil diperbarui',
+    'subscription_deleted_success' => 'Langganan berhasil dihapus',
+    'all' => 'Semua',
 ];

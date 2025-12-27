@@ -241,7 +241,29 @@ class SubscriptionController extends Controller
 
                     return $total_remaining_html;
                 })
-                ->rawColumns(['created_at', 'payment_status', 'payment_methods', 'final_total', 'total_paid', 'total_remaining', 'package'])
+                ->addColumn('action', function ($row) {
+                    $html = '<div class="btn-group">
+                        <button type="button" class="tw-dw-btn tw-dw-btn-xs tw-dw-btn-outline tw-dw-btn-primary dropdown-toggle" data-toggle="dropdown" aria-expanded="false">
+                            ' . __('messages.actions') . '
+                            <span class="caret"></span>
+                            <span class="sr-only">Toggle Dropdown</span>
+                        </button>
+                        <ul class="dropdown-menu dropdown-menu-right" role="menu">';
+                    
+                    $html .= '<li><a href="' . action([\Modules\Gym\Http\Controllers\SubscriptionController::class, 'edit'], ['subscription' => $row->id]) . '">
+                        <i class="fas fa-edit"></i> ' . __('messages.edit') . '</a></li>';
+                    
+                    // hanya yang belum paid
+                    if ($row->payment_status != 'paid') {
+                        $html .= '<li><a href="' . action([\Modules\Gym\Http\Controllers\SubscriptionController::class, 'destroy'], ['subscription' => $row->id]) . '" class="delete-subscription" data-href="' . action([\Modules\Gym\Http\Controllers\SubscriptionController::class, 'destroy'], ['subscription' => $row->id]) . '">
+                            <i class="fas fa-trash"></i> ' . __('messages.delete') . '</a></li>';
+                    }
+                    
+                    $html .= '</ul></div>';
+                    
+                    return $html;
+                })
+                ->rawColumns(['created_at', 'payment_status', 'payment_methods', 'final_total', 'total_paid', 'total_remaining', 'package', 'action'])
                 ->make(true);
         }
 
@@ -416,7 +438,33 @@ class SubscriptionController extends Controller
      */
     public function edit($id)
     {
-        return view('gym::edit');
+        $business_id = request()->session()->get('user.business_id');
+
+        if (! (auth()->user()->can('superadmin') || $this->moduleUtil->hasThePermissionInSubscription($business_id, 'gym_module'))) {
+            abort(403, 'Unauthorized action.');
+        }
+
+        $subscription = Transaction::where('business_id', $business_id)
+            ->where('type', 'gym_subscription')
+            ->with(['contact', 'payment_lines'])
+            ->findOrFail($id);
+
+        $contact = $subscription->contact;
+
+        $customer_due = $this->transactionUtil->getContactDue($contact->id, $business_id);
+        $customer_due = $customer_due != 0 ? $this->transactionUtil->num_f($customer_due, true) : '';
+
+        $packages = GymPackage::where('business_id', $business_id)->get();
+
+        $payment_line = $this->dummyPaymentLine;
+        $payment_types = $this->productUtil->payment_types(null, true, $business_id);
+        $change_return = $this->dummyPaymentLine;
+        $accounts = [];
+        if ($this->moduleUtil->isModuleEnabled('account')) {
+            $accounts = Account::forDropdown($business_id, true, false, true);
+        }
+
+        return view('gym::subscription.edit', compact('subscription', 'contact', 'customer_due', 'packages', 'payment_line', 'payment_types', 'change_return', 'accounts'));
     }
 
     /**
@@ -427,7 +475,80 @@ class SubscriptionController extends Controller
      */
     public function update(Request $request, $id)
     {
-        //
+        $business_id = request()->session()->get('user.business_id');
+
+        if (! (auth()->user()->can('superadmin') || $this->moduleUtil->hasThePermissionInSubscription($business_id, 'gym_module'))) {
+            abort(403, 'Unauthorized action.');
+        }
+
+        DB::beginTransaction();
+
+        try {
+            $subscription = Transaction::where('business_id', $business_id)
+                ->where('type', 'gym_subscription')
+                ->findOrFail($id);
+
+            // Update subscription fields
+            $subscription->total_before_tax = (is_null($request->final_total_input) ? 0 : $request->final_total_input) + (is_null($request->total_discount) ? 0 : $request->total_discount);
+            $subscription->final_total = is_null($request->final_total_input) ? 0 : $request->final_total_input;
+            $subscription->tax_amount = is_null($request->total_discount) ? 0 : $request->total_discount;
+            $subscription->discount_amount = is_null($request->total_discount) ? 0 : $request->total_discount;
+            $subscription->discount_type = is_null($request->total_discount) ? null : $request->discount_type;
+            $subscription->gym_package_start_date = $this->commonUtil->uf_date($request->start_date);
+            $subscription->gym_package_end_date = $request->end_date == 'Lifetime' ? null : $this->commonUtil->uf_date($request->end_date);
+            $subscription->gym_package_id = $request->package_id;
+            $subscription->gym_priority = $request->priority ?? 'normal';
+            $subscription->save();
+
+            // Re-initialize session tracking if package changed
+            $package = GymPackage::find($request->package_id);
+            if ($package) {
+                $this->sessionTrackingService->initializeSessionTracking($subscription, $package);
+            }
+
+            // Handle payment updates
+            $input = $request->except('_token');
+            
+            //Add change return
+            $change_return = $this->dummyPaymentLine;
+            if (! empty($input['payment']['change_return'])) {
+                $change_return = $input['payment']['change_return'];
+                unset($input['payment']['change_return']);
+            }
+
+            $change_return['amount'] = $input['change_return'] ?? 0;
+            $change_return['is_return'] = 1;
+
+            $input['payment'][] = $change_return;
+
+            if (! empty($input['payment'])) {
+                $this->transactionUtil->createOrUpdatePaymentLines($subscription, $input['payment']);
+            }
+
+            $this->transactionUtil->updatePaymentStatus($subscription->id, $subscription->final_total);
+
+            DB::commit();
+
+            $output = [
+                'success' => 1,
+                'msg' => __('lang_v1.updated_success'),
+            ];
+
+            return redirect()->action(
+                [\Modules\Gym\Http\Controllers\SubscriptionController::class, 'index']
+            )->with('status', $output);
+
+        } catch (\Exception $e) {
+            DB::rollBack();
+            \Log::emergency('File:' . $e->getFile() . 'Line:' . $e->getLine() . 'Message:' . $e->getMessage());
+
+            $output = [
+                'success' => 0,
+                'msg' => __('messages.something_went_wrong'),
+            ];
+
+            return back()->with('status', $output)->withInput();
+        }
     }
 
     /**
@@ -437,7 +558,37 @@ class SubscriptionController extends Controller
      */
     public function destroy($id)
     {
-        //
+        $business_id = request()->session()->get('user.business_id');
+
+        if (! (auth()->user()->can('superadmin') || $this->moduleUtil->hasThePermissionInSubscription($business_id, 'gym_module'))) {
+            abort(403, 'Unauthorized action.');
+        }
+
+        try {
+            $subscription = Transaction::where('business_id', $business_id)
+                ->where('type', 'gym_subscription')
+                ->findOrFail($id);
+
+            // Delete related payment lines
+            $subscription->payment_lines()->delete();
+
+            // Delete the subscription
+            $subscription->delete();
+
+            $output = [
+                'success' => true,
+                'msg' => __('lang_v1.deleted_success'),
+            ];
+        } catch (\Exception $e) {
+            \Log::emergency('File:' . $e->getFile() . 'Line:' . $e->getLine() . 'Message:' . $e->getMessage());
+            
+            $output = [
+                'success' => false,
+                'msg' => __('messages.something_went_wrong'),
+            ];
+        }
+
+        return $output;
     }
 
     public function get_end_date(Request $request)

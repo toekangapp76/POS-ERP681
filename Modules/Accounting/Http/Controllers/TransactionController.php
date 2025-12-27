@@ -717,12 +717,16 @@ class TransactionController extends Controller
                 $ppn_account = $request->get('ppn_account');
                 $discount_account = $request->get('discount_account');
                 $booking_date = $request->get('booking_date');
+                
                 $operation_date = null;
                 if (!empty($booking_date) && in_array($type, ['sell', 'purchase', 'expense', 'gym_subscription'])) {
+                    $transaction = Transaction::where('business_id', $business_id)->where('id', $id)->firstOrFail();
                     $operation_date = $this->transactionUtil->uf_date($booking_date, true);
+                    $transaction->transaction_date = $operation_date;
+                    $transaction->save();
                 }
 
-                $this->accountingUtil->saveMap($type, $id, $user_id, $business_id, $deposit_to, $payment_account, $ppn_account, $discount_account);
+                $this->accountingUtil->saveMap($type, $id, $user_id, $business_id, $deposit_to, $payment_account, $ppn_account, $discount_account, $operation_date);
 
                 if (!empty($operation_date)) {
                     AccountingAccountsTransaction::where('transaction_id', $id)
@@ -737,8 +741,6 @@ class TransactionController extends Controller
                 ];
             }
         } catch (\Exception $e) {
-            print_r($e->getMessage());
-            exit;
             DB::rollBack();
 
             \Log::emergency('File:'.$e->getFile().'Line:'.$e->getLine().'Message:'.$e->getMessage());

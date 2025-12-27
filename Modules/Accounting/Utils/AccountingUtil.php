@@ -160,9 +160,11 @@ class AccountingUtil extends Util
     /**
      * Function to save a mapping
      */
-    public function saveMap($type, $id, $user_id, $business_id, $deposit_to, $payment_account, $ppn_account = null, $discount_account = null){
+    public function saveMap($type, $id, $user_id, $business_id, $deposit_to, $payment_account, $ppn_account = null, $discount_account = null, $operation_date = null){
         if ($type == 'sell') {
             $transaction = Transaction::where('business_id', $business_id)->where('id', $id)->firstorFail();
+            
+            $gl_date = $operation_date ?? $transaction->transaction_date ?? \Carbon::now();
 
             //$payment_account will increase = sales = credit
             $payment_data = [
@@ -174,7 +176,7 @@ class AccountingUtil extends Util
                 'sub_type' => $type,
                 'map_type' => 'payment_account',
                 'created_by' => $user_id,
-                'operation_date' => \Carbon::now(),
+                'operation_date' => $gl_date,
             ];
 
             //Deposit to will increase = debit
@@ -187,11 +189,13 @@ class AccountingUtil extends Util
                 'sub_type' => $type,
                 'map_type' => 'deposit_to',
                 'created_by' => $user_id,
-                'operation_date' => \Carbon::now(),
+                'operation_date' => $gl_date,
             ];
         } elseif (in_array($type, ['purchase_payment', 'sell_payment'])) {
             $transaction_payment = TransactionPayment::where('id', $id)->where('business_id', $business_id)
                             ->firstorFail();
+            
+            $gl_date = $operation_date ?? $transaction_payment->paid_on ?? \Carbon::now();
 
             //$payment_account will increase = sales = credit
             $payment_data = [
@@ -203,7 +207,7 @@ class AccountingUtil extends Util
                 'sub_type' => $type,
                 'map_type' => 'payment_account',
                 'created_by' => $user_id,
-                'operation_date' => \Carbon::now(),
+                'operation_date' => $gl_date,
             ];
 
             //Deposit to will increase = debit
@@ -216,37 +220,13 @@ class AccountingUtil extends Util
                 'sub_type' => $type,
                 'map_type' => 'deposit_to',
                 'created_by' => $user_id,
-                'operation_date' => \Carbon::now(),
+                'operation_date' => $gl_date,
             ];
         } elseif ($type == 'purchase') {
             $transaction = Transaction::where('business_id', $business_id)->where('id', $id)->firstorFail();
-
-            //$payment_account will increase = sales = credit
-            $payment_data = [
-                'accounting_account_id' => $payment_account,
-                'transaction_id' => $id,
-                'transaction_payment_id' => null,
-                'amount' => $transaction->final_total,
-                'type' => 'credit',
-                'sub_type' => $type,
-                'map_type' => 'payment_account',
-                'created_by' => $user_id,
-                'operation_date' => \Carbon::now(),
-            ];
-
-            //Deposit to will increase = debit
-            $deposit_data = [
-                'accounting_account_id' => $deposit_to,
-                'transaction_id' => $id,
-                'transaction_payment_id' => null,
-                'amount' => $transaction->final_total,
-                'type' => 'debit',
-                'sub_type' => $type,
-                'map_type' => 'deposit_to',
-                'created_by' => $user_id,
-                'operation_date' => \Carbon::now(),
-            ];        } elseif ($type == 'purchase') {
-            $transaction = Transaction::where('business_id', $business_id)->where('id', $id)->firstorFail();
+            
+           
+            $gl_date = $operation_date ?? $transaction->transaction_date ?? \Carbon::now();
             
             // Calculate amounts
             $tax_amount = $transaction->tax_amount ?? 0;
@@ -263,7 +243,7 @@ class AccountingUtil extends Util
                 'sub_type' => $type,
                 'map_type' => 'payment_account',
                 'created_by' => $user_id,
-                'operation_date' => \Carbon::now(),
+                'operation_date' => $gl_date,
             ];
 
             // Accounts Payable (credit) - hutang ke supplier
@@ -276,7 +256,7 @@ class AccountingUtil extends Util
                 'sub_type' => $type,
                 'map_type' => 'deposit_to',
                 'created_by' => $user_id,
-                'operation_date' => \Carbon::now(),
+                'operation_date' => $gl_date,
             ];
             
             // Tax (debit) - pajak yang bisa diklaim
@@ -290,7 +270,7 @@ class AccountingUtil extends Util
                     'sub_type' => $type,
                     'map_type' => 'ppn_account',
                     'created_by' => $user_id,
-                    'operation_date' => \Carbon::now(),
+                    'operation_date' => $gl_date,
                 ];
                 AccountingAccountsTransaction::updateOrCreateMapTransaction($ppn_data);
             }
@@ -306,11 +286,14 @@ class AccountingUtil extends Util
                     'sub_type' => $type,
                     'map_type' => 'discount_account',
                     'created_by' => $user_id,
-                    'operation_date' => \Carbon::now(),
+                    'operation_date' => $gl_date,
                 ];
                 AccountingAccountsTransaction::updateOrCreateMapTransaction($discount_data);
             }        }elseif ($type == 'expense') {
-            $transaction = Transaction::where('business_id', $business_id)->where('id', $id)->firstorFail();            
+            $transaction = Transaction::where('business_id', $business_id)->where('id', $id)->firstorFail();
+            
+            $gl_date = $operation_date ?? $transaction->transaction_date ?? \Carbon::now();
+            
             $payment_data = [
                 'accounting_account_id' => $payment_account,
                 'transaction_id' => $id,
@@ -320,7 +303,7 @@ class AccountingUtil extends Util
                 'sub_type' => $type,
                 'map_type' => 'payment_account',
                 'created_by' => $user_id,
-                'operation_date' => \Carbon::now(),
+                'operation_date' => $gl_date,
             ];
 
             $deposit_data = [
@@ -332,10 +315,12 @@ class AccountingUtil extends Util
                 'sub_type' => $type,
                 'map_type' => 'deposit_to',
                 'created_by' => $user_id,
-                'operation_date' => \Carbon::now(),
+                'operation_date' => $gl_date,
             ];
         } elseif ($type == 'gym_subscription') {
             $transaction = Transaction::where('business_id', $business_id)->where('id', $id)->firstorFail();
+            
+            $gl_date = $operation_date ?? $transaction->transaction_date ?? \Carbon::now();
             
             // Rumus: deposit = bank / 1.1
             // PPN = 10% dari deposit
@@ -352,7 +337,7 @@ class AccountingUtil extends Util
                 'sub_type' => $type,
                 'map_type' => 'payment_account',
                 'created_by' => $user_id,
-                'operation_date' => \Carbon::now(),
+                'operation_date' => $gl_date,
             ];
 
             // Deposit to (credit) - pendapatan sebelum pajak
@@ -365,7 +350,7 @@ class AccountingUtil extends Util
                 'sub_type' => $type,
                 'map_type' => 'deposit_to',
                 'created_by' => $user_id,
-                'operation_date' => \Carbon::now(),
+                'operation_date' => $gl_date,
             ];
             
             // PPN (credit) - pajak 10%
@@ -379,7 +364,7 @@ class AccountingUtil extends Util
                     'sub_type' => $type,
                     'map_type' => 'ppn_account',
                     'created_by' => $user_id,
-                    'operation_date' => \Carbon::now(),
+                    'operation_date' => $gl_date,
                 ];
                 AccountingAccountsTransaction::updateOrCreateMapTransaction($ppn_data);
             }

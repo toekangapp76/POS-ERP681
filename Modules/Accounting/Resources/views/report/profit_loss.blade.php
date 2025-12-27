@@ -87,6 +87,15 @@
                             <tr class="success">
                                 <th rowspan="2" style="width:120px; vertical-align: middle;">@lang('accounting::lang.gl_code')</th>
                                 <th rowspan="2" style="vertical-align: middle;">@lang('user.name')</th>
+                                @php
+                                    $first_month = count($months) > 0 ? $months[0] : null;
+                                    $first_month_key = $first_month['key'] ?? null;
+                                    $first_month_label = $first_month ? $first_month['label'] : '';
+                                @endphp
+                                <th rowspan="2" class="text-center bg-danger nett-loss-col" style="vertical-align: middle; width:120px;">
+                                    @lang('accounting::lang.nett_loss')
+                                    <div class="text-muted" style="font-size: 10px;">{{ $first_month_label }}</div>
+                                </th>
                                 @foreach($months as $index => $month)
                                     <th class="text-center month-col">{{ $month['label'] }}</th>
                                     @if($index > 0)
@@ -110,9 +119,21 @@
                         </thead>
                         <tbody>
                             @forelse($income_accounts as $account)
+                                @php
+                                    $first_month_balance = $first_month_key ? ($account->monthly_balances[$first_month_key] ?? 0) : 0;
+                                    // For income, negative balance in first month indicates a loss situation
+                                    $nett_loss_income = $first_month_balance < 0 ? abs($first_month_balance) : 0;
+                                @endphp
                                 <tr>
                                     <td>{{ $account->gl_code }}</td>
                                     <td>{{ $account->name }}</td>
+                                    <td class="text-right nett-loss-col {{ $nett_loss_income > 0 ? 'text-danger' : '' }}">
+                                        @if($nett_loss_income > 0)
+                                            @format_currency($nett_loss_income)
+                                        @else
+                                            -
+                                        @endif
+                                    </td>
                                     @foreach($months as $index => $month)
                                         @php
                                             $current_balance = $account->monthly_balances[$month['key']] ?? 0;
@@ -137,13 +158,24 @@
                                 </tr>
                             @empty
                                 <tr>
-                                    <td colspan="{{ 2 + count($months) + (count($months) > 0 ? count($months) - 1 : 0) + 1 }}" class="text-center text-muted">@lang('lang_v1.no_data')</td>
+                                    <td colspan="{{ 3 + count($months) + (count($months) > 0 ? count($months) - 1 : 0) + 1 }}" class="text-center text-muted">@lang('lang_v1.no_data')</td>
                                 </tr>
                             @endforelse
                         </tbody>
                         <tfoot>
                             <tr class="success">
                                 <th colspan="2" class="text-right"><strong>@lang('accounting::lang.total_income')</strong></th>
+                                @php
+                                    $first_month_income = $first_month_key ? ($monthly_totals['income'][$first_month_key] ?? 0) : 0;
+                                    $total_nett_loss_income = $first_month_income < 0 ? abs($first_month_income) : 0;
+                                @endphp
+                                <th class="text-right nett-loss-col {{ $total_nett_loss_income > 0 ? 'text-danger' : '' }}">
+                                    @if($total_nett_loss_income > 0)
+                                        @format_currency($total_nett_loss_income)
+                                    @else
+                                        -
+                                    @endif
+                                </th>
                                 @foreach($months as $index => $month)
                                     @php
                                         $current_income = $monthly_totals['income'][$month['key']] ?? 0;
@@ -173,6 +205,10 @@
                             <tr class="gray">
                                 <th rowspan="2" style="width:120px; vertical-align: middle;">@lang('accounting::lang.gl_code')</th>
                                 <th rowspan="2" style="vertical-align: middle;">@lang('user.name')</th>
+                                <th rowspan="2" class="text-center bg-danger nett-loss-col" style="vertical-align: middle; width:120px;">
+                                    @lang('accounting::lang.nett_loss')
+                                    <div class="text-muted" style="font-size: 10px;">{{ $first_month_label }}</div>
+                                </th>
                                 @foreach($months as $index => $month)
                                     <th class="text-center month-col">{{ $month['label'] }}</th>
                                     @if($index > 0)
@@ -196,9 +232,21 @@
                         </thead>
                         <tbody>
                             @forelse($expense_accounts as $account)
+                                @php
+                                    $first_month_expense = $first_month_key ? ($account->monthly_balances[$first_month_key] ?? 0) : 0;
+                                    // For expense, positive balance in first month indicates the loss (expense amount)
+                                    $nett_loss_expense = $first_month_expense > 0 ? $first_month_expense : 0;
+                                @endphp
                                 <tr>
                                     <td>{{ $account->gl_code }}</td>
                                     <td>{{ $account->name }}</td>
+                                    <td class="text-right nett-loss-col {{ $nett_loss_expense > 0 ? 'text-danger' : '' }}">
+                                        @if($nett_loss_expense > 0)
+                                            @format_currency($nett_loss_expense)
+                                        @else
+                                            -
+                                        @endif
+                                    </td>
                                     @foreach($months as $index => $month)
                                         @php
                                             $current_balance = $account->monthly_balances[$month['key']] ?? 0;
@@ -223,13 +271,24 @@
                                 </tr>
                             @empty
                                 <tr>
-                                    <td colspan="{{ 2 + count($months) + (count($months) > 0 ? count($months) - 1 : 0) + 1 }}" class="text-center text-muted">@lang('lang_v1.no_data')</td>
+                                    <td colspan="{{ 3 + count($months) + (count($months) > 0 ? count($months) - 1 : 0) + 1 }}" class="text-center text-muted">@lang('lang_v1.no_data')</td>
                                 </tr>
                             @endforelse
                         </tbody>
                         <tfoot>
                             <tr class="gray">
                                 <th colspan="2" class="text-right"><strong>@lang('accounting::lang.total_expenses')</strong></th>
+                                @php
+                                    $first_month_expense_total = $first_month_key ? ($monthly_totals['expense'][$first_month_key] ?? 0) : 0;
+                                    $total_nett_loss_expense = $first_month_expense_total > 0 ? $first_month_expense_total : 0;
+                                @endphp
+                                <th class="text-right nett-loss-col {{ $total_nett_loss_expense > 0 ? 'text-danger' : '' }}">
+                                    @if($total_nett_loss_expense > 0)
+                                        @format_currency($total_nett_loss_expense)
+                                    @else
+                                        -
+                                    @endif
+                                </th>
                                 @foreach($months as $index => $month)
                                     @php
                                         $current_expense = $monthly_totals['expense'][$month['key']] ?? 0;
@@ -267,6 +326,10 @@
                                         @endif
                                     </strong>
                                 </th>
+                                <th class="text-center bg-danger nett-loss-col" style="vertical-align: middle; width:120px;">
+                                    @lang('accounting::lang.nett_loss')
+                                    <div class="text-muted" style="font-size: 10px;">{{ $first_month_label }}</div>
+                                </th>
                                 @foreach($months as $index => $month)
                                     <th class="text-center month-col">{{ $month['label'] }}</th>
                                     @if($index > 0)
@@ -277,8 +340,22 @@
                             </tr>
                         </thead>
                         <tbody>
+                            @php
+                                $first_month_net = $first_month_key ? ($monthly_totals['net_profit'][$first_month_key] ?? 0) : 0;
+                                // Nett loss is shown if net profit for first month is negative
+                                $total_nett_loss = $first_month_net < 0 ? abs($first_month_net) : 0;
+                            @endphp
                             <tr class="{{ $net_profit >= 0 ? 'bg-cyan' : 'bg-blue' }}">
                                 <td style="font-size: 16px;"><strong>Nilai</strong></td>
+                                <td class="text-right nett-loss-col" style="font-size: 14px;">
+                                    <strong class="{{ $total_nett_loss > 0 ? 'text-danger' : '' }}">
+                                        @if($total_nett_loss > 0)
+                                            @format_currency($total_nett_loss)
+                                        @else
+                                            -
+                                        @endif
+                                    </strong>
+                                </td>
                                 @foreach($months as $index => $month)
                                     @php
                                         $current_net = $monthly_totals['net_profit'][$month['key']] ?? 0;

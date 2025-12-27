@@ -32,6 +32,9 @@
                 <thead>
                     <tr>
                         <th>
+                            @lang('messages.action')
+                        </th>
+                        <th>
                             @lang('gym::lang.customer')
                         </th>
                         <th>
@@ -92,9 +95,16 @@
                         },
                     },
                     aaSorting: [
-                        [7, 'desc']
+                        [8, 'desc']
                     ],
-                    columns: [{
+                    columns: [
+                        {
+                            data: 'action',
+                            name: 'action',
+                            orderable: false,
+                            searchable: false
+                        },
+                        {
                             data: 'c_name',
                             name: 'c.name',
                         },
@@ -132,6 +142,38 @@
                 });
                 $(document).on('change', '#customer_id, #payment_status, #package_id', function() {
                     subscription_table.ajax.reload();
+                });
+
+                // Delete subscription
+                $(document).on('click', '.delete-subscription', function(e) {
+                    e.preventDefault();
+                    var url = $(this).data('href');
+                    
+                    swal({
+                        title: LANG.sure,
+                        text: LANG.confirm_delete_subscription,
+                        icon: 'warning',
+                        buttons: true,
+                        dangerMode: true,
+                    }).then((willDelete) => {
+                        if (willDelete) {
+                            $.ajax({
+                                method: 'DELETE',
+                                url: url,
+                                data: {
+                                    '_token': '{{ csrf_token() }}'
+                                },
+                                success: function(result) {
+                                    if (result.success == true) {
+                                        toastr.success(result.msg);
+                                        subscription_table.ajax.reload();
+                                    } else {
+                                        toastr.error(result.msg);
+                                    }
+                                }
+                            });
+                        }
+                    });
                 });
 
             });
