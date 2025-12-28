@@ -125,7 +125,7 @@
                                     <div class="text-muted" style="font-size: 11px;">{{ $last_range_label }}</div>
                                 </th>
                                 <th class="text-center align-middle bg-info" style="vertical-align: middle;">
-                                    Current Month
+                                    YTD
                                     <div class="text-muted" style="font-size: 11px;">{{ $current_range_label }}</div>
                                 </th>
                                 <th class="text-center align-middle bg-warning diff-col" style="vertical-align: middle;">Varian</th>
