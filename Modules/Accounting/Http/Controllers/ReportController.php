@@ -279,14 +279,15 @@ class ReportController extends Controller
             return !empty($row->gl_code) && $row->gl_code === '3202-0000';
         });
 
+        // R/E Current Year di-nol-kan sesuai permintaan
         $re_row = (object) [
             'id' => null,
             'name' => 'R/E Current Year (Net Profit/Loss)',
             'gl_code' => '3202-0000',
-            'beginning_balance' => $re_opening_balance,
-            'debit_balance' => $re_debit_balance,
-            'credit_balance' => $re_credit_balance,
-            'ending_balance' => $re_ending_balance,
+            'beginning_balance' => 0,
+            'debit_balance' => 0,
+            'credit_balance' => 0,
+            'ending_balance' => 0,
         ];
 
         if ($re_index !== false) {
