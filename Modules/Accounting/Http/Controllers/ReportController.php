@@ -295,6 +295,7 @@ class ReportController extends Controller
             return !empty($row->gl_code) && $row->gl_code === '3202-0000';
         });
 
+        // R/E Current Year di-nol-kan sesuai permintaan
         $re_row = (object) [
             'id' => null,
             'name' => 'R/E Current Year (Net Profit/Loss)',

@@ -103,11 +103,13 @@
                         $current_key = $current_month['key'] ?? null;
                         $last_key = $last_month['key'] ?? null;
                         $period_start = $month_count > 0 ? \Carbon\Carbon::parse($months[0]['start']) : null;
+                        // Current Month = YTD (akumulasi dari awal tahun ke bulan filter)
                         $current_range_label = ($current_month && $period_start)
                             ? 'YTD s.d. ' . \Carbon\Carbon::parse($current_month['end'])->format('M Y')
                             : '-';
-                        $last_range_label = ($last_month && $period_start)
-                            ? 'YTD s.d. ' . \Carbon\Carbon::parse($last_month['end'])->format('M Y')
+                        // Last Month = hanya bulan sebelumnya saja (bukan kumulatif)
+                        $last_range_label = $last_month
+                            ? \Carbon\Carbon::parse($last_month['start'])->format('M Y')
                             : '-';
                     @endphp
 
@@ -132,18 +134,34 @@
                         <tbody>
                             @forelse($income_accounts as $account)
                                 @php
+                                    // Last Month = hanya nilai bulan sebelumnya saja
+                                    // monthly_balances sudah berisi nilai kumulatif YTD per bulan
+                                    // Jadi untuk mendapat nilai bulan saja: current_ytd - previous_ytd
                                     $last_balance = 0;
                                     $current_balance = 0;
-                                    $running_balance = 0;
-                                    foreach ($months as $month) {
-                                        $running_balance += $account->monthly_balances[$month['key']] ?? 0;
-                                        if ($last_key && $month['key'] === $last_key) {
-                                            $last_balance = $running_balance;
-                                        }
-                                        if ($current_key && $month['key'] === $current_key) {
-                                            $current_balance = $running_balance;
-                                        }
+                                    
+                                    // Current Month = YTD sampai bulan filter (nilai kumulatif)
+                                    if ($current_key) {
+                                        $current_balance = $account->monthly_balances[$current_key] ?? 0;
                                     }
+                                    
+                                    // Last Month = hanya bulan sebelumnya saja (bukan kumulatif)
+                                    // Nilai bulan = YTD bulan tersebut - YTD bulan sebelumnya
+                                    if ($last_key) {
+                                        $last_ytd = $account->monthly_balances[$last_key] ?? 0;
+                                        // Cari bulan sebelum last_month untuk menghitung selisih
+                                        $prev_last_key = null;
+                                        $prev_last_ytd = 0;
+                                        foreach ($months as $idx => $month) {
+                                            if ($month['key'] === $last_key && $idx > 0) {
+                                                $prev_last_key = $months[$idx - 1]['key'];
+                                                $prev_last_ytd = $account->monthly_balances[$prev_last_key] ?? 0;
+                                                break;
+                                            }
+                                        }
+                                        $last_balance = $last_ytd - $prev_last_ytd;
+                                    }
+                                    
                                     $difference = $current_balance - $last_balance;
                                     $diff_color = $difference > 0 ? 'text-success' : ($difference < 0 ? 'text-danger' : '');
                                 @endphp
@@ -177,16 +195,25 @@
                                 @php
                                     $last_income_total = 0;
                                     $current_income_total = 0;
-                                    $running_income = 0;
-                                    foreach ($months as $month) {
-                                        $running_income += $monthly_totals['income'][$month['key']] ?? 0;
-                                        if ($last_key && $month['key'] === $last_key) {
-                                            $last_income_total = $running_income;
-                                        }
-                                        if ($current_key && $month['key'] === $current_key) {
-                                            $current_income_total = $running_income;
-                                        }
+                                    
+                                    // Current Month = YTD total (kumulatif)
+                                    if ($current_key) {
+                                        $current_income_total = $monthly_totals['income'][$current_key] ?? 0;
                                     }
+                                    
+                                    // Last Month = hanya bulan sebelumnya saja
+                                    if ($last_key) {
+                                        $last_ytd = $monthly_totals['income'][$last_key] ?? 0;
+                                        $prev_last_ytd = 0;
+                                        foreach ($months as $idx => $month) {
+                                            if ($month['key'] === $last_key && $idx > 0) {
+                                                $prev_last_ytd = $monthly_totals['income'][$months[$idx - 1]['key']] ?? 0;
+                                                break;
+                                            }
+                                        }
+                                        $last_income_total = $last_ytd - $prev_last_ytd;
+                                    }
+                                    
                                     $income_diff = $current_income_total - $last_income_total;
                                 @endphp
                                 <th class="text-right month-col">@format_currency($last_income_total)</th>
@@ -222,18 +249,30 @@
                         <tbody>
                             @forelse($expense_accounts as $account)
                                 @php
+                                    // Last Month = hanya nilai bulan sebelumnya saja
                                     $last_balance = 0;
                                     $current_balance = 0;
-                                    $running_balance = 0;
-                                    foreach ($months as $month) {
-                                        $running_balance += $account->monthly_balances[$month['key']] ?? 0;
-                                        if ($last_key && $month['key'] === $last_key) {
-                                            $last_balance = $running_balance;
-                                        }
-                                        if ($current_key && $month['key'] === $current_key) {
-                                            $current_balance = $running_balance;
-                                        }
+                                    
+                                    // Current Month = YTD sampai bulan filter (nilai kumulatif)
+                                    if ($current_key) {
+                                        $current_balance = $account->monthly_balances[$current_key] ?? 0;
                                     }
+                                    
+                                    // Last Month = hanya bulan sebelumnya saja (bukan kumulatif)
+                                    if ($last_key) {
+                                        $last_ytd = $account->monthly_balances[$last_key] ?? 0;
+                                        $prev_last_key = null;
+                                        $prev_last_ytd = 0;
+                                        foreach ($months as $idx => $month) {
+                                            if ($month['key'] === $last_key && $idx > 0) {
+                                                $prev_last_key = $months[$idx - 1]['key'];
+                                                $prev_last_ytd = $account->monthly_balances[$prev_last_key] ?? 0;
+                                                break;
+                                            }
+                                        }
+                                        $last_balance = $last_ytd - $prev_last_ytd;
+                                    }
+                                    
                                     $difference = $current_balance - $last_balance;
                                     // For expenses, more is bad (red), less is good (green)
                                     $diff_color = $difference > 0 ? 'text-danger' : ($difference < 0 ? 'text-success' : '');
@@ -268,16 +307,25 @@
                                 @php
                                     $last_expense_total = 0;
                                     $current_expense_total = 0;
-                                    $running_expense = 0;
-                                    foreach ($months as $month) {
-                                        $running_expense += $monthly_totals['expense'][$month['key']] ?? 0;
-                                        if ($last_key && $month['key'] === $last_key) {
-                                            $last_expense_total = $running_expense;
-                                        }
-                                        if ($current_key && $month['key'] === $current_key) {
-                                            $current_expense_total = $running_expense;
-                                        }
+                                    
+                                    // Current Month = YTD total (kumulatif)
+                                    if ($current_key) {
+                                        $current_expense_total = $monthly_totals['expense'][$current_key] ?? 0;
                                     }
+                                    
+                                    // Last Month = hanya bulan sebelumnya saja
+                                    if ($last_key) {
+                                        $last_ytd = $monthly_totals['expense'][$last_key] ?? 0;
+                                        $prev_last_ytd = 0;
+                                        foreach ($months as $idx => $month) {
+                                            if ($month['key'] === $last_key && $idx > 0) {
+                                                $prev_last_ytd = $monthly_totals['expense'][$months[$idx - 1]['key']] ?? 0;
+                                                break;
+                                            }
+                                        }
+                                        $last_expense_total = $last_ytd - $prev_last_ytd;
+                                    }
+                                    
                                     $expense_diff = $current_expense_total - $last_expense_total;
                                 @endphp
                                 <th class="text-right month-col">@format_currency($last_expense_total)</th>
