@@ -505,4 +505,5 @@ return [
     'current_month' => 'Current Month',
     'varian' => 'Varian',
     'all' => 'All',
+    'other' => 'Other',
 ];

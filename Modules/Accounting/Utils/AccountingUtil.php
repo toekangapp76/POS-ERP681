@@ -152,7 +152,7 @@ class AccountingUtil extends Util
      */
     public function deleteMap($transaction_id, $transaction_payment_id){
         AccountingAccountsTransaction::where('transaction_id', $transaction_id)
-            ->whereIn('map_type', ['payment_account', 'deposit_to'])
+            ->whereIn('map_type', ['payment_account', 'deposit_to', 'ppn_account', 'discount_account'])
             ->where('transaction_payment_id', $transaction_payment_id)
             ->delete();
     }
@@ -166,26 +166,26 @@ class AccountingUtil extends Util
             
             $gl_date = $operation_date ?? $transaction->transaction_date ?? \Carbon::now();
 
-            //$payment_account will increase = sales = credit
+            // Payment Account (Bank/Cash) = Debit (aset masuk)
             $payment_data = [
                 'accounting_account_id' => $payment_account,
                 'transaction_id' => $id,
                 'transaction_payment_id' => null,
                 'amount' => $transaction->final_total,
-                'type' => 'credit',
+                'type' => 'debit',
                 'sub_type' => $type,
                 'map_type' => 'payment_account',
                 'created_by' => $user_id,
                 'operation_date' => $gl_date,
             ];
 
-            //Deposit to will increase = debit
+            // Deposit To (Revenue/Sales) = Credit (pendapatan masuk)
             $deposit_data = [
                 'accounting_account_id' => $deposit_to,
                 'transaction_id' => $id,
                 'transaction_payment_id' => null,
                 'amount' => $transaction->final_total,
-                'type' => 'debit',
+                'type' => 'credit',
                 'sub_type' => $type,
                 'map_type' => 'deposit_to',
                 'created_by' => $user_id,
@@ -197,26 +197,26 @@ class AccountingUtil extends Util
             
             $gl_date = $operation_date ?? $transaction_payment->paid_on ?? \Carbon::now();
 
-            //$payment_account will increase = sales = credit
+            // Payment Account (Bank/Cash) = Debit (kas masuk)
             $payment_data = [
                 'accounting_account_id' => $payment_account,
                 'transaction_id' => null,
                 'transaction_payment_id' => $id,
                 'amount' => $transaction_payment->amount,
-                'type' => 'credit',
+                'type' => 'debit',
                 'sub_type' => $type,
                 'map_type' => 'payment_account',
                 'created_by' => $user_id,
                 'operation_date' => $gl_date,
             ];
 
-            //Deposit to will increase = debit
+            // Deposit To (A/R atau Revenue) = Credit
             $deposit_data = [
                 'accounting_account_id' => $deposit_to,
                 'transaction_id' => null,
                 'transaction_payment_id' => $id,
                 'amount' => $transaction_payment->amount,
-                'type' => 'debit',
+                'type' => 'credit',
                 'sub_type' => $type,
                 'map_type' => 'deposit_to',
                 'created_by' => $user_id,

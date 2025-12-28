@@ -464,4 +464,5 @@ return [
     'current_month' => 'Bulan Ini',
     'varian' => 'Varian',
     'all' => 'Semua',
+    'other' => 'Lainnya',
 ];
