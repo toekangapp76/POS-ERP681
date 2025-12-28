@@ -45,7 +45,7 @@
         <div class="col-md-4">
             <div class="form-group">
                 {!! Form::label('currency_symbol_placement', __('lang_v1.currency_symbol_placement') . ':') !!}
-                {!! Form::select('currency_symbol_placement', ['before' => __('lang_v1.before_amount'), 'after' => __('lang_v1.after_amount')], $business->currency_symbol_placement, ['class' => 'form-control select2', 'required']); !!}
+                {!! Form::select('currency_symbol_placement', ['without' => __('lang_v1.without_currency'), 'before' => __('lang_v1.before_amount'), 'after' => __('lang_v1.after_amount')], $business->currency_symbol_placement, ['class' => 'form-control select2', 'required']); !!}
             </div>
         </div>
         <div class="col-md-4">

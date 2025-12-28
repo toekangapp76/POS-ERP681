@@ -1586,4 +1586,5 @@ return [
     'tax_number_already_exists' => 'This tax number already exists',
     'invoice_synced_to_zatca_cannot_be_deleted' => 'This invoice has been successfully synced to ZATCA and cannot be deleted.',
     'invoice_synced_to_zatca_cannot_be_edited' => 'This invoice has been successfully synced to ZATCA and cannot be edited.',
+    'without_currency'=>'Without Currency'
 ];

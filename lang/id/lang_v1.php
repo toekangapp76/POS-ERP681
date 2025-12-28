@@ -1428,4 +1428,5 @@ return [
     'invoice_synced_to_zatca_cannot_be_deleted' => 'Faktur ini telah berhasil disinkronkan ke ZATCA dan tidak dapat dihapus.',
     'invoice_synced_to_zatca_cannot_be_edited' => 'Faktur ini telah berhasil disinkronkan ke ZATCA dan tidak dapat diedit.',
     'file_to_import' => 'File Import',
+    'without_currency'=>'Tanpa CCY'
 ];
