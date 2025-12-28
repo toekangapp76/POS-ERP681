@@ -102,16 +102,14 @@ class ReportController extends Controller
 
         // Get all active accounts
         $all_accounts = AccountingAccount::where('business_id', $business_id)
-            ->where('status', 'active')
             ->select('id', 'name', 'gl_code', 'account_primary_type')
             ->orderBy('gl_code')
             ->get();
 
         $accounts = collect();
-        $balance_formula = $this->accountingUtil->balanceFormula('AA', 'AAT');
+        $opening_balance_formula = "SUM(IF(AAT.type = 'debit', AAT.amount, 0)) - SUM(IF(AAT.type = 'credit', AAT.amount, 0)) as balance";
 
         $pl_accounts = AccountingAccount::where('business_id', $business_id)
-            ->where('status', 'active')
             ->whereNotNull('gl_code')
             ->where('gl_code', '!=', '')
             ->whereRaw("CAST(SUBSTRING(gl_code, 1, 1) AS UNSIGNED) >= 4")
@@ -206,8 +204,14 @@ class ReportController extends Controller
                         ->join('accounting_accounts as AA', 'AAT.accounting_account_id', '=', 'AA.id')
                         ->where('AAT.accounting_account_id', $account->id)
                         ->whereDate('AAT.operation_date', '>=', $fiscal_year_start)
-                        ->whereDate('AAT.operation_date', '<=', $beginning_balance_date)
-                        ->select(DB::raw($balance_formula))
+                        ->where(function ($q) use ($beginning_balance_date, $start_date) {
+                            $q->whereDate('AAT.operation_date', '<=', $beginning_balance_date)
+                                ->orWhere(function ($q2) use ($start_date) {
+                                    $q2->where('AAT.sub_type', 'opening_balance')
+                                        ->whereDate('AAT.operation_date', '<=', $start_date);
+                                });
+                        })
+                        ->select(DB::raw($opening_balance_formula))
                         ->first();
                     $beginning_balance = $beginning->balance ?? 0;
                 } else {
@@ -215,8 +219,14 @@ class ReportController extends Controller
                     $beginning = DB::table('accounting_accounts_transactions as AAT')
                         ->join('accounting_accounts as AA', 'AAT.accounting_account_id', '=', 'AA.id')
                         ->where('AAT.accounting_account_id', $account->id)
-                        ->whereDate('AAT.operation_date', '<=', $beginning_balance_date)
-                        ->select(DB::raw($balance_formula))
+                        ->where(function ($q) use ($beginning_balance_date, $start_date) {
+                            $q->whereDate('AAT.operation_date', '<=', $beginning_balance_date)
+                                ->orWhere(function ($q2) use ($start_date) {
+                                    $q2->where('AAT.sub_type', 'opening_balance')
+                                        ->whereDate('AAT.operation_date', '<=', $start_date);
+                                });
+                        })
+                        ->select(DB::raw($opening_balance_formula))
                         ->first();
                     $beginning_balance = $beginning->balance ?? 0;
                 }
@@ -231,8 +241,14 @@ class ReportController extends Controller
                     $beginning = DB::table('accounting_accounts_transactions as AAT')
                         ->join('accounting_accounts as AA', 'AAT.accounting_account_id', '=', 'AA.id')
                         ->where('AAT.accounting_account_id', $account->id)
-                        ->whereDate('AAT.operation_date', '<=', $beginning_balance_date)
-                        ->select(DB::raw($balance_formula))
+                        ->where(function ($q) use ($beginning_balance_date, $start_date) {
+                            $q->whereDate('AAT.operation_date', '<=', $beginning_balance_date)
+                                ->orWhere(function ($q2) use ($start_date) {
+                                    $q2->where('AAT.sub_type', 'opening_balance')
+                                        ->whereDate('AAT.operation_date', '<=', $start_date);
+                                });
+                        })
+                        ->select(DB::raw($opening_balance_formula))
                         ->first();
                     $beginning_balance = $beginning->balance ?? 0;
                 }
@@ -242,6 +258,10 @@ class ReportController extends Controller
             // Calculate period transactions (debit and credit in the date range)
             $period = DB::table('accounting_accounts_transactions as AAT')
                 ->where('AAT.accounting_account_id', $account->id)
+                ->where(function ($q) {
+                    $q->whereNull('AAT.sub_type')
+                        ->orWhere('AAT.sub_type', '!=', 'opening_balance');
+                })
                 ->whereDate('AAT.operation_date', '>=', $start_date)
                 ->whereDate('AAT.operation_date', '<=', $end_date)
                 ->select(
@@ -252,11 +272,7 @@ class ReportController extends Controller
 
             $debit_balance = $period->debit ?? 0;
             $credit_balance = $period->credit ?? 0;
-            if (in_array($account->account_primary_type, ['asset', 'expense'])) {
-                $ending_balance = $beginning_balance + $debit_balance - $credit_balance;
-            } else {
-                $ending_balance = $beginning_balance + $credit_balance - $debit_balance;
-            }
+            $ending_balance = $beginning_balance + $debit_balance - $credit_balance;
 
             // Include ALL accounts (including those with zero balance)
             $accounts->push((object) [
