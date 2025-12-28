@@ -728,6 +728,12 @@ class TransactionController extends Controller
 
                 $this->accountingUtil->saveMap($type, $id, $user_id, $business_id, $deposit_to, $payment_account, $ppn_account, $discount_account, $operation_date);
 
+                if (!empty($operation_date)) {
+                    AccountingAccountsTransaction::where('transaction_id', $id)
+                        ->whereIn('map_type', ['payment_account', 'deposit_to', 'ppn_account', 'discount_account'])
+                        ->update(['operation_date' => $operation_date]);
+                }
+
                 DB::commit();
 
                 $output = ['success' => true,
