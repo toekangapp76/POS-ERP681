@@ -91,18 +91,18 @@ class JournalEntryController extends Controller
                 })
                 ->addColumn('debit', function ($row) {
                     if ($row->type == 'debit') {
-                        return '<span class="display_currency tw-block" data-currency_symbol="true" data-orig-value="'.$row->amount.'">'.$row->amount.'</span>';
+                        return '<span class="display_currency tw-block" data-currency_symbol="false" data-orig-value="'.$row->amount.'">'.$row->amount.'</span>';
                     }
                     return '';
                 })
                 ->addColumn('credit', function ($row) {
                     if ($row->type == 'credit') {
-                        return '<span class="display_currency tw-block" data-currency_symbol="true" data-orig-value="'.$row->amount.'">'.$row->amount.'</span>';
+                        return '<span class="display_currency tw-block" data-currency_symbol="false" data-orig-value="'.$row->amount.'">'.$row->amount.'</span>';
                     }
                     return '';
                 })
                 ->addColumn('balance', function ($row) {
-                    return '<span class="display_currency tw-block" data-currency_symbol="true" data-orig-value="'.$row->amount.'">'.$row->amount.'</span>';
+                    return '<span class="display_currency tw-block" data-currency_symbol="false" data-orig-value="'.$row->amount.'">'.$row->amount.'</span>';
                 })
                 ->addColumn(
                     'action',
