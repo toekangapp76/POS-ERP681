@@ -253,6 +253,10 @@ class SubscriptionController extends Controller
                     $html .= '<li><a href="' . action([\Modules\Gym\Http\Controllers\SubscriptionController::class, 'edit'], ['subscription' => $row->id]) . '">
                         <i class="fas fa-edit"></i> ' . __('messages.edit') . '</a></li>';
                     
+                    // Link to view deferred revenue schedule
+                    $html .= '<li><a href="' . route('gym.deferred-revenue.schedule', ['transaction_id' => $row->id]) . '">
+                        <i class="fas fa-calendar-alt"></i> ' . __('gym::lang.deferred_revenue_schedule') . '</a></li>';
+                    
                     // hanya yang belum paid
                     if ($row->payment_status != 'paid') {
                         $html .= '<li><a href="' . action([\Modules\Gym\Http\Controllers\SubscriptionController::class, 'destroy'], ['subscription' => $row->id]) . '" class="delete-subscription" data-href="' . action([\Modules\Gym\Http\Controllers\SubscriptionController::class, 'destroy'], ['subscription' => $row->id]) . '">

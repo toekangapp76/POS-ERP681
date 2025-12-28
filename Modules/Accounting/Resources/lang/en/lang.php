@@ -500,6 +500,8 @@ return [
     // PNL Reports
     'pnl_bisnis' => 'P&L by Business Category',
     'pnl_bisnis_description' => 'This report shows Profit & Loss grouped by GYM business categories. Each category column shows the income and expenses allocated to that category.',
+    'pnl_business'=>'P&L by Business Category',
+    'pnl_business_description' => 'This report shows Profit & Loss grouped by GYM business categories. Each category column shows the income and expenses allocated to that category.',
     'nett_loss' => 'Nett Loss',
     'last_month' => 'Last Month',
     'current_month' => 'Current Month',

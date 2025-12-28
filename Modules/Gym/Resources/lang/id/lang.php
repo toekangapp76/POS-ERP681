@@ -310,6 +310,25 @@ return [
     'auto_mapped' => 'Terpetakan Otomatis',
     'not_mapped' => 'Belum Terpetakan',
     
+    // Deferred Revenue (Pengakuan Pendapatan Bertahap)
+    'deposit_account' => 'Akun Deposit Member',
+    'deposit_account_help' => 'Akun kewajiban untuk pendapatan ditangguhkan (Member Deposit)',
+    'tax_rate' => 'Tarif Pajak',
+    'tax_rate_help' => 'Persentase PPN (default 11%)',
+    'enable_deferred_revenue' => 'Aktifkan Deferred Revenue',
+    'enable_deferred_revenue_help' => 'Pendapatan akan diakui bulanan (prorata) bukan langsung',
+    'deferred_revenue' => 'Pendapatan Ditangguhkan',
+    'deferred_revenue_schedule' => 'Jadwal Pengakuan Pendapatan',
+    'recognition_date' => 'Tanggal Pengakuan',
+    'recognition_amount' => 'Jumlah Pengakuan',
+    'period_start' => 'Awal Periode',
+    'period_end' => 'Akhir Periode',
+    'active_days' => 'Hari Aktif',
+    'pending_recognition' => 'Menunggu Pengakuan',
+    'recognized' => 'Sudah Diakui',
+    'process_recognition' => 'Proses Pengakuan',
+    'recognition_processed' => 'Pengakuan pendapatan berhasil diproses',
+    
     // Gym Categories
     'gym_categories' => 'Kategori Gym',
     'gym_category' => 'Kategori Gym',

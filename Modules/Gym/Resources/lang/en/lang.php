@@ -320,6 +320,25 @@
     'auto_mapped' => 'Auto Mapped',
     'not_mapped' => 'Not Mapped',
     
+    // Deferred Revenue
+    'deposit_account' => 'Member Deposit Account',
+    'deposit_account_help' => 'Liability account for deferred revenue (Member Deposit)',
+    'tax_rate' => 'Tax Rate',
+    'tax_rate_help' => 'PPN percentage (default 11%)',
+    'enable_deferred_revenue' => 'Enable Deferred Revenue',
+    'enable_deferred_revenue_help' => 'Revenue will be recognized monthly (prorata) instead of immediately',
+    'deferred_revenue' => 'Deferred Revenue',
+    'deferred_revenue_schedule' => 'Deferred Revenue Schedule',
+    'recognition_date' => 'Recognition Date',
+    'recognition_amount' => 'Recognition Amount',
+    'period_start' => 'Period Start',
+    'period_end' => 'Period End',
+    'active_days' => 'Active Days',
+    'pending_recognition' => 'Pending Recognition',
+    'recognized' => 'Recognized',
+    'process_recognition' => 'Process Recognition',
+    'recognition_processed' => 'Revenue recognition processed successfully',
+    
     // Gym Categories
     'gym_categories' => 'Gym Categories',
     'gym_category' => 'Gym Category',

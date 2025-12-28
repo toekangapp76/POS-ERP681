@@ -58,11 +58,27 @@ class GymPackage extends Model
     }
 
     /**
+     * Deposit Account relationship (Liability - Member Deposit for deferred revenue)
+     */
+    public function depositAccount()
+    {
+        return $this->belongsTo(AccountingAccount::class, 'deposit_account_id');
+    }
+
+    /**
      * Check if this package has accounting mapping configured
      */
     public function hasAccountingMapping(): bool
     {
         return !empty($this->revenue_account_id) && !empty($this->bank_account_id);
+    }
+
+    /**
+     * Check if this package has deferred revenue enabled
+     */
+    public function hasDeferredRevenue(): bool
+    {
+        return $this->enable_deferred_revenue && !empty($this->deposit_account_id);
     }
 
     /**

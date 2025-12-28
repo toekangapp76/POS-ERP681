@@ -4,6 +4,7 @@ namespace Modules\Gym\Providers;
 
 use Illuminate\Support\ServiceProvider;
 use Illuminate\Database\Eloquent\Factory;
+use Modules\Gym\Console\ProcessDeferredRevenue;
 
 class GymServiceProvider extends ServiceProvider
 {
@@ -27,6 +28,7 @@ class GymServiceProvider extends ServiceProvider
         $this->registerTranslations();
         $this->registerConfig();
         $this->registerViews();
+        $this->registerCommands();
         $this->loadMigrationsFrom(module_path($this->moduleName, 'Database/Migrations'));
     }
 
@@ -38,6 +40,18 @@ class GymServiceProvider extends ServiceProvider
     public function register()
     {
         $this->app->register(RouteServiceProvider::class);
+    }
+
+    /**
+     * Register artisan commands.
+     *
+     * @return void
+     */
+    protected function registerCommands()
+    {
+        $this->commands([
+            ProcessDeferredRevenue::class,
+        ]);
     }
 
     /**

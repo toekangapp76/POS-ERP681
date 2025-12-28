@@ -9,6 +9,7 @@ use App\Utils\Util;
 use DB;
 use Modules\Accounting\Entities\AccountingAccountsTransaction;
 use Modules\Gym\Entities\GymPackage;
+use Modules\Gym\Services\DeferredRevenueService;
 
 class AccountingUtil extends Util
 {
@@ -376,6 +377,11 @@ class AccountingUtil extends Util
 
     /**
      * Auto-map gym subscription based on package accounting settings
+     * Uses Deferred Revenue system if enabled
+     * 
+     * Flow:
+     * 1. Saat Payment: Dr. Bank, Cr. Member Deposit, Cr. PPN
+     * 2. Setiap Akhir Bulan: Dr. Member Deposit, Cr. Revenue (via DeferredRevenueService)
      * 
      * @param int $transaction_id
      * @param int $user_id
@@ -396,66 +402,19 @@ class AccountingUtil extends Util
             return false;
         }
 
-        // Delete existing mapping for this transaction
-        AccountingAccountsTransaction::where('transaction_id', $transaction_id)
-            ->whereIn('map_type', ['payment_account', 'deposit_to', 'ppn_account'])
-            ->delete();
-
-        // Calculate amounts
-        // Revenue = final_total / 1.1 (assuming 10% tax)
-        // Tax = 10% of Revenue
-        $has_tax = !empty($package->tax_account_id);
+        // Use DeferredRevenueService for the new deferred revenue system
+        $deferredService = app(DeferredRevenueService::class);
         
-        if ($has_tax) {
-            $revenue_amount = $transaction->final_total / 1.1;
-            $tax_amount = $revenue_amount * 0.1;
-        } else {
-            $revenue_amount = $transaction->final_total;
-            $tax_amount = 0;
-        }
-
-        // Bank/Cash (Debit) - total yang diterima
-        $bank_data = [
-            'accounting_account_id' => $package->bank_account_id,
-            'transaction_id' => $transaction_id,
-            'transaction_payment_id' => null,
-            'amount' => $transaction->final_total,
-            'type' => 'debit',
-            'sub_type' => 'gym_subscription',
-            'map_type' => 'payment_account',
-            'created_by' => $user_id,
-            'operation_date' => $transaction->transaction_date ?? now(),
-        ];
-        AccountingAccountsTransaction::updateOrCreateMapTransaction($bank_data);
-
-        // Revenue (Credit) - pendapatan
-        $revenue_data = [
-            'accounting_account_id' => $package->revenue_account_id,
-            'transaction_id' => $transaction_id,
-            'transaction_payment_id' => null,
-            'amount' => $revenue_amount,
-            'type' => 'credit',
-            'sub_type' => 'gym_subscription',
-            'map_type' => 'deposit_to',
-            'created_by' => $user_id,
-            'operation_date' => $transaction->transaction_date ?? now(),
-        ];
-        AccountingAccountsTransaction::updateOrCreateMapTransaction($revenue_data);
-
-        // Tax/PPN (Credit) - pajak jika ada
-        if ($has_tax && $tax_amount > 0) {
-            $tax_data = [
-                'accounting_account_id' => $package->tax_account_id,
-                'transaction_id' => $transaction_id,
-                'transaction_payment_id' => null,
-                'amount' => $tax_amount,
-                'type' => 'credit',
-                'sub_type' => 'gym_subscription',
-                'map_type' => 'ppn_account',
-                'created_by' => $user_id,
-                'operation_date' => $transaction->transaction_date ?? now(),
-            ];
-            AccountingAccountsTransaction::updateOrCreateMapTransaction($tax_data);
+        // 1. Create initial GL entry (Dr. Bank, Cr. Deposit/Revenue, Cr. PPN)
+        $deferredService->createInitialGLEntry($transaction, $user_id);
+        
+        // 2. Generate deferred revenue schedule (if enabled)
+        if ($package->enable_deferred_revenue && !empty($package->deposit_account_id)) {
+            // Delete existing schedules for this transaction (in case of update)
+            \Modules\Gym\Entities\GymDeferredRevenue::where('transaction_id', $transaction_id)->delete();
+            
+            // Generate new schedule
+            $deferredService->generateSchedule($transaction, $user_id);
         }
 
         return true;

@@ -51,6 +51,12 @@ Route::middleware('web', 'auth', 'language', 'AdminSidebarMenu')->prefix('gym')-
     Route::get('/get-end_date', [Modules\Gym\Http\Controllers\SubscriptionController::class, 'get_end_date'])->name('get_end_date');
     Route::resource('/subscriptions', Modules\Gym\Http\Controllers\SubscriptionController::class);
 
+    // Deferred Revenue Management
+    Route::get('deferred-revenue', [Modules\Gym\Http\Controllers\DeferredRevenueController::class, 'index'])->name('gym.deferred-revenue.index');
+    Route::post('deferred-revenue/process', [Modules\Gym\Http\Controllers\DeferredRevenueController::class, 'process'])->name('gym.deferred-revenue.process');
+    Route::post('deferred-revenue/{id}/process', [Modules\Gym\Http\Controllers\DeferredRevenueController::class, 'processSingle'])->name('gym.deferred-revenue.process-single');
+    Route::get('deferred-revenue/schedule/{transaction_id}', [Modules\Gym\Http\Controllers\DeferredRevenueController::class, 'viewSchedule'])->name('gym.deferred-revenue.schedule');
+
     Route::resource('settings', Modules\Gym\Http\Controllers\SettingController::class);
 
     Route::resource('classes', Modules\Gym\Http\Controllers\ClassController::class);

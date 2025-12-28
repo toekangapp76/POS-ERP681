@@ -193,6 +193,45 @@
                             </div>
                         </div>
                     </div>
+
+                    {{-- Deferred Revenue Settings --}}
+                    <div class="row">
+                        <div class="col-md-4">
+                            <div class="form-group">
+                                {!! Form::label('deposit_account_id', __('gym::lang.deposit_account')) !!}
+                                {!! Form::select('deposit_account_id', $accounting_accounts, null, [
+                                    'class' => 'form-control select2',
+                                    'style' => 'width: 100%',
+                                    'placeholder' => __('messages.please_select'),
+                                ]) !!}
+                                <p class="help-block text-muted small">@lang('gym::lang.deposit_account_help')</p>
+                            </div>
+                        </div>
+                        <div class="col-md-4">
+                            <div class="form-group">
+                                {!! Form::label('tax_rate', __('gym::lang.tax_rate') . ' (%)') !!}
+                                {!! Form::number('tax_rate', 11, [
+                                    'class' => 'form-control',
+                                    'step' => '0.01',
+                                    'min' => '0',
+                                    'max' => '100',
+                                ]) !!}
+                                <p class="help-block text-muted small">@lang('gym::lang.tax_rate_help')</p>
+                            </div>
+                        </div>
+                        <div class="col-md-4">
+                            <div class="form-group">
+                                <label>&nbsp;</label>
+                                <div class="checkbox">
+                                    <label>
+                                        {!! Form::checkbox('enable_deferred_revenue', 1, true, ['class' => 'input-icheck']) !!}
+                                        <strong>@lang('gym::lang.enable_deferred_revenue')</strong>
+                                    </label>
+                                </div>
+                                <p class="help-block text-muted small">@lang('gym::lang.enable_deferred_revenue_help')</p>
+                            </div>
+                        </div>
+                    </div>
                 </div>
             </div>
             @endif
