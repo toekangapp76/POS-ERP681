@@ -103,13 +103,19 @@
                         $current_key = $current_month['key'] ?? null;
                         $last_key = $last_month['key'] ?? null;
                         $period_start = $month_count > 0 ? \Carbon\Carbon::parse($months[0]['start']) : null;
-                        // Current Month = YTD (akumulasi dari awal tahun ke bulan filter)
-                        $current_range_label = ($current_month && $period_start)
-                            ? 'YTD s.d. ' . \Carbon\Carbon::parse($current_month['end'])->format('M Y')
-                            : '-';
-                        // Last Month = hanya bulan sebelumnya saja (bukan kumulatif)
+                        
+                        // Label untuk kolom
+                        // Last Month = hanya bulan sebelumnya saja
                         $last_range_label = $last_month
                             ? \Carbon\Carbon::parse($last_month['start'])->format('M Y')
+                            : '-';
+                        // Current Month = hanya bulan filter saja
+                        $current_month_label = $current_month
+                            ? \Carbon\Carbon::parse($current_month['start'])->format('M Y')
+                            : '-';
+                        // YTD = akumulasi dari awal tahun sampai bulan filter
+                        $current_range_label = ($current_month && $period_start)
+                            ? 'YTD s.d. ' . \Carbon\Carbon::parse($current_month['end'])->format('M Y')
                             : '-';
                     @endphp
 
@@ -125,6 +131,10 @@
                                     <div class="text-muted" style="font-size: 11px;">{{ $last_range_label }}</div>
                                 </th>
                                 <th class="text-center align-middle bg-info" style="vertical-align: middle;">
+                                    Current Month
+                                    <div class="text-muted" style="font-size: 11px;">{{ $current_month_label }}</div>
+                                </th>
+                                <th class="text-center align-middle bg-info" style="vertical-align: middle;">
                                     YTD
                                     <div class="text-muted" style="font-size: 11px;">{{ $current_range_label }}</div>
                                 </th>
@@ -134,28 +144,36 @@
                         <tbody>
                             @forelse($income_accounts as $account)
                                 @php
-                                    // Last Month = hanya nilai bulan sebelumnya saja
-                                    // monthly_balances sudah berisi nilai kumulatif YTD per bulan
-                                    // Jadi untuk mendapat nilai bulan saja: current_ytd - previous_ytd
+                                    // monthly_balances berisi nilai kumulatif YTD per bulan
                                     $last_balance = 0;
+                                    $current_month_balance = 0;
                                     $current_balance = 0;
                                     
-                                    // Current Month = YTD sampai bulan filter (nilai kumulatif)
+                                    // YTD = nilai akumulasi sampai bulan filter
                                     if ($current_key) {
                                         $current_balance = $account->monthly_balances[$current_key] ?? 0;
+                                        
+                                        // Current Month = hanya nilai bulan filter saja
+                                        // Rumus: YTD bulan ini - YTD bulan lalu = nilai bulan ini
+                                        $current_ytd = $current_balance;
+                                        $prev_current_ytd = 0;
+                                        foreach ($months as $idx => $month) {
+                                            if ($month['key'] === $current_key && $idx > 0) {
+                                                $prev_current_ytd = $account->monthly_balances[$months[$idx - 1]['key']] ?? 0;
+                                                break;
+                                            }
+                                        }
+                                        $current_month_balance = $current_ytd - $prev_current_ytd;
                                     }
                                     
-                                    // Last Month = hanya bulan sebelumnya saja (bukan kumulatif)
-                                    // Nilai bulan = YTD bulan tersebut - YTD bulan sebelumnya
+                                    // Last Month = hanya nilai bulan sebelumnya saja
+                                    // Rumus: YTD bulan lalu - YTD 2 bulan lalu = nilai bulan lalu
                                     if ($last_key) {
                                         $last_ytd = $account->monthly_balances[$last_key] ?? 0;
-                                        // Cari bulan sebelum last_month untuk menghitung selisih
-                                        $prev_last_key = null;
                                         $prev_last_ytd = 0;
                                         foreach ($months as $idx => $month) {
                                             if ($month['key'] === $last_key && $idx > 0) {
-                                                $prev_last_key = $months[$idx - 1]['key'];
-                                                $prev_last_ytd = $account->monthly_balances[$prev_last_key] ?? 0;
+                                                $prev_last_ytd = $account->monthly_balances[$months[$idx - 1]['key']] ?? 0;
                                                 break;
                                             }
                                         }
@@ -172,6 +190,9 @@
                                         <span data-orig-value="{{ $last_balance }}">@format_currency($last_balance)</span>
                                     </td>
                                     <td class="text-right month-col">
+                                        <span data-orig-value="{{ $current_month_balance }}">@format_currency($current_month_balance)</span>
+                                    </td>
+                                    <td class="text-right month-col">
                                         <span data-orig-value="{{ $current_balance }}">@format_currency($current_balance)</span>
                                     </td>
                                     <td class="text-right diff-col {{ $diff_color }}">
@@ -185,20 +206,32 @@
                                 </tr>
                             @empty
                                 <tr>
-                                    <td colspan="5" class="text-center text-muted">@lang('lang_v1.no_data')</td>
+                                    <td colspan="6" class="text-center text-muted">@lang('lang_v1.no_data')</td>
                                 </tr>
                             @endforelse
                         </tbody>
                         <tfoot>
                             <tr class="success">
-                                <th colspan="2" class="text-right"><strong>@lang('accounting::lang.total_income') (YTD)</strong></th>
+                                <th colspan="2" class="text-right"><strong>@lang('accounting::lang.total_income')</strong></th>
                                 @php
                                     $last_income_total = 0;
+                                    $current_month_income_total = 0;
                                     $current_income_total = 0;
                                     
-                                    // Current Month = YTD total (kumulatif)
+                                    // YTD = total kumulatif dari awal tahun
                                     if ($current_key) {
                                         $current_income_total = $monthly_totals['income'][$current_key] ?? 0;
+                                        
+                                        // Current Month = hanya bulan filter saja
+                                        $current_ytd = $current_income_total;
+                                        $prev_current_ytd = 0;
+                                        foreach ($months as $idx => $month) {
+                                            if ($month['key'] === $current_key && $idx > 0) {
+                                                $prev_current_ytd = $monthly_totals['income'][$months[$idx - 1]['key']] ?? 0;
+                                                break;
+                                            }
+                                        }
+                                        $current_month_income_total = $current_ytd - $prev_current_ytd;
                                     }
                                     
                                     // Last Month = hanya bulan sebelumnya saja
@@ -217,6 +250,7 @@
                                     $income_diff = $current_income_total - $last_income_total;
                                 @endphp
                                 <th class="text-right month-col">@format_currency($last_income_total)</th>
+                                <th class="text-right month-col">@format_currency($current_month_income_total)</th>
                                 <th class="text-right month-col">@format_currency($current_income_total)</th>
                                 <th class="text-right diff-col {{ $income_diff > 0 ? 'text-success' : ($income_diff < 0 ? 'text-danger' : '') }}" style="background-color: #d4edda;">
                                     @if($income_diff > 0) <i class="fa fa-arrow-up"></i> @elseif($income_diff < 0) <i class="fa fa-arrow-down"></i> @endif
@@ -240,6 +274,10 @@
                                     <div class="text-muted" style="font-size: 11px;">{{ $last_range_label }}</div>
                                 </th>
                                 <th class="text-center align-middle bg-info" style="vertical-align: middle;">
+                                    Current Month
+                                    <div class="text-muted" style="font-size: 11px;">{{ $current_month_label }}</div>
+                                </th>
+                                <th class="text-center align-middle bg-info" style="vertical-align: middle;">
                                     YTD
                                     <div class="text-muted" style="font-size: 11px;">{{ $current_range_label }}</div>
                                 </th>
@@ -249,24 +287,36 @@
                         <tbody>
                             @forelse($expense_accounts as $account)
                                 @php
-                                    // Last Month = hanya nilai bulan sebelumnya saja
+                                    // monthly_balances berisi nilai kumulatif YTD per bulan
                                     $last_balance = 0;
+                                    $current_month_balance = 0;
                                     $current_balance = 0;
                                     
-                                    // Current Month = YTD sampai bulan filter (nilai kumulatif)
+                                    // YTD = nilai akumulasi sampai bulan filter
                                     if ($current_key) {
                                         $current_balance = $account->monthly_balances[$current_key] ?? 0;
+                                        
+                                        // Current Month = hanya nilai bulan filter saja
+                                        // Rumus: YTD bulan ini - YTD bulan lalu = nilai bulan ini
+                                        $current_ytd = $current_balance;
+                                        $prev_current_ytd = 0;
+                                        foreach ($months as $idx => $month) {
+                                            if ($month['key'] === $current_key && $idx > 0) {
+                                                $prev_current_ytd = $account->monthly_balances[$months[$idx - 1]['key']] ?? 0;
+                                                break;
+                                            }
+                                        }
+                                        $current_month_balance = $current_ytd - $prev_current_ytd;
                                     }
                                     
-                                    // Last Month = hanya bulan sebelumnya saja (bukan kumulatif)
+                                    // Last Month = hanya nilai bulan sebelumnya saja
+                                    // Rumus: YTD bulan lalu - YTD 2 bulan lalu = nilai bulan lalu
                                     if ($last_key) {
                                         $last_ytd = $account->monthly_balances[$last_key] ?? 0;
-                                        $prev_last_key = null;
                                         $prev_last_ytd = 0;
                                         foreach ($months as $idx => $month) {
                                             if ($month['key'] === $last_key && $idx > 0) {
-                                                $prev_last_key = $months[$idx - 1]['key'];
-                                                $prev_last_ytd = $account->monthly_balances[$prev_last_key] ?? 0;
+                                                $prev_last_ytd = $account->monthly_balances[$months[$idx - 1]['key']] ?? 0;
                                                 break;
                                             }
                                         }
@@ -284,6 +334,9 @@
                                         <span data-orig-value="{{ $last_balance }}">@format_currency($last_balance)</span>
                                     </td>
                                     <td class="text-right month-col">
+                                        <span data-orig-value="{{ $current_month_balance }}">@format_currency($current_month_balance)</span>
+                                    </td>
+                                    <td class="text-right month-col">
                                         <span data-orig-value="{{ $current_balance }}">@format_currency($current_balance)</span>
                                     </td>
                                     <td class="text-right diff-col {{ $diff_color }}">
@@ -297,20 +350,32 @@
                                 </tr>
                             @empty
                                 <tr>
-                                    <td colspan="5" class="text-center text-muted">@lang('lang_v1.no_data')</td>
+                                    <td colspan="6" class="text-center text-muted">@lang('lang_v1.no_data')</td>
                                 </tr>
                             @endforelse
                         </tbody>
                         <tfoot>
                             <tr class="gray">
-                                <th colspan="2" class="text-right"><strong>@lang('accounting::lang.total_expenses') (YTD)</strong></th>
+                                <th colspan="2" class="text-right"><strong>@lang('accounting::lang.total_expenses')</strong></th>
                                 @php
                                     $last_expense_total = 0;
+                                    $current_month_expense_total = 0;
                                     $current_expense_total = 0;
                                     
-                                    // Current Month = YTD total (kumulatif)
+                                    // YTD = total kumulatif dari awal tahun
                                     if ($current_key) {
                                         $current_expense_total = $monthly_totals['expense'][$current_key] ?? 0;
+                                        
+                                        // Current Month = hanya bulan filter saja
+                                        $current_ytd = $current_expense_total;
+                                        $prev_current_ytd = 0;
+                                        foreach ($months as $idx => $month) {
+                                            if ($month['key'] === $current_key && $idx > 0) {
+                                                $prev_current_ytd = $monthly_totals['expense'][$months[$idx - 1]['key']] ?? 0;
+                                                break;
+                                            }
+                                        }
+                                        $current_month_expense_total = $current_ytd - $prev_current_ytd;
                                     }
                                     
                                     // Last Month = hanya bulan sebelumnya saja
@@ -329,6 +394,7 @@
                                     $expense_diff = $current_expense_total - $last_expense_total;
                                 @endphp
                                 <th class="text-right month-col">@format_currency($last_expense_total)</th>
+                                <th class="text-right month-col">@format_currency($current_month_expense_total)</th>
                                 <th class="text-right month-col">@format_currency($current_expense_total)</th>
                                 <th class="text-right diff-col {{ $expense_diff > 0 ? 'text-danger' : ($expense_diff < 0 ? 'text-success' : '') }}" style="background-color: #fff3cd;">
                                     @if($expense_diff > 0) <i class="fa fa-arrow-up"></i> @elseif($expense_diff < 0) <i class="fa fa-arrow-down"></i> @endif
@@ -348,15 +414,19 @@
                                 <th class="text-center align-middle" style="vertical-align: middle;">
                                     <strong>
                                         @if($net_profit >= 0)
-                                            <i class="fa fa-check-circle"></i> @lang('accounting::lang.net_profit') (YTD)
+                                            <i class="fa fa-check-circle"></i> @lang('accounting::lang.net_profit')
                                         @else
-                                            <i class="fa fa-times-circle"></i> @lang('accounting::lang.net_loss') (YTD)
+                                            <i class="fa fa-times-circle"></i> @lang('accounting::lang.net_loss')
                                         @endif
                                     </strong>
                                 </th>
                                 <th class="text-center align-middle bg-info" style="vertical-align: middle;">
                                     Last Month
                                     <div class="text-muted" style="font-size: 11px;">{{ $last_range_label }}</div>
+                                </th>
+                                <th class="text-center align-middle bg-info" style="vertical-align: middle;">
+                                    Current Month
+                                    <div class="text-muted" style="font-size: 11px;">{{ $current_month_label }}</div>
                                 </th>
                                 <th class="text-center align-middle bg-info" style="vertical-align: middle;">
                                     YTD
@@ -368,6 +438,7 @@
                         <tbody>
                             @php
                                 $last_net = $last_income_total - $last_expense_total;
+                                $current_month_net = $current_month_income_total - $current_month_expense_total;
                                 $current_net = $current_income_total - $current_expense_total;
                                 $net_diff = $current_net - $last_net;
                                 $net_diff_color = $net_diff > 0 ? 'text-success' : ($net_diff < 0 ? 'text-danger' : '');
@@ -377,6 +448,11 @@
                                 <td class="text-right month-col" style="font-size: 14px;">
                                     <strong class="{{ $last_net >= 0 ? '' : 'text-danger' }}">
                                         <span data-orig-value="{{ $last_net }}">@format_currency($last_net)</span>
+                                    </strong>
+                                </td>
+                                <td class="text-right month-col" style="font-size: 14px;">
+                                    <strong class="{{ $current_month_net >= 0 ? '' : 'text-danger' }}">
+                                        <span data-orig-value="{{ $current_month_net }}">@format_currency($current_month_net)</span>
                                     </strong>
                                 </td>
                                 <td class="text-right month-col" style="font-size: 14px;">
