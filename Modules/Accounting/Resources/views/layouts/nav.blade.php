@@ -33,6 +33,8 @@
 
                     <li @if(request()->segment(2) == 'transactions') class="active" @endif><a href="{{action([\Modules\Accounting\Http\Controllers\TransactionController::class, 'index'])}}">@lang('accounting::lang.transactions')</a></li>
 
+                    <li @if(request()->segment(2) == 'deferred-revenue') class="active" @endif><a href="{{action([\Modules\Gym\Http\Controllers\DeferredRevenueController::class, 'index'])}}">@lang('gym::lang.deferred_revenue')</a></li>
+
                     @if(auth()->user()->can('accounting.manage_budget'))
                         <li @if(request()->segment(2) == 'budget') class="active" @endif>
                             <a href="{{action([\Modules\Accounting\Http\Controllers\BudgetController::class, 'index'])}}">
