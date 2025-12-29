@@ -8,7 +8,7 @@
 
 <!-- Content Header (Page header) -->
 <section class="content-header">
-    <h1>@lang( 'accounting::lang.balance_sheet' )</h1>
+    <h1>@lang('accounting::lang.balance_sheet')</h1>
 </section>
 
 <section class="content">
@@ -56,24 +56,25 @@
                 <label>&nbsp;</label>
                 <div class="checkbox">
                     <label>
-                        <input type="checkbox" id="show_difference_columns" checked> 
+                        <input type="checkbox" id="show_difference_columns" checked>
                         <strong>Tampilkan Kolom Selisih</strong>
                     </label>
                 </div>
             </div>
         </div>
     </div>
-    
+
     <div class="row">
         <div class="col-md-12">
             <div class="box box-warning">
                 <div class="box-header with-border text-center">
-                    <h2 class="box-title">@lang( 'accounting::lang.balance_sheet')</h2>
+                    <h2 class="box-title">@lang('accounting::lang.balance_sheet')</h2>
                 </div>
-    
+
                 <div class="box-body table-responsive">
-                    
-                    <table class="table table-striped table-bordered table-hover" id="balance_sheet_table" style="width:100%">
+
+                    <table class="table table-striped table-bordered table-hover" id="balance_sheet_table"
+                        style="width:100%">
                         @php
                             $month_count = count($months);
                             $current_month = $month_count > 0 ? $months[$month_count - 1] : null;
@@ -90,9 +91,14 @@
                         @endphp
                         <thead>
                             <tr>
-                                <th class="text-center align-middle" style="vertical-align: middle;">@lang('accounting::lang.gl_code')</th>
-                                <th class="text-center align-middle" style="vertical-align: middle;">@lang('user.name')</th>
-                                <th class="text-center align-middle" style="vertical-align: middle;">@lang('accounting::lang.account_type')</th>
+                                <th class="text-center align-middle" style="vertical-align: middle;">
+                                    @lang('accounting::lang.gl_code')
+                                </th>
+                                <th class="text-center align-middle" style="vertical-align: middle;">@lang('user.name')
+                                </th>
+                                <th class="text-center align-middle" style="vertical-align: middle;">
+                                    @lang('accounting::lang.account_type')
+                                </th>
                                 <th class="text-center align-middle bg-info" style="vertical-align: middle;">
                                     Last Month
                                     <div class="text-muted" style="font-size: 11px;">{{ $last_range_label }}</div>
@@ -101,7 +107,8 @@
                                     Current Month
                                     <div class="text-muted" style="font-size: 11px;">{{ $current_range_label }}</div>
                                 </th>
-                                <th class="text-center align-middle bg-warning diff-col" style="vertical-align: middle;">Varian</th>
+                                <th class="text-center align-middle bg-warning diff-col"
+                                    style="vertical-align: middle;">Varian</th>
                             </tr>
                         </thead>
                         <tbody>
@@ -109,9 +116,9 @@
                                 $monthly_totals_assets = [];
                                 $monthly_totals_liabilities = [];
                                 $monthly_totals_equity = [];
-                                
+
                                 // Initialize monthly totals
-                                foreach($months as $month) {
+                                foreach ($months as $month) {
                                     $monthly_totals_assets[$month['key']] = 0;
                                     $monthly_totals_liabilities[$month['key']] = 0;
                                     $monthly_totals_equity[$month['key']] = 0;
@@ -120,15 +127,15 @@
                             @foreach($all_accounts as $account)
                                 @php
                                     if ($account->account_primary_type == 'asset') {
-                                        foreach($months as $month) {
+                                        foreach ($months as $month) {
                                             $monthly_totals_assets[$month['key']] += $account->monthly_balances[$month['key']] ?? 0;
                                         }
                                     } elseif ($account->account_primary_type == 'liability') {
-                                        foreach($months as $month) {
+                                        foreach ($months as $month) {
                                             $monthly_totals_liabilities[$month['key']] += $account->monthly_balances[$month['key']] ?? 0;
                                         }
                                     } elseif ($account->account_primary_type == 'equity') {
-                                        foreach($months as $month) {
+                                        foreach ($months as $month) {
                                             $monthly_totals_equity[$month['key']] += $account->monthly_balances[$month['key']] ?? 0;
                                         }
                                     }
@@ -150,13 +157,25 @@
                                                 $current_balance = $running_balance;
                                             }
                                         }
-                                        $difference = $current_balance - $last_balance;
+                                        // Varian calculation based on COA:
+                                        // COA 1XXX (Asset) = Debit - Credit (current - last is already positive when assets increase)
+                                        // COA 2XXX (Liability) & 3XXX (Equity) = Credit - Debit (need to negate for proper variance)
+                                        $gl_code_prefix = !empty($account->gl_code) ? substr($account->gl_code, 0, 1) : '1';
+                                        if ($gl_code_prefix == '1') {
+                                            // Asset: variance shows increase/decrease in assets
+                                            $difference = $current_balance - $last_balance;
+                                        } else {
+                                            // Liability (2) and Equity (3): variance shows increase/decrease 
+                                            // For balance sheet to balance, we negate so total variance = 0
+                                            $difference = -($current_balance - $last_balance);
+                                        }
                                     @endphp
                                     <td class="text-right month-col">
                                         <span data-orig-value="{{ $last_balance }}">@format_currency($last_balance)</span>
                                     </td>
                                     <td class="text-right month-col">
-                                        <span data-orig-value="{{ $current_balance }}">@format_currency($current_balance)</span>
+                                        <span
+                                            data-orig-value="{{ $current_balance }}">@format_currency($current_balance)</span>
                                     </td>
                                     @php
                                         $diff_color = $difference > 0 ? 'text-success' : ($difference < 0 ? 'text-danger' : '');
@@ -175,11 +194,11 @@
                             {{-- R/E Current Year (Net Profit/Loss from P&L) --}}
                             @if(isset($re_current_year))
                                 @php
-                                    // Add R/E Current Year to equity totals
-                                    foreach($months as $month) {
-                                        $monthly_totals_equity[$month['key']] += $re_current_year->monthly_balances[$month['key']] ?? 0;
-                                    }
-                                    
+                                    // R/E Calculation logic moved to explicit addition in footer to prevent double counting
+                                    // foreach ($months as $month) {
+                                    //    $monthly_totals_equity[$month['key']] += $re_current_year->monthly_balances[$month['key']] ?? 0;
+                                    // }
+
                                     $re_last_balance = 0;
                                     $re_current_balance = 0;
                                     $re_running_balance = 0;
@@ -192,7 +211,8 @@
                                             $re_current_balance = $re_running_balance;
                                         }
                                     }
-                                    $re_difference = $re_current_balance - $re_last_balance;
+                                    // R/E Current Year is equity (3XXX), so negate for balance
+                                    $re_difference = -($re_current_balance - $re_last_balance);
                                     $re_diff_color = $re_difference > 0 ? 'text-success' : ($re_difference < 0 ? 'text-danger' : '');
                                 @endphp
                                 <tr class="bg-success-light" style="background-color: #d4edda; font-weight: bold;">
@@ -203,12 +223,14 @@
                                     </td>
                                     <td>{{ __('accounting::lang.equity') }}</td>
                                     <td class="text-right month-col">
-                                        <span data-orig-value="{{ $re_last_balance }}" class="{{ $re_last_balance >= 0 ? 'text-success' : 'text-danger' }}">
+                                        <span data-orig-value="{{ $re_last_balance }}"
+                                            class="{{ $re_last_balance >= 0 ? 'text-success' : 'text-danger' }}">
                                             @format_currency($re_last_balance)
                                         </span>
                                     </td>
                                     <td class="text-right month-col">
-                                        <span data-orig-value="{{ $re_current_balance }}" class="{{ $re_current_balance >= 0 ? 'text-success' : 'text-danger' }}">
+                                        <span data-orig-value="{{ $re_current_balance }}"
+                                            class="{{ $re_current_balance >= 0 ? 'text-success' : 'text-danger' }}">
                                             @format_currency($re_current_balance)
                                         </span>
                                     </td>
@@ -244,12 +266,14 @@
                                 @endphp
                                 <th class="text-right month-col">@format_currency($last_asset_total)</th>
                                 <th class="text-right month-col">@format_currency($current_asset_total)</th>
-                                <th class="text-right diff-col {{ $asset_diff > 0 ? 'text-success' : ($asset_diff < 0 ? 'text-danger' : '') }}" style="background-color: #d4edda;">
-                                    @if($asset_diff > 0) <i class="fa fa-arrow-up"></i> @elseif($asset_diff < 0) <i class="fa fa-arrow-down"></i> @endif
+                                <th class="text-right diff-col {{ $asset_diff > 0 ? 'text-success' : ($asset_diff < 0 ? 'text-danger' : '') }}"
+                                    style="background-color: #d4edda;">
+                                    @if($asset_diff > 0) <i class="fa fa-arrow-up"></i> @elseif($asset_diff < 0) <i
+                                    class="fa fa-arrow-down"></i> @endif
                                     @format_currency(abs($asset_diff))
                                 </th>
                             </tr>
-                            
+
                             {{-- Total Liabilities --}}
                             <tr class="bg-warning">
                                 <th colspan="3" class="text-right">@lang('accounting::lang.total_liabilities'):</th>
@@ -266,16 +290,19 @@
                                             $current_liab_total = $running_liab_total;
                                         }
                                     }
-                                    $liab_diff = $current_liab_total - $last_liab_total;
+                                    // Liability (COA 2XXX) - negate for balance sheet equation
+                                    $liab_diff = -($current_liab_total - $last_liab_total);
                                 @endphp
                                 <th class="text-right month-col">@format_currency($last_liab_total)</th>
                                 <th class="text-right month-col">@format_currency($current_liab_total)</th>
-                                <th class="text-right diff-col {{ $liab_diff > 0 ? 'text-success' : ($liab_diff < 0 ? 'text-danger' : '') }}" style="background-color: #fff3cd;">
-                                    @if($liab_diff > 0) <i class="fa fa-arrow-up"></i> @elseif($liab_diff < 0) <i class="fa fa-arrow-down"></i> @endif
+                                <th class="text-right diff-col {{ $liab_diff > 0 ? 'text-success' : ($liab_diff < 0 ? 'text-danger' : '') }}"
+                                    style="background-color: #fff3cd;">
+                                    @if($liab_diff > 0) <i class="fa fa-arrow-up"></i> @elseif($liab_diff < 0) <i
+                                    class="fa fa-arrow-down"></i> @endif
                                     @format_currency(abs($liab_diff))
                                 </th>
                             </tr>
-                            
+
                             {{-- Total Equity --}}
                             <tr class="bg-info">
                                 <th colspan="3" class="text-right">@lang('accounting::lang.total_equity'):</th>
@@ -286,42 +313,67 @@
                                     foreach ($months as $month) {
                                         $running_equity_total += $monthly_totals_equity[$month['key']] ?? 0;
                                         if ($last_key && $month['key'] === $last_key) {
-                                            $last_equity_total = $running_equity_total;
+                                            $last_equity_total = $running_equity_total + ($re_last_balance ?? 0);
                                         }
                                         if ($current_key && $month['key'] === $current_key) {
-                                            $current_equity_total = $running_equity_total;
+                                            $current_equity_total = $running_equity_total + ($re_current_balance ?? 0);
                                         }
                                     }
-                                    $equity_diff = $current_equity_total - $last_equity_total;
+                                    // Equity (COA 3XXX) - negate for balance sheet equation
+                                    $equity_diff = -($current_equity_total - $last_equity_total);
                                 @endphp
                                 <th class="text-right month-col">@format_currency($last_equity_total)</th>
                                 <th class="text-right month-col">@format_currency($current_equity_total)</th>
-                                <th class="text-right diff-col {{ $equity_diff > 0 ? 'text-success' : ($equity_diff < 0 ? 'text-danger' : '') }}" style="background-color: #d1ecf1;">
-                                    @if($equity_diff > 0) <i class="fa fa-arrow-up"></i> @elseif($equity_diff < 0) <i class="fa fa-arrow-down"></i> @endif
+                                <th class="text-right diff-col {{ $equity_diff > 0 ? 'text-success' : ($equity_diff < 0 ? 'text-danger' : '') }}"
+                                    style="background-color: #d1ecf1;">
+                                    @if($equity_diff > 0) <i class="fa fa-arrow-up"></i> @elseif($equity_diff < 0) <i
+                                    class="fa fa-arrow-down"></i> @endif
                                     @format_currency(abs($equity_diff))
                                 </th>
                             </tr>
-                            
+
                             {{-- Total Liabilities + Equity --}}
                             <tr class="bg-primary">
                                 <th colspan="3" class="text-right">@lang('accounting::lang.total_liab_owners'):</th>
                                 @php
                                     $last_liab_eq = $last_liab_total + $last_equity_total;
                                     $current_liab_eq = $current_liab_total + $current_equity_total;
-                                    $liab_eq_diff = $current_liab_eq - $last_liab_eq;
+                                    // Liabilities + Equity is contra to Assets, negate for variance
+                                    $liab_eq_diff = -($current_liab_eq - $last_liab_eq);
                                 @endphp
                                 <th class="text-right month-col">@format_currency($last_liab_eq)</th>
                                 <th class="text-right month-col">@format_currency($current_liab_eq)</th>
                                 <th class="text-right diff-col" style="background-color: #cce5ff;">
-                                    @if($liab_eq_diff > 0) <i class="fa fa-arrow-up"></i> @elseif($liab_eq_diff < 0) <i class="fa fa-arrow-down"></i> @endif
+                                    @if($liab_eq_diff > 0) <i class="fa fa-arrow-up"></i> @elseif($liab_eq_diff < 0) <i
+                                    class="fa fa-arrow-down"></i> @endif
                                     @format_currency(abs($liab_eq_diff))
+                                </th>
+                            </tr>
+
+                            {{-- Total Variance (should equal 0) --}}
+                            <tr class="bg-gray" style="background-color: #f0f0f0; font-weight: bold;">
+                                <th colspan="3" class="text-right">Total Varian (harus = 0):</th>
+                                @php
+                                    // Total variance = Asset diff + (negated Liab+Eq diff) 
+                                    // Since we already negated liab/equity, just add them
+                                    $total_variance = $asset_diff + $liab_diff + $equity_diff;
+                                @endphp
+                                <th class="text-center month-col">-</th>
+                                <th class="text-center month-col">-</th>
+                                <th class="text-right diff-col {{ abs($total_variance) < 0.01 ? 'text-success' : 'text-danger' }}"
+                                    style="background-color: {{ abs($total_variance) < 0.01 ? '#d4edda' : '#f8d7da' }};">
+                                    @if(abs($total_variance) < 0.01)
+                                        <i class="fa fa-check-circle"></i> 0
+                                    @else
+                                        <i class="fa fa-exclamation-triangle"></i> @format_currency($total_variance)
+                                    @endif
                                 </th>
                             </tr>
                         </tfoot>
                     </table>
-                    
+
                 </div>
-    
+
             </div>
         </div>
     </div>
@@ -334,7 +386,7 @@
 @section('javascript')
 
 <script type="text/javascript">
-    $(document).ready(function(){
+    $(document).ready(function () {
 
         // Helper function to strip HTML tags
         function stripHtml(html) {
@@ -350,16 +402,16 @@
             var cleaned = stripHtml(str);
             cleaned = cleaned.replace(/Rp\s*/gi, '').trim();
             cleaned = cleaned.replace(/[↑↓▲▼]/g, '').trim();
-            
+
             // Check if it looks like a number
             if (!cleaned.match(/^-?[\d.,]+$/)) {
                 return 0;
             }
-            
+
             // Detect format by finding the last occurrence of . or ,
             var lastDot = cleaned.lastIndexOf('.');
             var lastComma = cleaned.lastIndexOf(',');
-            
+
             // If both exist, the one that comes last is the decimal separator
             if (lastDot > lastComma) {
                 // Format: 1,234.56 (comma = thousand, dot = decimal) - International
@@ -379,7 +431,7 @@
                 // Only comma exists - treat as decimal
                 cleaned = cleaned.replace(',', '.');
             }
-            
+
             var num = parseFloat(cleaned);
             return isNaN(num) ? 0 : num;
         }
@@ -395,7 +447,7 @@
                     exportOptions: {
                         columns: ':visible',
                         format: {
-                            body: function(data, row, column, node) {
+                            body: function (data, row, column, node) {
                                 // For columns with currency (columns 3 onwards), extract numeric value
                                 if (column >= 3) {
                                     return parseIndonesianNumber(data);
@@ -415,11 +467,11 @@
                     exportOptions: {
                         columns: ':visible',
                         format: {
-                            body: function(data, row, column, node) {
+                            body: function (data, row, column, node) {
                                 if (column >= 3) {
                                     var num = parseIndonesianNumber(data);
                                     // Format for PDF display with Indonesian locale
-                                    return num.toLocaleString('id-ID', {minimumFractionDigits: 2, maximumFractionDigits: 2});
+                                    return num.toLocaleString('id-ID', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
                                 }
                                 return stripHtml(data);
                             }
@@ -447,7 +499,7 @@
         });
 
         // Toggle difference columns visibility
-        $('#show_difference_columns').on('change', function() {
+        $('#show_difference_columns').on('change', function () {
             if ($(this).is(':checked')) {
                 $('.diff-col').show();
             } else {
@@ -457,11 +509,11 @@
             table.columns.adjust().draw();
         });
 
-        $('#month_filter, #year_filter').on('change', function() {
+        $('#month_filter, #year_filter').on('change', function () {
             apply_filter();
         });
 
-        function apply_filter(){
+        function apply_filter() {
             var end = '';
             var month = $('#month_filter').val();
             var year = $('#year_filter').val();
@@ -487,36 +539,36 @@
     #balance_sheet_table td {
         white-space: nowrap;
     }
-    
+
     #balance_sheet_table thead th {
         text-align: center;
         vertical-align: middle;
     }
-    
+
     .text-success {
         color: #28a745 !important;
     }
-    
+
     .text-danger {
         color: #dc3545 !important;
     }
-    
+
     #balance_sheet_table tfoot tr th {
         font-weight: bold;
     }
-    
+
     .bg-success th {
         color: #155724;
     }
-    
+
     .bg-warning th {
         color: #856404;
     }
-    
+
     .bg-info th {
         color: #0c5460;
     }
-    
+
     .bg-primary th {
         color: #fff;
     }

@@ -72,6 +72,14 @@
         <div class="col-md-2">
             <div class="form-group">
                 <label>&nbsp;</label>
+                <button class="btn btn-success btn-block" id="export_all_excel">
+                    <i class="fa fa-file-excel-o"></i> Export Excel
+                </button>
+            </div>
+        </div>
+        <div class="col-md-2">
+            <div class="form-group">
+                <label>&nbsp;</label>
                 <button class="btn btn-primary btn-block" onclick="window.print();">
                     <i class="fa fa-print"></i> @lang('messages.print')
                 </button>
@@ -540,25 +548,7 @@
 
         // Initialize DataTables with export buttons
         var incomeTable = $('#income_report_table').DataTable({
-            dom: 'Bfrtip',
-            buttons: [
-                {
-                    extend: 'excel',
-                    text: '<i class="fa fa-file-excel-o"></i> Excel',
-                    title: 'Income YTD - {{@format_date($start_date)}} to {{@format_date($end_date)}}',
-                    exportOptions: {
-                        columns: ':visible',
-                        format: {
-                            body: function(data, row, column, node) {
-                                if (column >= 2) {
-                                    return parseIndonesianNumber(data);
-                                }
-                                return stripHtml(data);
-                            }
-                        }
-                    }
-                }
-            ],
+            dom: 'rtip',
             paging: false,
             searching: false,
             info: false,
@@ -567,30 +557,60 @@
         });
 
         var expenseTable = $('#expense_report_table').DataTable({
-            dom: 'Bfrtip',
-            buttons: [
-                {
-                    extend: 'excel',
-                    text: '<i class="fa fa-file-excel-o"></i> Excel',
-                    title: 'Expense YTD - {{@format_date($start_date)}} to {{@format_date($end_date)}}',
-                    exportOptions: {
-                        columns: ':visible',
-                        format: {
-                            body: function(data, row, column, node) {
-                                if (column >= 2) {
-                                    return parseIndonesianNumber(data);
-                                }
-                                return stripHtml(data);
-                            }
-                        }
-                    }
-                }
-            ],
+            dom: 'rtip',
             paging: false,
             searching: false,
             info: false,
             ordering: true,
             order: [[0, 'asc']]
+        });
+
+        // Export All Tables to Excel
+        $('#export_all_excel').on('click', function() {
+            var colCount = 6; // GL Code, Name, Last Month, Current Month, YTD, Varian
+            
+            var incomeTable = document.getElementById('income_report_table').cloneNode(true);
+            var expenseTable = document.getElementById('expense_report_table').cloneNode(true);
+            var netProfitTable = document.getElementById('net_profit_table').cloneNode(true);
+            
+            [incomeTable, expenseTable, netProfitTable].forEach(function(table) {
+                $(table).find('td, th').each(function() {
+                    var text = $(this).text().trim();
+                    if (text.match(/Rp\s*-?[\d.,]+/) || text.match(/^-?[\d.,]+$/)) {
+                        var num = parseIndonesianNumber(text);
+                        $(this).text(num);
+                    } else {
+                        $(this).text(text);
+                    }
+                });
+            });
+            
+            var html = '<html xmlns:o="urn:schemas-microsoft-com:office:office" xmlns:x="urn:schemas-microsoft-com:office:excel" xmlns="http://www.w3.org/TR/REC-html40">';
+            html += '<head><meta charset="utf-8"></head><body>';
+            html += '<table>';
+            html += '<tr><th colspan="' + colCount + '" style="text-align:center; font-size:18px; font-weight:bold;">P&L YTD Report</th></tr>';
+            html += '<tr><th colspan="' + colCount + '" style="text-align:center;">{{@format_date($start_date)}} ~ {{@format_date($end_date)}}</th></tr>';
+            html += '<tr><td colspan="' + colCount + '">&nbsp;</td></tr>';
+            html += '<tr><th colspan="' + colCount + '" style="background-color:#d4edda; font-weight:bold;">INCOME</th></tr>';
+            html += '</table>';
+            html += incomeTable.outerHTML;
+            html += '<table><tr><td colspan="' + colCount + '">&nbsp;</td></tr>';
+            html += '<tr><th colspan="' + colCount + '" style="background-color:#f8d7da; font-weight:bold;">EXPENSE</th></tr></table>';
+            html += expenseTable.outerHTML;
+            html += '<table><tr><td colspan="' + colCount + '">&nbsp;</td></tr>';
+            html += '<tr><th colspan="' + colCount + '" style="background-color:#cce5ff; font-weight:bold;">NET PROFIT / NET LOSS</th></tr></table>';
+            html += netProfitTable.outerHTML;
+            html += '</body></html>';
+            
+            var blob = new Blob([html], { type: 'application/vnd.ms-excel' });
+            var url = URL.createObjectURL(blob);
+            var downloadLink = document.createElement("a");
+            document.body.appendChild(downloadLink);
+            downloadLink.href = url;
+            downloadLink.download = 'PNL_YTD_Report_{{$start_date}}_to_{{$end_date}}.xls';
+            downloadLink.click();
+            document.body.removeChild(downloadLink);
+            URL.revokeObjectURL(url);
         });
 
         // Toggle difference columns visibility

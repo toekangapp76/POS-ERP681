@@ -58,13 +58,13 @@ class ReportController extends Controller
         if (!empty($first_account)) {
             $ledger_url = route('accounting.ledger', $first_account);
         }
-         $journal_entry_url = null;
+        $journal_entry_url = null;
         if (!empty($first_account)) {
             $journal_entry_url = route('journal-entry.index', $first_account);
         }
 
         return view('accounting::report.index')
-            ->with(compact('ledger_url','journal_entry_url'));
+            ->with(compact('ledger_url', 'journal_entry_url'));
     }
 
     /**
@@ -195,7 +195,7 @@ class ReportController extends Controller
             if (!$is_start_of_year) {
                 // Only calculate beginning balance if we're not at the start of fiscal year
                 $gl_code_first = !empty($account->gl_code) ? substr($account->gl_code, 0, 1) : '0';
-                $is_pl_account = is_numeric($gl_code_first) && (int)$gl_code_first >= 4;
+                $is_pl_account = is_numeric($gl_code_first) && (int) $gl_code_first >= 4;
 
                 if ($is_pl_account) {
                     // For P&L accounts (gl_code >= 4), beginning balance is from fiscal year start to day before selected start_date
@@ -234,7 +234,7 @@ class ReportController extends Controller
                 // At start of fiscal year - P&L accounts have 0 beginning balance
                 // Balance sheet accounts still have their full historical balance
                 $gl_code_first = !empty($account->gl_code) ? substr($account->gl_code, 0, 1) : '0';
-                $is_pl_account = is_numeric($gl_code_first) && (int)$gl_code_first >= 4;
+                $is_pl_account = is_numeric($gl_code_first) && (int) $gl_code_first >= 4;
 
                 if (!$is_pl_account) {
                     // Balance sheet accounts keep their historical balance
@@ -969,7 +969,7 @@ class ReportController extends Controller
             ->with(compact('income_accounts', 'expense_accounts', 'total_income', 'total_expense', 'net_profit', 'start_date', 'end_date', 'months', 'monthly_totals', 'gym_categories', 'gym_category_id'));
     }
 
-    
+
     public function pnlBisnis()
     {
         $business_id = request()->session()->get('user.business_id');
@@ -1026,7 +1026,11 @@ class ReportController extends Controller
             $category_totals['income'][$category->id] = 0;
             $category_totals['expense'][$category->id] = 0;
         }
-        // Also for "Other" (no category)
+        // Initialize Pro Shop, Sudest Café, and "Other" (no category)
+        $category_totals['income']['pro_shop'] = 0;
+        $category_totals['expense']['pro_shop'] = 0;
+        $category_totals['income']['sudest_cafe'] = 0;
+        $category_totals['expense']['sudest_cafe'] = 0;
         $category_totals['income']['other'] = 0;
         $category_totals['expense']['other'] = 0;
 
@@ -1071,7 +1075,43 @@ class ReportController extends Controller
                 }
             }
 
-            // Calculate "Other" balance (transactions without gym package or without category)
+            // Pro Shop: POS transactions (type = 'sell')
+            $pro_shop_query = DB::table('accounting_accounts_transactions')
+                ->leftJoin('transactions', 'accounting_accounts_transactions.transaction_id', '=', 'transactions.id')
+                ->where('accounting_accounts_transactions.accounting_account_id', $account->id)
+                ->where(function ($q) {
+                    $q->whereNull('accounting_accounts_transactions.sub_type')
+                        ->orWhere('accounting_accounts_transactions.sub_type', '!=', 'opening_balance');
+                })
+                ->whereDate('accounting_accounts_transactions.operation_date', '>=', $start_date)
+                ->whereDate('accounting_accounts_transactions.operation_date', '<=', $end_date)
+                ->where('transactions.type', 'sell')
+                ->whereNull('transactions.gym_package_id'); // Exclude gym packages (already in gym categories)
+
+            $pro_shop_period = $pro_shop_query->select(
+                DB::raw("SUM(IF(accounting_accounts_transactions.type = 'debit', accounting_accounts_transactions.amount, 0)) as debit"),
+                DB::raw("SUM(IF(accounting_accounts_transactions.type = 'credit', accounting_accounts_transactions.amount, 0)) as credit")
+            )->first();
+
+            $pro_shop_debit = $pro_shop_period->debit ?? 0;
+            $pro_shop_credit = $pro_shop_period->credit ?? 0;
+
+            if ($account->account_primary_type == 'income') {
+                $pro_shop_balance = $pro_shop_credit - $pro_shop_debit;
+            } else {
+                $pro_shop_balance = $pro_shop_debit - $pro_shop_credit;
+            }
+
+            $category_balances['pro_shop'] = $pro_shop_balance;
+            $total_balance += $pro_shop_balance;
+            if ($pro_shop_balance != 0) {
+                $has_any_balance = true;
+            }
+
+            // Sudest Café: placeholder (0)
+            $category_balances['sudest_cafe'] = 0;
+
+            // Other: not gym, not POS
             $other_query = DB::table('accounting_accounts_transactions')
                 ->leftJoin('transactions', 'accounting_accounts_transactions.transaction_id', '=', 'transactions.id')
                 ->leftJoin('gym_packages', 'transactions.gym_package_id', '=', 'gym_packages.id')
@@ -1085,6 +1125,10 @@ class ReportController extends Controller
                 ->where(function ($q) {
                     $q->whereNull('transactions.gym_package_id')
                         ->orWhereNull('gym_packages.gym_category_id');
+                })
+                ->where(function ($q) {
+                    $q->whereNull('transactions.type')
+                        ->orWhere('transactions.type', '!=', 'sell');
                 });
 
             $other_period = $other_query->select(
@@ -1103,7 +1147,6 @@ class ReportController extends Controller
 
             $category_balances['other'] = $other_balance;
             $total_balance += $other_balance;
-
             if ($other_balance != 0) {
                 $has_any_balance = true;
             }
@@ -1121,21 +1164,23 @@ class ReportController extends Controller
                 if ($account->account_primary_type == 'income') {
                     $income_accounts->push($account_data);
                     $total_income += $total_balance;
-                    
                     // Update category totals
                     foreach ($gym_categories as $category) {
                         $category_totals['income'][$category->id] += $category_balances[$category->id];
                     }
-                    $category_totals['income']['other'] += $other_balance;
+                    $category_totals['income']['pro_shop'] += $category_balances['pro_shop'];
+                    $category_totals['income']['sudest_cafe'] += $category_balances['sudest_cafe'];
+                    $category_totals['income']['other'] += $category_balances['other'];
                 } else {
                     $expense_accounts->push($account_data);
                     $total_expense += $total_balance;
-                    
                     // Update category totals
                     foreach ($gym_categories as $category) {
                         $category_totals['expense'][$category->id] += $category_balances[$category->id];
                     }
-                    $category_totals['expense']['other'] += $other_balance;
+                    $category_totals['expense']['pro_shop'] += $category_balances['pro_shop'];
+                    $category_totals['expense']['sudest_cafe'] += $category_balances['sudest_cafe'];
+                    $category_totals['expense']['other'] += $category_balances['other'];
                 }
             }
         }
@@ -1145,13 +1190,24 @@ class ReportController extends Controller
         // Calculate net profit per category
         $category_net_profit = [];
         foreach ($gym_categories as $category) {
-            $category_net_profit[$category->id] = 
-                $category_totals['income'][$category->id] - $category_totals['expense'][$category->id];
+            $category_net_profit[$category->id] = $category_totals['income'][$category->id] - $category_totals['expense'][$category->id];
         }
+        $category_net_profit['pro_shop'] = $category_totals['income']['pro_shop'] - $category_totals['expense']['pro_shop'];
+        $category_net_profit['sudest_cafe'] = $category_totals['income']['sudest_cafe'] - $category_totals['expense']['sudest_cafe'];
         $category_net_profit['other'] = $category_totals['income']['other'] - $category_totals['expense']['other'];
 
         return view('accounting::report.pnl_bisnis')
-            ->with(compact('income_accounts', 'expense_accounts', 'total_income', 'total_expense', 'net_profit', 
-                'start_date', 'end_date', 'gym_categories', 'category_totals', 'category_net_profit'));
+            ->with(compact(
+                'income_accounts',
+                'expense_accounts',
+                'total_income',
+                'total_expense',
+                'net_profit',
+                'start_date',
+                'end_date',
+                'gym_categories',
+                'category_totals',
+                'category_net_profit'
+            ));
     }
 }

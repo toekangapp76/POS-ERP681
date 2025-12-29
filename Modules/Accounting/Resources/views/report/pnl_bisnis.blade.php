@@ -73,8 +73,10 @@
                                 @foreach($gym_categories as $category)
                                     <th class="text-center category-col" style="vertical-align: middle;">{{ $category->name }}</th>
                                 @endforeach
+                                <th class="text-center category-col" style="vertical-align: middle; background-color: #e8f4f8;">Pro Shop</th>
+                                <th class="text-center category-col" style="vertical-align: middle; background-color: #fff3e0;">Sudest Café</th>
                                 <th class="text-center category-col" style="vertical-align: middle;">@lang('accounting::lang.other')</th>
-                                <th class="text-center bg-primary" style="width:150px; vertical-align: middle;">Total</th>
+                                <th class="text-center bg-primary text-black" style="width:150px; vertical-align: middle;">Total</th>
                             </tr>
                         </thead>
                         <tbody>
@@ -88,12 +90,14 @@
                                         @endphp
                                         <td class="text-right category-col">@format_currency($cat_balance)</td>
                                     @endforeach
+                                    <td class="text-right category-col" style="background-color: #e8f4f8;">@format_currency($account->category_balances['pro_shop'] ?? 0)</td>
+                                    <td class="text-right category-col" style="background-color: #fff3e0;">@format_currency($account->category_balances['sudest_cafe'] ?? 0)</td>
                                     <td class="text-right category-col">@format_currency($account->category_balances['other'] ?? 0)</td>
                                     <td class="text-right"><strong>@format_currency($account->balance)</strong></td>
                                 </tr>
                             @empty
                                 <tr>
-                                    <td colspan="{{ 3 + count($gym_categories) }}" class="text-center text-muted">@lang('lang_v1.no_data')</td>
+                                    <td colspan="{{ 5 + count($gym_categories) }}" class="text-center text-muted">@lang('lang_v1.no_data')</td>
                                 </tr>
                             @endforelse
                         </tbody>
@@ -103,7 +107,9 @@
                                 @foreach($gym_categories as $category)
                                     <th class="text-right category-col">@format_currency($category_totals['income'][$category->id] ?? 0)</th>
                                 @endforeach
-                                <th class="text-right category-col">@format_currency($category_totals['income']['other'] ?? 0)</th>
+                                <th class="text-right category-col" style="background-color: #e8f4f8; color:black">@format_currency($category_totals['income']['pro_shop'] ?? 0)</th>
+                                <th class="text-right category-col" style="background-color: #fff3e0; color:black">@format_currency($category_totals['income']['sudest_cafe'] ?? 0)</th>
+                                <th class="text-right category-col" style="color:black">@format_currency($category_totals['income']['other'] ?? 0)</th>
                                 <th class="text-right"><strong>@format_currency($total_income)</strong></th>
                             </tr>
                         </tfoot>
@@ -121,6 +127,8 @@
                                 @foreach($gym_categories as $category)
                                     <th class="text-center category-col" style="vertical-align: middle;">{{ $category->name }}</th>
                                 @endforeach
+                                <th class="text-center category-col" style="vertical-align: middle; background-color: #e8f4f8;">Pro Shop</th>
+                                <th class="text-center category-col" style="vertical-align: middle; background-color: #fff3e0;">Sudest Café</th>
                                 <th class="text-center category-col" style="vertical-align: middle;">@lang('accounting::lang.other')</th>
                                 <th class="text-center bg-primary" style="width:150px; vertical-align: middle;">Total</th>
                             </tr>
@@ -136,12 +144,14 @@
                                         @endphp
                                         <td class="text-right category-col">@format_currency($cat_balance)</td>
                                     @endforeach
+                                    <td class="text-right category-col" style="background-color: #e8f4f8;">@format_currency($account->category_balances['pro_shop'] ?? 0)</td>
+                                    <td class="text-right category-col" style="background-color: #fff3e0;">@format_currency($account->category_balances['sudest_cafe'] ?? 0)</td>
                                     <td class="text-right category-col">@format_currency($account->category_balances['other'] ?? 0)</td>
                                     <td class="text-right"><strong>@format_currency($account->balance)</strong></td>
                                 </tr>
                             @empty
                                 <tr>
-                                    <td colspan="{{ 3 + count($gym_categories) }}" class="text-center text-muted">@lang('lang_v1.no_data')</td>
+                                    <td colspan="{{ 5 + count($gym_categories) }}" class="text-center text-muted">@lang('lang_v1.no_data')</td>
                                 </tr>
                             @endforelse
                         </tbody>
@@ -151,6 +161,8 @@
                                 @foreach($gym_categories as $category)
                                     <th class="text-right category-col">@format_currency($category_totals['expense'][$category->id] ?? 0)</th>
                                 @endforeach
+                                <th class="text-right category-col" style="background-color: #e8f4f8;">@format_currency($category_totals['expense']['pro_shop'] ?? 0)</th>
+                                <th class="text-right category-col" style="background-color: #fff3e0;">@format_currency($category_totals['expense']['sudest_cafe'] ?? 0)</th>
                                 <th class="text-right category-col">@format_currency($category_totals['expense']['other'] ?? 0)</th>
                                 <th class="text-right"><strong>@format_currency($total_expense)</strong></th>
                             </tr>
@@ -176,7 +188,9 @@
                                 @foreach($gym_categories as $category)
                                     <th class="text-center category-col" style="vertical-align: middle;">{{ $category->name }}</th>
                                 @endforeach
-                                <th class="text-center category-col" style="vertical-align: middle;">@lang('accounting::lang.other')</th>
+                                <th class="text-center category-col" style="vertical-align: middle; background-color: #e8f4f8; color:black">Pro Shop</th>
+                                <th class="text-center category-col" style="vertical-align: middle; background-color: #fff3e0; color:black">Sudest Café</th>
+                                <th class="text-center category-col" style="vertical-align: middle; color:black">@lang('accounting::lang.other')</th>
                                 <th class="text-center bg-primary" style="width:150px; vertical-align: middle;">Total</th>
                             </tr>
                         </thead>
@@ -191,6 +205,12 @@
                                         <strong>@format_currency($cat_net)</strong>
                                     </td>
                                 @endforeach
+                                <td class="text-right category-col {{ ($category_net_profit['pro_shop'] ?? 0) < 0 ? 'text-danger' : '' }}" style="font-size: 14px; background-color: #e8f4f8; color:black">
+                                    <strong>@format_currency($category_net_profit['pro_shop'] ?? 0)</strong>
+                                </td>
+                                <td class="text-right category-col {{ ($category_net_profit['sudest_cafe'] ?? 0) < 0 ? 'text-danger' : '' }}" style="font-size: 14px; background-color: #fff3e0; color:black">
+                                    <strong>@format_currency($category_net_profit['sudest_cafe'] ?? 0)</strong>
+                                </td>
                                 <td class="text-right category-col {{ ($category_net_profit['other'] ?? 0) < 0 ? 'text-danger' : '' }}" style="font-size: 14px;">
                                     <strong>@format_currency($category_net_profit['other'] ?? 0)</strong>
                                 </td>
@@ -331,7 +351,9 @@
 
         $('#export_all_excel').on('click', function() {
             var categoryCount = {{ count($gym_categories) }};
-            var totalCols = 3 + categoryCount + 1; // GL Code + Name + Categories + Other + Total
+            // GL Code + Name + Categories + Pro Shop + Sudest Cafe + Other + Total
+            // 2 + N + 3 + 1 = 6 + N
+            var totalCols = 6 + categoryCount;
             
             var incomeTable = document.getElementById('income_report_table').cloneNode(true);
             var expenseTable = document.getElementById('expense_report_table').cloneNode(true);

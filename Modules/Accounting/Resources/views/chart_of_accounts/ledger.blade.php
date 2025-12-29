@@ -145,6 +145,7 @@
                                         <th>@lang('accounting::lang.account')</th>
                                         <th>@lang('lang_v1.description')</th>
                                         <th>@lang('brand.note')</th>
+                                        <th>No. Referensi</th>
                                         <th>@lang('lang_v1.added_by')</th>
                                         <th>@lang('account.debit')</th>
                                         <th>@lang('account.credit')</th>
@@ -157,7 +158,7 @@
 
                                 <tfoot>
                                     <tr class="bg-gray font-17 footer-total text-center">
-                                        <td colspan="5"><strong>@lang('sale.total'):</strong></td>
+                                        <td colspan="6"><strong>@lang('sale.total'):</strong></td>
                                         <td class="footer_total_debit"></td>
                                         <td class="footer_total_credit"></td>
                                         <td class="footer_total_balance"></td>
@@ -316,16 +317,16 @@
             var cleaned = stripHtml(str);
             cleaned = cleaned.replace(/Rp\s*/gi, '').trim();
             cleaned = cleaned.replace(/[↑↓▲▼]/g, '').trim();
-            
+
             // Check if it looks like a number
             if (!cleaned.match(/^-?[\d.,]+$/)) {
                 return 0;
             }
-            
+
             // Detect format by finding the last occurrence of . or ,
             var lastDot = cleaned.lastIndexOf('.');
             var lastComma = cleaned.lastIndexOf(',');
-            
+
             // If both exist, the one that comes last is the decimal separator
             if (lastDot > lastComma) {
                 // Format: 1,234.56 (comma = thousand, dot = decimal) - International
@@ -345,7 +346,7 @@
                 // Only comma exists - treat as decimal
                 cleaned = cleaned.replace(',', '.');
             }
-            
+
             var num = parseFloat(cleaned);
             return isNaN(num) ? 0 : num;
         }
@@ -353,11 +354,11 @@
         function buildBalanceRow(label, balance) {
             var formatted = __currency_trans_from_en(balance, true);
             return '<tr class="account-group-row bg-gray">' +
-                '<td colspan="5"><strong>' + label + '</strong></td>' +
+                '<td colspan="6"><strong>' + label + '</strong></td>' +
                 '<td></td>' +
                 '<td></td>' +
                 '<td class="text-right"><span class="balance" data-orig-value="' + balance + '">' + formatted + '</span></td>' +
-            '</tr>';
+                '</tr>';
         }
 
         function insertAccountBalanceRows(api) {
@@ -400,9 +401,9 @@
         }
 
         function buildExportRow(label, balance, formatBalance) {
-            var row = ['', '', '', '', '', '', '', ''];
+            var row = ['', '', '', '', '', '', '', '', ''];
             row[0] = label;
-            row[7] = formatBalance(balance);
+            row[8] = formatBalance(balance);
             return row;
         }
 
@@ -444,8 +445,9 @@
                 '<td></td>' +
                 '<td></td>' +
                 '<td></td>' +
+                '<td></td>' +
                 '<td class="text-right">' + formatted + '</td>' +
-            '</tr>';
+                '</tr>';
         }
 
         // Account Book
@@ -459,11 +461,11 @@
                     extend: 'excel',
                     text: '<i class="fa fa-file-excel-o"></i> Excel',
                     exportOptions: {
-                        columns: [0, 1, 2, 3, 4, 5, 6, 7],
+                        columns: [0, 1, 2, 3, 4, 5, 6, 7, 8],
                         format: {
                             body: function (data, row, column, node) {
-                                // For columns with currency (columns 5-7), extract numeric value
-                                if (column >= 5 && column <= 7) {
+                                // For columns with currency (columns 6-8), extract numeric value
+                                if (column >= 6 && column <= 8) {
                                     var $el = $(data);
                                     if ($el.data('orig-value') !== undefined) {
                                         return parseFloat($el.data('orig-value'));
@@ -595,6 +597,7 @@
                 { data: 'account_name', name: 'AA.name' },
                 { data: 'ref_no', name: 'ATM.ref_no' },
                 { data: 'note', name: 'ATM.note' },
+                { data: 'document_ref_no', name: 'document_ref_no', searchable: false },
                 { data: 'added_by', name: 'added_by' },
                 { data: 'debit', name: 'amount', searchable: false },
                 { data: 'credit', name: 'amount', searchable: false },
@@ -616,7 +619,7 @@
 
                 $('.footer_total_debit').html(__currency_trans_from_en(footer_total_debit));
                 $('.footer_total_credit').html(__currency_trans_from_en(footer_total_credit));
-                
+
                 // Get ending balance from response for footer display
                 var json = this.api().ajax.json() || {};
                 var endingBalances = json.ending_balances || {};
