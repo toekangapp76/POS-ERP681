@@ -188,7 +188,8 @@
                                         $last_balance = $last_ytd - $prev_last_ytd;
                                     }
                                     
-                                    $difference = $current_balance - $last_balance;
+                                    // Koreksi: varian = current month - last month
+                                    $difference = $current_month_balance - $last_balance;
                                     $diff_color = $difference > 0 ? 'text-success' : ($difference < 0 ? 'text-danger' : '');
                                 @endphp
                                 <tr>
@@ -331,7 +332,8 @@
                                         $last_balance = $last_ytd - $prev_last_ytd;
                                     }
                                     
-                                    $difference = $current_balance - $last_balance;
+                                    // Koreksi: varian = current month - last month
+                                    $difference = $current_month_balance - $last_balance;
                                     // For expenses, more is bad (red), less is good (green)
                                     $diff_color = $difference > 0 ? 'text-danger' : ($difference < 0 ? 'text-success' : '');
                                 @endphp
@@ -448,7 +450,8 @@
                                 $last_net = $last_income_total - $last_expense_total;
                                 $current_month_net = $current_month_income_total - $current_month_expense_total;
                                 $current_net = $current_income_total - $current_expense_total;
-                                $net_diff = $current_net - $last_net;
+                                // Koreksi: varian = current month - last month
+                                $net_diff = $current_month_net - $last_net;
                                 $net_diff_color = $net_diff > 0 ? 'text-success' : ($net_diff < 0 ? 'text-danger' : '');
                             @endphp
                             <tr class="{{ $net_profit >= 0 ? 'bg-cyan' : 'bg-blue' }}">

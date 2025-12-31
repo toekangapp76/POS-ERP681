@@ -53,10 +53,12 @@
             </div>
             <div class="box-body">
                 <div class="row">
-                    <div class="col-md-3">
+                    <div class="col-md-4">
                         <div class="form-group">
-                            <label>@lang('gym::lang.recognition_date'):</label>
-                            <input type="text" class="form-control" id="date_range" placeholder="Select date range">
+                            {!! Form::label('date_range_filter', __('gym::lang.recognition_date') . ':') !!}
+                            {!! Form::text('date_range_filter', null, 
+                                ['placeholder' => __('lang_v1.select_a_date_range'), 
+                                'class' => 'form-control', 'readonly', 'id' => 'date_range_filter']); !!}
                         </div>
                     </div>
                     <div class="col-md-3">
@@ -118,36 +120,48 @@
 @section('javascript')
     <script>
         $(document).ready(function () {
-            // Initialize daterangepicker
-            $('#date_range').daterangepicker({
-                autoUpdateInput: false,
-                locale: {
-                    cancelLabel: 'Clear',
-                    format: 'DD/MM/YYYY'
+            // Declare deferred_table variable first
+            var deferred_table;
+
+            // Initialize daterangepicker using global settings like journal-entry
+            $('#date_range_filter').daterangepicker(
+                dateRangeSettings,
+                function (start, end) {
+                    $('#date_range_filter').val(start.format(moment_date_format) + ' ~ ' + end.format(moment_date_format));
+                    if (deferred_table) {
+                        deferred_table.ajax.reload();
+                    }
+                }
+            );
+            $('#date_range_filter').on('cancel.daterangepicker', function(ev, picker) {
+                $('#date_range_filter').val('');
+                if (deferred_table) {
+                    deferred_table.ajax.reload();
                 }
             });
 
-            $('#date_range').on('apply.daterangepicker', function (ev, picker) {
-                $(this).val(picker.startDate.format('DD/MM/YYYY') + ' - ' + picker.endDate.format('DD/MM/YYYY'));
-            });
-
-            $('#date_range').on('cancel.daterangepicker', function (ev, picker) {
-                $(this).val('');
-            });
-
             // Initialize DataTable
-            var deferred_table = $('#deferred_revenue_table').DataTable({
+            deferred_table = $('#deferred_revenue_table').DataTable({
                 processing: true,
                 serverSide: true,
                 ajax: {
                     url: '{{ route("gym.deferred-revenue.index") }}',
                     data: function (d) {
                         d.status = $('#status_filter').val();
-                        var dateRange = $('#date_range').val();
+                        var dateRange = $('#date_range_filter').val();
                         if (dateRange) {
-                            var dates = dateRange.split(' - ');
-                            d.start_date = moment(dates[0], 'DD/MM/YYYY').format('YYYY-MM-DD');
-                            d.end_date = moment(dates[1], 'DD/MM/YYYY').format('YYYY-MM-DD');
+                            var start = '';
+                            var end = '';
+                            if ($('#date_range_filter').val()) {
+                                start = $('input#date_range_filter')
+                                    .data('daterangepicker')
+                                    .startDate.format('YYYY-MM-DD');
+                                end = $('input#date_range_filter')
+                                    .data('daterangepicker')
+                                    .endDate.format('YYYY-MM-DD');
+                            }
+                            d.start_date = start;
+                            d.end_date = end;
                         }
                     }
                 },

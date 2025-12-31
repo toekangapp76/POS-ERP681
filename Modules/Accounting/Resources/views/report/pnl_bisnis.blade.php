@@ -63,20 +63,57 @@
                         </div>
                     </div>
 
+                    {{-- Calculate period labels --}}
+                    @php
+                        $month_count = count($months);
+                        $current_month = $month_count > 0 ? $months[$month_count - 1] : null;
+                        $last_month = $month_count > 1 ? $months[$month_count - 2] : null;
+                        $current_key = $current_month['key'] ?? null;
+                        $last_key = $last_month['key'] ?? null;
+
+                        // Last Month label
+                        $last_month_label = $last_month
+                            ? \Carbon\Carbon::parse($last_month['start'])->format('M Y')
+                            : '-';
+                        // Current Month label
+                        $current_month_label = $current_month
+                            ? \Carbon\Carbon::parse($current_month['start'])->format('M Y')
+                            : '-';
+                        // YTD label
+                        $ytd_label = ($current_month && $month_count > 0)
+                            ? 'YTD s.d. ' . \Carbon\Carbon::parse($current_month['end'])->format('M Y')
+                            : '-';
+                    @endphp
+
                     {{-- Income Section --}}
                     <h4 class="text-success"><strong><i class="fa fa-arrow-up"></i> @lang('accounting::lang.income')</strong></h4>
-                    <table class="table table-striped table-bordered" id="income_report_table" style="width:100%">
+                    <div class="table-responsive">
+                    <table class="table table-striped table-bordered table-condensed" id="income_report_table" style="width:100%; font-size: 11px;">
                         <thead>
+                            {{-- Main Category Headers --}}
                             <tr class="success">
-                                <th class="text-center" style="width:120px; vertical-align: middle;">@lang('accounting::lang.gl_code')</th>
-                                <th class="text-center" style="vertical-align: middle;">@lang('user.name')</th>
+                                <th class="text-center" style="width:80px; vertical-align: middle;" rowspan="2">@lang('accounting::lang.gl_code')</th>
+                                <th class="text-center" style="vertical-align: middle; min-width:150px;" rowspan="2">@lang('user.name')</th>
                                 @foreach($gym_categories as $category)
-                                    <th class="text-center category-col" style="vertical-align: middle;">{{ $category->name }}</th>
+                                    <th class="text-center category-col" colspan="3" style="vertical-align: middle;">{{ $category->name }}</th>
                                 @endforeach
-                                <th class="text-center category-col" style="vertical-align: middle; background-color: #e8f4f8;">Pro Shop</th>
-                                <th class="text-center category-col" style="vertical-align: middle; background-color: #fff3e0;">Sudest Café</th>
-                                <th class="text-center category-col" style="vertical-align: middle;">@lang('accounting::lang.other')</th>
-                                <th class="text-center bg-primary text-black" style="width:150px; vertical-align: middle;">Total</th>
+                                <th class="text-center category-col" colspan="3" style="vertical-align: middle; background-color: #e8f4f8;">Pro Shop</th>
+                                <th class="text-center category-col" colspan="3" style="vertical-align: middle; background-color: #fff3e0;">Sudest Café</th>
+                                <th class="text-center bg-primary text-black" style="width:100px; vertical-align: middle;" rowspan="2">Total</th>
+                            </tr>
+                            {{-- Sub-headers for periods --}}
+                            <tr class="active" style="font-size: 10px;">
+                                @foreach($gym_categories as $category)
+                                    <th class="text-center" style="padding: 3px;">LM</th>
+                                    <th class="text-center" style="padding: 3px;">CM</th>
+                                    <th class="text-center" style="padding: 3px;">YTD</th>
+                                @endforeach
+                                <th class="text-center" style="padding: 3px; background-color: #e8f4f8;">LM</th>
+                                <th class="text-center" style="padding: 3px; background-color: #e8f4f8;">CM</th>
+                                <th class="text-center" style="padding: 3px; background-color: #e8f4f8;">YTD</th>
+                                <th class="text-center" style="padding: 3px; background-color: #fff3e0;">LM</th>
+                                <th class="text-center" style="padding: 3px; background-color: #fff3e0;">CM</th>
+                                <th class="text-center" style="padding: 3px; background-color: #fff3e0;">YTD</th>
                             </tr>
                         </thead>
                         <tbody>
@@ -86,18 +123,27 @@
                                     <td>{{ $account->name }}</td>
                                     @foreach($gym_categories as $category)
                                         @php
-                                            $cat_balance = $account->category_balances[$category->id] ?? 0;
+                                            $cat_data = $account->category_balances[$category->id] ?? ['last_month' => 0, 'current_month' => 0, 'ytd' => 0];
                                         @endphp
-                                        <td class="text-right category-col">@format_currency($cat_balance)</td>
+                                        <td class="text-right category-col">@format_currency($cat_data['last_month'])</td>
+                                        <td class="text-right category-col">@format_currency($cat_data['current_month'])</td>
+                                        <td class="text-right category-col"><strong>@format_currency($cat_data['ytd'])</strong></td>
                                     @endforeach
-                                    <td class="text-right category-col" style="background-color: #e8f4f8;">@format_currency($account->category_balances['pro_shop'] ?? 0)</td>
-                                    <td class="text-right category-col" style="background-color: #fff3e0;">@format_currency($account->category_balances['sudest_cafe'] ?? 0)</td>
-                                    <td class="text-right category-col">@format_currency($account->category_balances['other'] ?? 0)</td>
+                                    @php
+                                        $ps_data = $account->category_balances['pro_shop'] ?? ['last_month' => 0, 'current_month' => 0, 'ytd' => 0];
+                                        $sc_data = $account->category_balances['sudest_cafe'] ?? ['last_month' => 0, 'current_month' => 0, 'ytd' => 0];
+                                    @endphp
+                                    <td class="text-right category-col" style="background-color: #e8f4f8;">@format_currency($ps_data['last_month'])</td>
+                                    <td class="text-right category-col" style="background-color: #e8f4f8;">@format_currency($ps_data['current_month'])</td>
+                                    <td class="text-right category-col" style="background-color: #e8f4f8;"><strong>@format_currency($ps_data['ytd'])</strong></td>
+                                    <td class="text-right category-col" style="background-color: #fff3e0;">@format_currency($sc_data['last_month'])</td>
+                                    <td class="text-right category-col" style="background-color: #fff3e0;">@format_currency($sc_data['current_month'])</td>
+                                    <td class="text-right category-col" style="background-color: #fff3e0;"><strong>@format_currency($sc_data['ytd'])</strong></td>
                                     <td class="text-right"><strong>@format_currency($account->balance)</strong></td>
                                 </tr>
                             @empty
                                 <tr>
-                                    <td colspan="{{ 5 + count($gym_categories) }}" class="text-center text-muted">@lang('lang_v1.no_data')</td>
+                                    <td colspan="{{ 3 + (count($gym_categories) * 3) + 6 + 1 }}" class="text-center text-muted">@lang('lang_v1.no_data')</td>
                                 </tr>
                             @endforelse
                         </tbody>
@@ -105,32 +151,58 @@
                             <tr class="success">
                                 <th colspan="2" class="text-right"><strong>@lang('accounting::lang.total_income')</strong></th>
                                 @foreach($gym_categories as $category)
-                                    <th class="text-right category-col">@format_currency($category_totals['income'][$category->id] ?? 0)</th>
+                                    @php $cat_tot = $category_totals['income'][$category->id] ?? ['last_month' => 0, 'current_month' => 0, 'ytd' => 0]; @endphp
+                                    <th class="text-right category-col">@format_currency($cat_tot['last_month'])</th>
+                                    <th class="text-right category-col">@format_currency($cat_tot['current_month'])</th>
+                                    <th class="text-right category-col"><strong>@format_currency($cat_tot['ytd'])</strong></th>
                                 @endforeach
-                                <th class="text-right category-col" style="background-color: #e8f4f8; color:black">@format_currency($category_totals['income']['pro_shop'] ?? 0)</th>
-                                <th class="text-right category-col" style="background-color: #fff3e0; color:black">@format_currency($category_totals['income']['sudest_cafe'] ?? 0)</th>
-                                <th class="text-right category-col" style="color:black">@format_currency($category_totals['income']['other'] ?? 0)</th>
+                                @php 
+                                    $ps_tot = $category_totals['income']['pro_shop'] ?? ['last_month' => 0, 'current_month' => 0, 'ytd' => 0]; 
+                                    $sc_tot = $category_totals['income']['sudest_cafe'] ?? ['last_month' => 0, 'current_month' => 0, 'ytd' => 0];
+                                @endphp
+                                <th class="text-right category-col" style="background-color: #e8f4f8; color:black">@format_currency($ps_tot['last_month'])</th>
+                                <th class="text-right category-col" style="background-color: #e8f4f8; color:black">@format_currency($ps_tot['current_month'])</th>
+                                <th class="text-right category-col" style="background-color: #e8f4f8; color:black"><strong>@format_currency($ps_tot['ytd'])</strong></th>
+                                <th class="text-right category-col" style="background-color: #fff3e0; color:black">@format_currency($sc_tot['last_month'])</th>
+                                <th class="text-right category-col" style="background-color: #fff3e0; color:black">@format_currency($sc_tot['current_month'])</th>
+                                <th class="text-right category-col" style="background-color: #fff3e0; color:black"><strong>@format_currency($sc_tot['ytd'])</strong></th>
                                 <th class="text-right"><strong>@format_currency($total_income)</strong></th>
                             </tr>
                         </tfoot>
                     </table>
+                    </div>
 
                     <br/>
 
                     {{-- Expense Section --}}
                     <h4 class="text-danger"><strong><i class="fa fa-arrow-down"></i> @lang('accounting::lang.expenses')</strong></h4>
-                    <table class="table table-striped table-bordered" id="expense_report_table" style="width:100%">
+                    <div class="table-responsive">
+                    <table class="table table-striped table-bordered table-condensed" id="expense_report_table" style="width:100%; font-size: 11px;">
                         <thead>
-                            <tr class="gray">
-                                <th class="text-center" style="width:120px; vertical-align: middle;">@lang('accounting::lang.gl_code')</th>
-                                <th class="text-center" style="vertical-align: middle;">@lang('user.name')</th>
+                            {{-- Main Category Headers --}}
+                            <tr class="danger">
+                                <th class="text-center" style="width:80px; vertical-align: middle;" rowspan="2">@lang('accounting::lang.gl_code')</th>
+                                <th class="text-center" style="vertical-align: middle; min-width:150px;" rowspan="2">@lang('user.name')</th>
                                 @foreach($gym_categories as $category)
-                                    <th class="text-center category-col" style="vertical-align: middle;">{{ $category->name }}</th>
+                                    <th class="text-center category-col" colspan="3" style="vertical-align: middle;">{{ $category->name }}</th>
                                 @endforeach
-                                <th class="text-center category-col" style="vertical-align: middle; background-color: #e8f4f8;">Pro Shop</th>
-                                <th class="text-center category-col" style="vertical-align: middle; background-color: #fff3e0;">Sudest Café</th>
-                                <th class="text-center category-col" style="vertical-align: middle;">@lang('accounting::lang.other')</th>
-                                <th class="text-center bg-primary" style="width:150px; vertical-align: middle;">Total</th>
+                                <th class="text-center category-col" colspan="3" style="vertical-align: middle; background-color: #e8f4f8;">Pro Shop</th>
+                                <th class="text-center category-col" colspan="3" style="vertical-align: middle; background-color: #fff3e0;">Sudest Café</th>
+                                <th class="text-center bg-primary text-black" style="width:100px; vertical-align: middle;" rowspan="2">Total</th>
+                            </tr>
+                            {{-- Sub-headers for periods --}}
+                            <tr class="active" style="font-size: 10px;">
+                                @foreach($gym_categories as $category)
+                                    <th class="text-center" style="padding: 3px;">LM</th>
+                                    <th class="text-center" style="padding: 3px;">CM</th>
+                                    <th class="text-center" style="padding: 3px;">YTD</th>
+                                @endforeach
+                                <th class="text-center" style="padding: 3px; background-color: #e8f4f8;">LM</th>
+                                <th class="text-center" style="padding: 3px; background-color: #e8f4f8;">CM</th>
+                                <th class="text-center" style="padding: 3px; background-color: #e8f4f8;">YTD</th>
+                                <th class="text-center" style="padding: 3px; background-color: #fff3e0;">LM</th>
+                                <th class="text-center" style="padding: 3px; background-color: #fff3e0;">CM</th>
+                                <th class="text-center" style="padding: 3px; background-color: #fff3e0;">YTD</th>
                             </tr>
                         </thead>
                         <tbody>
@@ -140,43 +212,64 @@
                                     <td>{{ $account->name }}</td>
                                     @foreach($gym_categories as $category)
                                         @php
-                                            $cat_balance = $account->category_balances[$category->id] ?? 0;
+                                            $cat_data = $account->category_balances[$category->id] ?? ['last_month' => 0, 'current_month' => 0, 'ytd' => 0];
                                         @endphp
-                                        <td class="text-right category-col">@format_currency($cat_balance)</td>
+                                        <td class="text-right category-col">@format_currency($cat_data['last_month'])</td>
+                                        <td class="text-right category-col">@format_currency($cat_data['current_month'])</td>
+                                        <td class="text-right category-col"><strong>@format_currency($cat_data['ytd'])</strong></td>
                                     @endforeach
-                                    <td class="text-right category-col" style="background-color: #e8f4f8;">@format_currency($account->category_balances['pro_shop'] ?? 0)</td>
-                                    <td class="text-right category-col" style="background-color: #fff3e0;">@format_currency($account->category_balances['sudest_cafe'] ?? 0)</td>
-                                    <td class="text-right category-col">@format_currency($account->category_balances['other'] ?? 0)</td>
+                                    @php
+                                        $ps_data = $account->category_balances['pro_shop'] ?? ['last_month' => 0, 'current_month' => 0, 'ytd' => 0];
+                                        $sc_data = $account->category_balances['sudest_cafe'] ?? ['last_month' => 0, 'current_month' => 0, 'ytd' => 0];
+                                    @endphp
+                                    <td class="text-right category-col" style="background-color: #e8f4f8;">@format_currency($ps_data['last_month'])</td>
+                                    <td class="text-right category-col" style="background-color: #e8f4f8;">@format_currency($ps_data['current_month'])</td>
+                                    <td class="text-right category-col" style="background-color: #e8f4f8;"><strong>@format_currency($ps_data['ytd'])</strong></td>
+                                    <td class="text-right category-col" style="background-color: #fff3e0;">@format_currency($sc_data['last_month'])</td>
+                                    <td class="text-right category-col" style="background-color: #fff3e0;">@format_currency($sc_data['current_month'])</td>
+                                    <td class="text-right category-col" style="background-color: #fff3e0;"><strong>@format_currency($sc_data['ytd'])</strong></td>
                                     <td class="text-right"><strong>@format_currency($account->balance)</strong></td>
                                 </tr>
                             @empty
                                 <tr>
-                                    <td colspan="{{ 5 + count($gym_categories) }}" class="text-center text-muted">@lang('lang_v1.no_data')</td>
+                                    <td colspan="{{ 3 + (count($gym_categories) * 3) + 6 + 1 }}" class="text-center text-muted">@lang('lang_v1.no_data')</td>
                                 </tr>
                             @endforelse
                         </tbody>
                         <tfoot>
-                            <tr class="gray">
+                            <tr class="danger">
                                 <th colspan="2" class="text-right"><strong>@lang('accounting::lang.total_expenses')</strong></th>
                                 @foreach($gym_categories as $category)
-                                    <th class="text-right category-col">@format_currency($category_totals['expense'][$category->id] ?? 0)</th>
+                                    @php $cat_tot = $category_totals['expense'][$category->id] ?? ['last_month' => 0, 'current_month' => 0, 'ytd' => 0]; @endphp
+                                    <th class="text-right category-col">@format_currency($cat_tot['last_month'])</th>
+                                    <th class="text-right category-col">@format_currency($cat_tot['current_month'])</th>
+                                    <th class="text-right category-col"><strong>@format_currency($cat_tot['ytd'])</strong></th>
                                 @endforeach
-                                <th class="text-right category-col" style="background-color: #e8f4f8;">@format_currency($category_totals['expense']['pro_shop'] ?? 0)</th>
-                                <th class="text-right category-col" style="background-color: #fff3e0;">@format_currency($category_totals['expense']['sudest_cafe'] ?? 0)</th>
-                                <th class="text-right category-col">@format_currency($category_totals['expense']['other'] ?? 0)</th>
+                                @php 
+                                    $ps_tot = $category_totals['expense']['pro_shop'] ?? ['last_month' => 0, 'current_month' => 0, 'ytd' => 0]; 
+                                    $sc_tot = $category_totals['expense']['sudest_cafe'] ?? ['last_month' => 0, 'current_month' => 0, 'ytd' => 0];
+                                @endphp
+                                <th class="text-right category-col" style="background-color: #e8f4f8;">@format_currency($ps_tot['last_month'])</th>
+                                <th class="text-right category-col" style="background-color: #e8f4f8;">@format_currency($ps_tot['current_month'])</th>
+                                <th class="text-right category-col" style="background-color: #e8f4f8;"><strong>@format_currency($ps_tot['ytd'])</strong></th>
+                                <th class="text-right category-col" style="background-color: #fff3e0;">@format_currency($sc_tot['last_month'])</th>
+                                <th class="text-right category-col" style="background-color: #fff3e0;">@format_currency($sc_tot['current_month'])</th>
+                                <th class="text-right category-col" style="background-color: #fff3e0;"><strong>@format_currency($sc_tot['ytd'])</strong></th>
                                 <th class="text-right"><strong>@format_currency($total_expense)</strong></th>
                             </tr>
                         </tfoot>
                     </table>
+                    </div>
 
                     <br/>
 
                     {{-- Net Profit/Loss Section --}}
                     <h4><strong><i class="fa fa-calculator"></i> @lang('accounting::lang.net_profit') / @lang('accounting::lang.net_loss')</strong></h4>
-                    <table class="table table-bordered" id="net_profit_table" style="width:100%">
+                    <div class="table-responsive">
+                    <table class="table table-bordered table-condensed" id="net_profit_table" style="width:100%; font-size: 11px;">
                         <thead>
                             <tr class="{{ $net_profit >= 0 ? 'bg-green' : 'bg-red' }}">
-                                <th colspan="2" style="font-size: 16px; vertical-align: middle;">
+                                <th colspan="2" style="font-size: 14px; vertical-align: middle;" rowspan="2">
                                     <strong>
                                         @if($net_profit >= 0)
                                             <i class="fa fa-check-circle"></i> @lang('accounting::lang.net_profit')
@@ -186,40 +279,137 @@
                                     </strong>
                                 </th>
                                 @foreach($gym_categories as $category)
-                                    <th class="text-center category-col" style="vertical-align: middle;">{{ $category->name }}</th>
+                                    <th class="text-center category-col" colspan="3" style="vertical-align: middle;">{{ $category->name }}</th>
                                 @endforeach
-                                <th class="text-center category-col" style="vertical-align: middle; background-color: #e8f4f8; color:black">Pro Shop</th>
-                                <th class="text-center category-col" style="vertical-align: middle; background-color: #fff3e0; color:black">Sudest Café</th>
-                                <th class="text-center category-col" style="vertical-align: middle; color:black">@lang('accounting::lang.other')</th>
-                                <th class="text-center bg-primary" style="width:150px; vertical-align: middle;">Total</th>
+                                <th class="text-center category-col" colspan="3" style="vertical-align: middle; background-color: #e8f4f8; color:black">Pro Shop</th>
+                                <th class="text-center category-col" colspan="3" style="vertical-align: middle; background-color: #fff3e0; color:black">Sudest Café</th>
+                                <th class="text-center bg-primary" style="width:100px; vertical-align: middle;" rowspan="2">Total</th>
+                            </tr>
+                            <tr class="active" style="font-size: 10px;">
+                                @foreach($gym_categories as $category)
+                                    <th class="text-center" style="padding: 3px;">LM</th>
+                                    <th class="text-center" style="padding: 3px;">CM</th>
+                                    <th class="text-center" style="padding: 3px;">YTD</th>
+                                @endforeach
+                                <th class="text-center" style="padding: 3px; background-color: #e8f4f8;">LM</th>
+                                <th class="text-center" style="padding: 3px; background-color: #e8f4f8;">CM</th>
+                                <th class="text-center" style="padding: 3px; background-color: #e8f4f8;">YTD</th>
+                                <th class="text-center" style="padding: 3px; background-color: #fff3e0;">LM</th>
+                                <th class="text-center" style="padding: 3px; background-color: #fff3e0;">CM</th>
+                                <th class="text-center" style="padding: 3px; background-color: #fff3e0;">YTD</th>
                             </tr>
                         </thead>
                         <tbody>
                             <tr class="{{ $net_profit >= 0 ? 'bg-cyan' : 'bg-blue' }}">
-                                <td colspan="2" style="font-size: 16px;"><strong>Nilai</strong></td>
+                                <td colspan="2" style="font-size: 14px;"><strong>Nilai</strong></td>
                                 @foreach($gym_categories as $category)
                                     @php
-                                        $cat_net = $category_net_profit[$category->id] ?? 0;
+                                        $cat_net = $category_net_profit[$category->id] ?? ['last_month' => 0, 'current_month' => 0, 'ytd' => 0];
                                     @endphp
-                                    <td class="text-right category-col {{ $cat_net < 0 ? 'text-danger' : '' }}" style="font-size: 14px;">
-                                        <strong>@format_currency($cat_net)</strong>
-                                    </td>
+                                    <td class="text-right category-col {{ $cat_net['last_month'] < 0 ? 'text-danger' : '' }}">@format_currency($cat_net['last_month'])</td>
+                                    <td class="text-right category-col {{ $cat_net['current_month'] < 0 ? 'text-danger' : '' }}">@format_currency($cat_net['current_month'])</td>
+                                    <td class="text-right category-col {{ $cat_net['ytd'] < 0 ? 'text-danger' : '' }}"><strong>@format_currency($cat_net['ytd'])</strong></td>
                                 @endforeach
-                                <td class="text-right category-col {{ ($category_net_profit['pro_shop'] ?? 0) < 0 ? 'text-danger' : '' }}" style="font-size: 14px; background-color: #e8f4f8; color:black">
-                                    <strong>@format_currency($category_net_profit['pro_shop'] ?? 0)</strong>
-                                </td>
-                                <td class="text-right category-col {{ ($category_net_profit['sudest_cafe'] ?? 0) < 0 ? 'text-danger' : '' }}" style="font-size: 14px; background-color: #fff3e0; color:black">
-                                    <strong>@format_currency($category_net_profit['sudest_cafe'] ?? 0)</strong>
-                                </td>
-                                <td class="text-right category-col {{ ($category_net_profit['other'] ?? 0) < 0 ? 'text-danger' : '' }}" style="font-size: 14px;">
-                                    <strong>@format_currency($category_net_profit['other'] ?? 0)</strong>
-                                </td>
-                                <td class="text-right" style="font-size: 18px;">
+                                @php
+                                    $ps_net = $category_net_profit['pro_shop'] ?? ['last_month' => 0, 'current_month' => 0, 'ytd' => 0];
+                                    $sc_net = $category_net_profit['sudest_cafe'] ?? ['last_month' => 0, 'current_month' => 0, 'ytd' => 0];
+                                @endphp
+                                <td class="text-right category-col {{ $ps_net['last_month'] < 0 ? 'text-danger' : '' }}" style="background-color: #e8f4f8;">@format_currency($ps_net['last_month'])</td>
+                                <td class="text-right category-col {{ $ps_net['current_month'] < 0 ? 'text-danger' : '' }}" style="background-color: #e8f4f8;">@format_currency($ps_net['current_month'])</td>
+                                <td class="text-right category-col {{ $ps_net['ytd'] < 0 ? 'text-danger' : '' }}" style="background-color: #e8f4f8;"><strong>@format_currency($ps_net['ytd'])</strong></td>
+                                <td class="text-right category-col {{ $sc_net['last_month'] < 0 ? 'text-danger' : '' }}" style="background-color: #fff3e0;">@format_currency($sc_net['last_month'])</td>
+                                <td class="text-right category-col {{ $sc_net['current_month'] < 0 ? 'text-danger' : '' }}" style="background-color: #fff3e0;">@format_currency($sc_net['current_month'])</td>
+                                <td class="text-right category-col {{ $sc_net['ytd'] < 0 ? 'text-danger' : '' }}" style="background-color: #fff3e0;"><strong>@format_currency($sc_net['ytd'])</strong></td>
+                                <td class="text-right" style="font-size: 14px;">
                                     <strong class="{{ $net_profit < 0 ? 'text-danger' : '' }}">@format_currency($net_profit)</strong>
                                 </td>
                             </tr>
                         </tbody>
                     </table>
+                    </div>
+
+                    {{-- Monthly Comparison Summary --}}
+                    <h4><strong><i class="fa fa-chart-bar"></i> @lang('accounting::lang.monthly_summary')</strong></h4>
+                    <div class="info-box-content" style="margin-bottom: 15px;">
+                        <p class="text-muted"><small>* Kolom perbandingan berdasarkan periode filter yang dipilih</small></p>
+                    </div>
+                    <table class="table table-bordered" id="monthly_summary_table" style="width:100%">
+                        <thead>
+                            <tr class="bg-info">
+                                <th class="text-center" style="vertical-align: middle; width: 25%;">Keterangan</th>
+                                <th class="text-center" style="vertical-align: middle;">
+                                    Last Month
+                                    <div class="text-muted" style="font-size: 11px;">{{ $last_month_label }}</div>
+                                </th>
+                                <th class="text-center" style="vertical-align: middle;">
+                                    Current Month
+                                    <div class="text-muted" style="font-size: 11px;">{{ $current_month_label }}</div>
+                                </th>
+                                <th class="text-center" style="vertical-align: middle;">
+                                    YTD
+                                    <div class="text-muted" style="font-size: 11px;">{{ $ytd_label }}</div>
+                                </th>
+                                <th class="text-center bg-warning" style="vertical-align: middle;">Varian (MoM)</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            @php
+                                // Note: For now, we use the full period data since monthly breakdown 
+                                // per category would require significant controller changes.
+                                // This shows YTD = Total (full period)
+                                // Current Month and Last Month would need monthly breakdown data
+                                
+                                // Using approximation: divide by months count for average display
+                                $month_count_safe = max(1, $month_count);
+                                $avg_income_per_month = $total_income / $month_count_safe;
+                                $avg_expense_per_month = $total_expense / $month_count_safe;
+                                $avg_net_per_month = $net_profit / $month_count_safe;
+                                
+                                // Display values (YTD = actual total, months = approximation indicator)
+                                $ytd_income = $total_income;
+                                $ytd_expense = $total_expense;
+                                $ytd_net = $net_profit;
+                            @endphp
+                            <tr class="success">
+                                <td><strong>@lang('accounting::lang.total_income')</strong></td>
+                                <td class="text-right">
+                                    <span class="text-muted">-</span>
+                                </td>
+                                <td class="text-right">
+                                    <span class="text-muted">-</span>
+                                </td>
+                                <td class="text-right"><strong>@format_currency($ytd_income)</strong></td>
+                                <td class="text-right text-muted">-</td>
+                            </tr>
+                            <tr class="danger">
+                                <td><strong>@lang('accounting::lang.total_expenses')</strong></td>
+                                <td class="text-right">
+                                    <span class="text-muted">-</span>
+                                </td>
+                                <td class="text-right">
+                                    <span class="text-muted">-</span>
+                                </td>
+                                <td class="text-right"><strong>@format_currency($ytd_expense)</strong></td>
+                                <td class="text-right text-muted">-</td>
+                            </tr>
+                            <tr class="{{ $net_profit >= 0 ? 'bg-green' : 'bg-red' }}" style="color: white;">
+                                <td><strong>{{ $net_profit >= 0 ? __('accounting::lang.net_profit') : __('accounting::lang.net_loss') }}</strong></td>
+                                <td class="text-right">
+                                    <span>-</span>
+                                </td>
+                                <td class="text-right">
+                                    <span>-</span>
+                                </td>
+                                <td class="text-right"><strong>@format_currency($ytd_net)</strong></td>
+                                <td class="text-right">-</td>
+                            </tr>
+                        </tbody>
+                    </table>
+                    <div class="alert alert-info">
+                        <i class="fa fa-info-circle"></i> 
+                        <strong>Info:</strong> Untuk melihat detail Last Month, Current Month, dan YTD per akun, gunakan laporan 
+                        <a href="{{ route('accounting.pnlYtd') }}" class="alert-link">P&L Year-to-Date</a>.
+                    </div>
 
                     {{-- Summary --}}
                     <div class="well well-sm">
