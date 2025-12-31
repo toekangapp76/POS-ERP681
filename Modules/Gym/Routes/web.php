@@ -56,6 +56,8 @@ Route::middleware('web', 'auth', 'language', 'AdminSidebarMenu')->prefix('gym')-
     Route::post('deferred-revenue/process', [Modules\Gym\Http\Controllers\DeferredRevenueController::class, 'process'])->name('gym.deferred-revenue.process');
     Route::post('deferred-revenue/{id}/process', [Modules\Gym\Http\Controllers\DeferredRevenueController::class, 'processSingle'])->name('gym.deferred-revenue.process-single');
     Route::get('deferred-revenue/schedule/{transaction_id}', [Modules\Gym\Http\Controllers\DeferredRevenueController::class, 'viewSchedule'])->name('gym.deferred-revenue.schedule');
+    Route::post('deferred-revenue/generate-missing', [Modules\Gym\Http\Controllers\DeferredRevenueController::class, 'generateMissing'])->name('gym.deferred-revenue.generate-missing');
+    Route::get('deferred-revenue/diagnostic', [Modules\Gym\Http\Controllers\DeferredRevenueController::class, 'diagnostic'])->name('gym.deferred-revenue.diagnostic');
 
     Route::resource('settings', Modules\Gym\Http\Controllers\SettingController::class);
 

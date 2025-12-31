@@ -10,6 +10,8 @@ use App\Utils\ModuleUtil;
 use Modules\Gym\Entities\GymDeferredRevenue;
 use Modules\Gym\Services\DeferredRevenueService;
 use Yajra\DataTables\Facades\DataTables;
+use App\Transaction;
+use Modules\Gym\Entities\GymPackage;
 
 class DeferredRevenueController extends Controller
 {
@@ -225,10 +227,132 @@ class DeferredRevenueController extends Controller
 
         $schedules = $this->deferredService->getScheduleByTransaction($transaction_id);
         
-        $transaction = \App\Transaction::with(['contact', 'gymPackage'])
+        $transaction = Transaction::with(['contact', 'gym_package'])
             ->where('business_id', $business_id)
             ->findOrFail($transaction_id);
 
         return view('gym::deferred_revenue.schedule', compact('schedules', 'transaction'));
+    }
+
+    /**
+     * Generate schedules for existing subscriptions that don't have schedules yet
+     */
+    public function generateMissing(Request $request)
+    {
+        $business_id = request()->session()->get('user.business_id');
+
+        if (! (auth()->user()->can('superadmin') || $this->moduleUtil->hasThePermissionInSubscription($business_id, 'gym_module'))) {
+            abort(403, 'Unauthorized action.');
+        }
+
+        try {
+            // Get all gym_subscription transactions that don't have schedules yet
+            $subscriptionIds = GymDeferredRevenue::where('business_id', $business_id)
+                ->pluck('transaction_id')
+                ->toArray();
+
+            $transactions = Transaction::where('business_id', $business_id)
+                ->where('type', 'gym_subscription')
+                ->whereNotNull('gym_package_end_date') // Not lifetime
+                ->whereNotIn('id', $subscriptionIds) // Don't have schedule yet
+                ->with('gym_package')
+                ->get();
+
+            $generated = 0;
+            $skipped = 0;
+            $errors = [];
+
+            foreach ($transactions as $transaction) {
+                $package = $transaction->gym_package;
+                
+                if (!$package) {
+                    $skipped++;
+                    $errors[] = "Transaction #{$transaction->id}: Package not found";
+                    continue;
+                }
+
+                if (!$package->enable_deferred_revenue) {
+                    $skipped++;
+                    $errors[] = "Transaction #{$transaction->id}: Package '{$package->name}' doesn't have deferred revenue enabled";
+                    continue;
+                }
+
+                if (empty($package->deposit_account_id) || empty($package->revenue_account_id)) {
+                    $skipped++;
+                    $errors[] = "Transaction #{$transaction->id}: Package '{$package->name}' missing deposit or revenue account";
+                    continue;
+                }
+
+                // Generate schedule
+                $schedules = $this->deferredService->generateSchedule($transaction, auth()->user()->id);
+                
+                if (count($schedules) > 0) {
+                    $generated++;
+                }
+            }
+
+            return response()->json([
+                'success' => true,
+                'msg' => "Generated schedules for {$generated} subscriptions. Skipped: {$skipped}",
+                'generated' => $generated,
+                'skipped' => $skipped,
+                'errors' => $errors,
+            ]);
+        } catch (\Exception $e) {
+            \Log::error('Generate Missing Schedules Error: ' . $e->getMessage());
+            
+            return response()->json([
+                'success' => false,
+                'msg' => __('messages.something_went_wrong') . ': ' . $e->getMessage(),
+            ], 500);
+        }
+    }
+
+    /**
+     * Diagnostic endpoint to check package settings and subscription status
+     */
+    public function diagnostic(Request $request)
+    {
+        $business_id = request()->session()->get('user.business_id');
+
+        if (! (auth()->user()->can('superadmin') || $this->moduleUtil->hasThePermissionInSubscription($business_id, 'gym_module'))) {
+            abort(403, 'Unauthorized action.');
+        }
+
+        // Get all packages with their deferred revenue settings
+        $packages = GymPackage::where('business_id', $business_id)
+            ->select('id', 'name', 'enable_deferred_revenue', 'deposit_account_id', 'revenue_account_id', 'bank_account_id', 'tax_account_id')
+            ->with(['depositAccount:id,name,gl_code', 'revenueAccount:id,name,gl_code', 'bankAccount:id,name,gl_code'])
+            ->get();
+
+        // Get subscriptions without schedules
+        $subscriptionIds = GymDeferredRevenue::where('business_id', $business_id)
+            ->pluck('transaction_id')
+            ->toArray();
+
+        $subscriptionsWithoutSchedule = Transaction::where('business_id', $business_id)
+            ->where('type', 'gym_subscription')
+            ->whereNotIn('id', $subscriptionIds)
+            ->with('contact:id,name')
+            ->select('id', 'contact_id', 'gym_package_id', 'gym_package_start_date', 'gym_package_end_date', 'final_total', 'payment_status', 'created_at')
+            ->get();
+
+        // Get summary
+        $totalSubscriptions = Transaction::where('business_id', $business_id)
+            ->where('type', 'gym_subscription')
+            ->count();
+
+        $subscriptionsWithSchedule = count($subscriptionIds);
+
+        return response()->json([
+            'success' => true,
+            'packages' => $packages,
+            'subscriptions_without_schedule' => $subscriptionsWithoutSchedule,
+            'summary' => [
+                'total_subscriptions' => $totalSubscriptions,
+                'with_schedule' => $subscriptionsWithSchedule,
+                'without_schedule' => count($subscriptionsWithoutSchedule),
+            ],
+        ]);
     }
 }

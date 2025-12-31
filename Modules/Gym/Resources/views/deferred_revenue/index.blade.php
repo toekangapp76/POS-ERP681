@@ -89,6 +89,18 @@
                         </div>
                     </div>
                 </div>
+                <div class="row" style="margin-top: 10px;">
+                    <div class="col-md-4">
+                        <button class="btn btn-warning" id="generate_missing_btn">
+                            <i class="fa fa-magic"></i> Generate Missing Schedules
+                        </button>
+                    </div>
+                    <div class="col-md-4">
+                        <button class="btn btn-info" id="diagnostic_btn">
+                            <i class="fa fa-stethoscope"></i> Diagnostic
+                        </button>
+                    </div>
+                </div>
             </div>
         </div>
 
@@ -243,6 +255,123 @@
                     },
                     complete: function () {
                         btn.prop('disabled', false).html('<i class="fa fa-check"></i> @lang("gym::lang.process_recognition")');
+                    }
+                });
+            });
+
+            // Generate Missing Schedules
+            $('#generate_missing_btn').on('click', function () {
+                var btn = $(this);
+                
+                if (!confirm('This will generate deferred revenue schedules for existing subscriptions that don\'t have schedules yet. Continue?')) {
+                    return;
+                }
+                
+                btn.prop('disabled', true).html('<i class="fa fa-spinner fa-spin"></i> Generating...');
+
+                $.ajax({
+                    url: '{{ route("gym.deferred-revenue.generate-missing") }}',
+                    type: 'POST',
+                    data: {
+                        _token: '{{ csrf_token() }}'
+                    },
+                    success: function (response) {
+                        if (response.success) {
+                            toastr.success(response.msg);
+                            deferred_table.ajax.reload();
+                            location.reload();
+                            
+                            if (response.errors && response.errors.length > 0) {
+                                console.log('Skipped subscriptions:', response.errors);
+                            }
+                        } else {
+                            toastr.error(response.msg);
+                        }
+                    },
+                    error: function (xhr) {
+                        var msg = xhr.responseJSON ? xhr.responseJSON.msg : 'Something went wrong';
+                        toastr.error(msg);
+                    },
+                    complete: function () {
+                        btn.prop('disabled', false).html('<i class="fa fa-magic"></i> Generate Missing Schedules');
+                    }
+                });
+            });
+
+            // Diagnostic
+            $('#diagnostic_btn').on('click', function () {
+                var btn = $(this);
+                btn.prop('disabled', true).html('<i class="fa fa-spinner fa-spin"></i> Loading...');
+
+                $.ajax({
+                    url: '{{ route("gym.deferred-revenue.diagnostic") }}',
+                    type: 'GET',
+                    success: function (response) {
+                        if (response.success) {
+                            var html = '<div class="modal fade" id="diagnosticModal" tabindex="-1">';
+                            html += '<div class="modal-dialog modal-lg"><div class="modal-content">';
+                            html += '<div class="modal-header"><button type="button" class="close" data-dismiss="modal">&times;</button>';
+                            html += '<h4 class="modal-title"><i class="fa fa-stethoscope"></i> Deferred Revenue Diagnostic</h4></div>';
+                            html += '<div class="modal-body">';
+                            
+                            // Summary
+                            html += '<div class="alert alert-info">';
+                            html += '<strong>Summary:</strong><br>';
+                            html += 'Total Subscriptions: ' + response.summary.total_subscriptions + '<br>';
+                            html += 'With Schedule: ' + response.summary.with_schedule + '<br>';
+                            html += 'Without Schedule: <strong class="text-danger">' + response.summary.without_schedule + '</strong>';
+                            html += '</div>';
+                            
+                            // Packages
+                            html += '<h4>Package Settings</h4>';
+                            html += '<table class="table table-bordered table-condensed">';
+                            html += '<thead><tr><th>Package</th><th>Deferred Enabled</th><th>Deposit Account</th><th>Revenue Account</th></tr></thead>';
+                            html += '<tbody>';
+                            response.packages.forEach(function(pkg) {
+                                var enabled = pkg.enable_deferred_revenue ? '<span class="label label-success">Yes</span>' : '<span class="label label-danger">No</span>';
+                                var deposit = pkg.deposit_account ? pkg.deposit_account.gl_code + ' - ' + pkg.deposit_account.name : '<span class="text-danger">Not Set</span>';
+                                var revenue = pkg.revenue_account ? pkg.revenue_account.gl_code + ' - ' + pkg.revenue_account.name : '<span class="text-danger">Not Set</span>';
+                                html += '<tr><td>' + pkg.name + '</td><td>' + enabled + '</td><td>' + deposit + '</td><td>' + revenue + '</td></tr>';
+                            });
+                            html += '</tbody></table>';
+                            
+                            // Subscriptions without schedule
+                            if (response.subscriptions_without_schedule.length > 0) {
+                                html += '<h4 class="text-warning">Subscriptions Without Schedule (' + response.subscriptions_without_schedule.length + ')</h4>';
+                                html += '<table class="table table-bordered table-condensed">';
+                                html += '<thead><tr><th>ID</th><th>Member</th><th>Start</th><th>End</th><th>Amount</th><th>Status</th></tr></thead>';
+                                html += '<tbody>';
+                                response.subscriptions_without_schedule.forEach(function(sub) {
+                                    var memberName = sub.contact ? sub.contact.name : '-';
+                                    html += '<tr>';
+                                    html += '<td>' + sub.id + '</td>';
+                                    html += '<td>' + memberName + '</td>';
+                                    html += '<td>' + (sub.gym_package_start_date || '-') + '</td>';
+                                    html += '<td>' + (sub.gym_package_end_date || 'Lifetime') + '</td>';
+                                    html += '<td>' + parseFloat(sub.final_total).toLocaleString() + '</td>';
+                                    html += '<td>' + sub.payment_status + '</td>';
+                                    html += '</tr>';
+                                });
+                                html += '</tbody></table>';
+                            }
+                            
+                            html += '</div>';
+                            html += '<div class="modal-footer"><button type="button" class="btn btn-default" data-dismiss="modal">Close</button></div>';
+                            html += '</div></div></div>';
+                            
+                            // Remove existing modal if any
+                            $('#diagnosticModal').remove();
+                            $('body').append(html);
+                            $('#diagnosticModal').modal('show');
+                        } else {
+                            toastr.error(response.msg);
+                        }
+                    },
+                    error: function () {
+                        toastr.error('Something went wrong');
+                    },
+                    complete: function () {
+                        btn.prop('disabled', false).html('<i class="fa fa-stethoscope"></i> Diagnostic');
                     }
                 });
             });
