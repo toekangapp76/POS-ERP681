@@ -8,7 +8,7 @@
 
 <!-- Content Header (Page header) -->
 <section class="content-header no-print">
-    <h1>@lang( 'accounting::lang.profit_loss' )</h1>
+    <h1>@lang('accounting::lang.profit_loss')</h1>
 </section>
 
 <section class="content no-print" style="min-height:auto !important;">
@@ -16,16 +16,27 @@
         <div class="col-md-3">
             <div class="form-group">
                 {!! Form::label('date_range_filter', __('report.date_range') . ':') !!}
-                {!! Form::text('date_range_filter', null, 
-                    ['placeholder' => __('lang_v1.select_a_date_range'), 
-                    'class' => 'form-control', 'readonly', 'id' => 'date_range_filter']); !!}
+                {!! Form::text(
+    'date_range_filter',
+    null,
+    [
+        'placeholder' => __('lang_v1.select_a_date_range'),
+        'class' => 'form-control',
+        'readonly',
+        'id' => 'date_range_filter'
+    ]
+) !!}
             </div>
         </div>
         <div class="col-md-3">
             <div class="form-group">
-                {!! Form::label('gym_category_id', __('gym::lang.gym_category') . ':') !!}
-                {!! Form::select('gym_category_id', $gym_categories, $gym_category_id, 
-                    ['class' => 'form-control select2', 'style' => 'width:100%', 'id' => 'gym_category_filter', 'placeholder' => __('messages.all')]); !!}
+                {!! Form::label('detail_type_id', __('accounting::lang.detail_type') . ':') !!}
+                {!! Form::select(
+    'detail_type_id',
+    $detail_types ?? [],
+    $detail_type_id ?? null,
+    ['class' => 'form-control select2', 'style' => 'width:100%', 'id' => 'detail_type_filter', 'placeholder' => __('messages.all')]
+) !!}
             </div>
         </div>
         <div class="col-md-2">
@@ -33,8 +44,8 @@
                 <label>&nbsp;</label>
                 <div class="checkbox">
                     <label>
-                        <input type="checkbox" id="show_difference_columns" checked> 
-                        <strong>Tampilkan Kolom Selisih</strong>
+                        <input type="checkbox" id="show_difference_columns" checked>
+                        <strong>Tampilkan Selisih</strong>
                     </label>
                 </div>
             </div>
@@ -60,10 +71,10 @@
         <div class="col-md-12">
             <div class="box box-success">
                 <div class="box-header with-border text-center">
-                    <h2 class="box-title">@lang( 'accounting::lang.profit_loss')</h2>
+                    <h2 class="box-title">@lang('accounting::lang.profit_loss')</h2>
                     <p>{{@format_date($start_date)}} ~ {{@format_date($end_date)}}</p>
                 </div>
-    
+
                 <div class="box-body table-responsive">
                     {{-- Export Buttons --}}
                     <div class="row" style="margin-bottom: 15px;">
@@ -81,18 +92,22 @@
                     </div>
 
                     {{-- Income Section --}}
-                    <h4 class="text-success"><strong><i class="fa fa-arrow-up"></i> @lang('accounting::lang.income')</strong></h4>
+                    <h4 class="text-success"><strong><i class="fa fa-arrow-up"></i>
+                            @lang('accounting::lang.income')</strong></h4>
                     <table class="table table-striped table-bordered" id="income_report_table">
                         <thead>
                             <tr class="success">
-                                <th rowspan="2" style="width:120px; vertical-align: middle;">@lang('accounting::lang.gl_code')</th>
+                                <th rowspan="2" style="width:120px; vertical-align: middle;">
+                                    @lang('accounting::lang.gl_code')
+                                </th>
                                 <th rowspan="2" style="vertical-align: middle;">@lang('user.name')</th>
                                 @php
                                     $first_month = count($months) > 0 ? $months[0] : null;
                                     $first_month_key = $first_month['key'] ?? null;
                                     $first_month_label = $first_month ? $first_month['label'] : '';
                                 @endphp
-                                <th rowspan="2" class="text-center bg-danger nett-loss-col" style="vertical-align: middle; width:120px;">
+                                <th rowspan="2" class="text-center bg-danger nett-loss-col"
+                                    style="vertical-align: middle; width:120px;">
                                     @lang('accounting::lang.nett_loss')
                                     <div class="text-muted" style="font-size: 10px;">{{ $first_month_label }}</div>
                                 </th>
@@ -102,12 +117,14 @@
                                         <th class="text-center diff-col bg-warning">Selisih</th>
                                     @endif
                                 @endforeach
-                                <th class="text-right bg-primary" rowspan="2" style="width:150px; vertical-align: middle;">Total</th>
+                                <th class="text-right bg-primary" rowspan="2"
+                                    style="width:150px; vertical-align: middle;">Total</th>
                             </tr>
                             <tr class="success">
                                 @foreach($months as $index => $month)
                                     <th class="text-center text-muted month-col" style="font-size: 10px;">
-                                        {{ \Carbon\Carbon::parse($month['start'])->format('d M') }} - {{ \Carbon\Carbon::parse($month['end'])->format('d M') }}
+                                        {{ \Carbon\Carbon::parse($month['start'])->format('d M') }} -
+                                        {{ \Carbon\Carbon::parse($month['end'])->format('d M') }}
                                     </th>
                                     @if($index > 0)
                                         <th class="text-center text-muted diff-col" style="font-size: 10px;">
@@ -158,18 +175,22 @@
                                 </tr>
                             @empty
                                 <tr>
-                                    <td colspan="{{ 3 + count($months) + (count($months) > 0 ? count($months) - 1 : 0) + 1 }}" class="text-center text-muted">@lang('lang_v1.no_data')</td>
+                                    <td colspan="{{ 3 + count($months) + (count($months) > 0 ? count($months) - 1 : 0) + 1 }}"
+                                        class="text-center text-muted">@lang('lang_v1.no_data')</td>
                                 </tr>
                             @endforelse
                         </tbody>
                         <tfoot>
                             <tr class="success">
-                                <th colspan="2" class="text-right"><strong>@lang('accounting::lang.total_income')</strong></th>
+                                <th colspan="2" class="text-right">
+                                    <strong>@lang('accounting::lang.total_income')</strong>
+                                </th>
                                 @php
                                     $first_month_income = $first_month_key ? ($monthly_totals['income'][$first_month_key] ?? 0) : 0;
                                     $total_nett_loss_income = $first_month_income < 0 ? abs($first_month_income) : 0;
                                 @endphp
-                                <th class="text-right nett-loss-col {{ $total_nett_loss_income > 0 ? 'text-danger' : '' }}">
+                                <th
+                                    class="text-right nett-loss-col {{ $total_nett_loss_income > 0 ? 'text-danger' : '' }}">
                                     @if($total_nett_loss_income > 0)
                                         @format_currency($total_nett_loss_income)
                                     @else
@@ -185,8 +206,10 @@
                                     @endphp
                                     <th class="text-right month-col">@format_currency($current_income)</th>
                                     @if($index > 0)
-                                        <th class="text-right diff-col {{ $income_diff_color }}" style="background-color: #00c6ff;">
-                                            @if($income_diff > 0) <i class="fa fa-arrow-up"></i> @elseif($income_diff < 0) <i class="fa fa-arrow-down"></i> @endif
+                                        <th class="text-right diff-col {{ $income_diff_color }}"
+                                            style="background-color: #00c6ff;">
+                                            @if($income_diff > 0) <i class="fa fa-arrow-up"></i> @elseif($income_diff < 0) <i
+                                            class="fa fa-arrow-down"></i> @endif
                                             @format_currency(abs($income_diff))
                                         </th>
                                     @endif
@@ -196,16 +219,20 @@
                         </tfoot>
                     </table>
 
-                    <br/>
+                    <br />
 
                     {{-- Expense Section --}}
-                    <h4 class="text-danger"><strong><i class="fa fa-arrow-down"></i> @lang('accounting::lang.expenses')</strong></h4>
+                    <h4 class="text-danger"><strong><i class="fa fa-arrow-down"></i>
+                            @lang('accounting::lang.expenses')</strong></h4>
                     <table class="table table-striped table-bordered" id="expense_report_table">
                         <thead>
                             <tr class="gray">
-                                <th rowspan="2" style="width:120px; vertical-align: middle;">@lang('accounting::lang.gl_code')</th>
+                                <th rowspan="2" style="width:120px; vertical-align: middle;">
+                                    @lang('accounting::lang.gl_code')
+                                </th>
                                 <th rowspan="2" style="vertical-align: middle;">@lang('user.name')</th>
-                                <th rowspan="2" class="text-center bg-danger nett-loss-col" style="vertical-align: middle; width:120px;">
+                                <th rowspan="2" class="text-center bg-danger nett-loss-col"
+                                    style="vertical-align: middle; width:120px;">
                                     @lang('accounting::lang.nett_loss')
                                     <div class="text-muted" style="font-size: 10px;">{{ $first_month_label }}</div>
                                 </th>
@@ -215,12 +242,14 @@
                                         <th class="text-center diff-col bg-warning">Selisih</th>
                                     @endif
                                 @endforeach
-                                <th class="text-right bg-primary" rowspan="2" style="width:150px; vertical-align: middle;">Total</th>
+                                <th class="text-right bg-primary" rowspan="2"
+                                    style="width:150px; vertical-align: middle;">Total</th>
                             </tr>
                             <tr class="gray">
                                 @foreach($months as $index => $month)
                                     <th class="text-center text-muted month-col" style="font-size: 10px;">
-                                        {{ \Carbon\Carbon::parse($month['start'])->format('d M') }} - {{ \Carbon\Carbon::parse($month['end'])->format('d M') }}
+                                        {{ \Carbon\Carbon::parse($month['start'])->format('d M') }} -
+                                        {{ \Carbon\Carbon::parse($month['end'])->format('d M') }}
                                     </th>
                                     @if($index > 0)
                                         <th class="text-center text-muted diff-col" style="font-size: 10px;">
@@ -271,18 +300,22 @@
                                 </tr>
                             @empty
                                 <tr>
-                                    <td colspan="{{ 3 + count($months) + (count($months) > 0 ? count($months) - 1 : 0) + 1 }}" class="text-center text-muted">@lang('lang_v1.no_data')</td>
+                                    <td colspan="{{ 3 + count($months) + (count($months) > 0 ? count($months) - 1 : 0) + 1 }}"
+                                        class="text-center text-muted">@lang('lang_v1.no_data')</td>
                                 </tr>
                             @endforelse
                         </tbody>
                         <tfoot>
                             <tr class="gray">
-                                <th colspan="2" class="text-right"><strong>@lang('accounting::lang.total_expenses')</strong></th>
+                                <th colspan="2" class="text-right">
+                                    <strong>@lang('accounting::lang.total_expenses')</strong>
+                                </th>
                                 @php
                                     $first_month_expense_total = $first_month_key ? ($monthly_totals['expense'][$first_month_key] ?? 0) : 0;
                                     $total_nett_loss_expense = $first_month_expense_total > 0 ? $first_month_expense_total : 0;
                                 @endphp
-                                <th class="text-right nett-loss-col {{ $total_nett_loss_expense > 0 ? 'text-danger' : '' }}">
+                                <th
+                                    class="text-right nett-loss-col {{ $total_nett_loss_expense > 0 ? 'text-danger' : '' }}">
                                     @if($total_nett_loss_expense > 0)
                                         @format_currency($total_nett_loss_expense)
                                     @else
@@ -299,8 +332,10 @@
                                     @endphp
                                     <th class="text-right month-col">@format_currency($current_expense)</th>
                                     @if($index > 0)
-                                        <th class="text-right diff-col {{ $expense_diff_color }}" style="background-color: #39cccc;">
-                                            @if($expense_diff > 0) <i class="fa fa-arrow-up"></i> @elseif($expense_diff < 0) <i class="fa fa-arrow-down"></i> @endif
+                                        <th class="text-right diff-col {{ $expense_diff_color }}"
+                                            style="background-color: #39cccc;">
+                                            @if($expense_diff > 0) <i class="fa fa-arrow-up"></i> @elseif($expense_diff < 0) <i
+                                            class="fa fa-arrow-down"></i> @endif
                                             @format_currency(abs($expense_diff))
                                         </th>
                                     @endif
@@ -310,10 +345,11 @@
                         </tfoot>
                     </table>
 
-                    <br/>
+                    <br />
 
                     {{-- Net Profit/Loss Section --}}
-                    <h4><strong><i class="fa fa-calculator"></i> @lang('accounting::lang.net_profit') / @lang('accounting::lang.net_loss')</strong></h4>
+                    <h4><strong><i class="fa fa-calculator"></i> @lang('accounting::lang.net_profit') /
+                            @lang('accounting::lang.net_loss')</strong></h4>
                     <table class="table table-bordered" id="net_profit_table">
                         <thead>
                             <tr class="{{ $net_profit >= 0 ? 'bg-green' : 'bg-blue' }}">
@@ -326,7 +362,8 @@
                                         @endif
                                     </strong>
                                 </th>
-                                <th class="text-center bg-danger nett-loss-col" style="vertical-align: middle; width:120px;">
+                                <th class="text-center bg-danger nett-loss-col"
+                                    style="vertical-align: middle; width:120px;">
                                     @lang('accounting::lang.nett_loss')
                                     <div class="text-muted" style="font-size: 10px;">{{ $first_month_label }}</div>
                                 </th>
@@ -370,8 +407,10 @@
                                         </strong>
                                     </td>
                                     @if($index > 0)
-                                        <td class="text-right diff-col {{ $net_diff_color }}" style="background-color: {{ $net_diff >= 0 ? '#00c6ff' : '#39cccc' }};">
-                                            @if($net_diff > 0) <i class="fa fa-arrow-up"></i> @elseif($net_diff < 0) <i class="fa fa-arrow-down"></i> @endif
+                                        <td class="text-right diff-col {{ $net_diff_color }}"
+                                            style="background-color: {{ $net_diff >= 0 ? '#00c6ff' : '#39cccc' }};">
+                                            @if($net_diff > 0) <i class="fa fa-arrow-up"></i> @elseif($net_diff < 0) <i
+                                            class="fa fa-arrow-down"></i> @endif
                                             @format_currency(abs($net_diff))
                                         </td>
                                     @endif
@@ -395,13 +434,15 @@
                                 <h3 class="text-primary">@format_currency($total_expense)</h3>
                             </div>
                             <div class="col-md-4 text-center">
-                                <h5>{{ $net_profit >= 0 ? __('accounting::lang.net_profit') : __('accounting::lang.net_loss') }}</h5>
-                                <h3 class="{{ $net_profit >= 0 ? 'text-success' : 'text-primary' }}">@format_currency(abs($net_profit))</h3>
+                                <h5>{{ $net_profit >= 0 ? __('accounting::lang.net_profit') : __('accounting::lang.net_loss') }}
+                                </h5>
+                                <h3 class="{{ $net_profit >= 0 ? 'text-success' : 'text-primary' }}">
+                                    @format_currency(abs($net_profit))</h3>
                             </div>
                         </div>
                     </div>
                 </div>
-    
+
             </div>
         </div>
     </div>
@@ -412,10 +453,10 @@
 @section('javascript')
 
 <script type="text/javascript">
-    $(document).ready(function(){
+    $(document).ready(function () {
 
         // Toggle difference columns visibility
-        $('#show_difference_columns').on('change', function() {
+        $('#show_difference_columns').on('change', function () {
             if ($(this).is(':checked')) {
                 $('.diff-col').show();
             } else {
@@ -441,11 +482,11 @@
             if (!cleaned.match(/^-?[\d.,]+$/)) {
                 return str; // Return original if not a number pattern
             }
-            
+
             // Detect format by finding the last occurrence of . or ,
             var lastDot = cleaned.lastIndexOf('.');
             var lastComma = cleaned.lastIndexOf(',');
-            
+
             // If both exist, the one that comes last is the decimal separator
             if (lastDot > lastComma) {
                 // Format: 1,234.56 (comma = thousand, dot = decimal) - International
@@ -467,7 +508,7 @@
                 // Only comma exists - treat as decimal
                 cleaned = cleaned.replace(',', '.');
             }
-            
+
             var num = parseFloat(cleaned);
             return isNaN(num) ? 0 : num;
         }
@@ -477,12 +518,12 @@
             var table = document.getElementById(tableId);
             // Clone the table to avoid modifying the original
             var clone = table.cloneNode(true);
-            
+
             // Process all cells - strip HTML and convert numbers
-            $(clone).find('td, th').each(function() {
+            $(clone).find('td, th').each(function () {
                 // First get text content (strips HTML)
                 var text = $(this).text().trim();
-                
+
                 // Check if it looks like a currency value (contains Rp or is a number pattern)
                 if (text.match(/Rp\s*-?[\d.,]+/) || text.match(/^-?[\d.,]+$/)) {
                     // Parse the Indonesian formatted number
@@ -493,7 +534,7 @@
                     $(this).text(text);
                 }
             });
-            
+
             var html = clone.outerHTML;
             var url = 'data:application/vnd.ms-excel,' + encodeURIComponent(html);
             var downloadLink = document.createElement("a");
@@ -505,30 +546,30 @@
         }
 
         // Export Income Table
-        $('#export_income_excel').on('click', function() {
+        $('#export_income_excel').on('click', function () {
             exportTableToExcel('income_report_table', 'Income_Report_{{$start_date}}_to_{{$end_date}}');
         });
 
         // Export Expense Table
-        $('#export_expense_excel').on('click', function() {
+        $('#export_expense_excel').on('click', function () {
             exportTableToExcel('expense_report_table', 'Expense_Report_{{$start_date}}_to_{{$end_date}}');
         });
 
         // Export All (Income + Expense)
-        $('#export_all_excel').on('click', function() {
+        $('#export_all_excel').on('click', function () {
             var monthCount = {{ count($months) }};
             var totalCols = 2 + monthCount + (monthCount > 1 ? monthCount - 1 : 0) + 1;
-            
+
             // Clone tables to avoid modifying originals
             var incomeTable = document.getElementById('income_report_table').cloneNode(true);
             var expenseTable = document.getElementById('expense_report_table').cloneNode(true);
             var netProfitTable = document.getElementById('net_profit_table').cloneNode(true);
-            
+
             // Process all cells in cloned tables - strip HTML and convert numbers
-            [incomeTable, expenseTable, netProfitTable].forEach(function(table) {
-                $(table).find('td, th').each(function() {
+            [incomeTable, expenseTable, netProfitTable].forEach(function (table) {
+                $(table).find('td, th').each(function () {
                     var text = $(this).text().trim();
-                    
+
                     // Check if it looks like a currency value
                     if (text.match(/Rp\s*-?[\d.,]+/) || text.match(/^-?[\d.,]+$/)) {
                         var num = parseIndonesianNumber(text);
@@ -538,24 +579,24 @@
                     }
                 });
             });
-            
+
             var html = '<table>';
             html += '<tr><th colspan="' + totalCols + '" style="text-align:center; font-size:18px;">Profit & Loss Report</th></tr>';
             html += '<tr><th colspan="' + totalCols + '" style="text-align:center;">{{@format_date($start_date)}} ~ {{@format_date($end_date)}}</th></tr>';
             html += '<tr><td colspan="' + totalCols + '">&nbsp;</td></tr>';
-            
+
             // Income section
             html += incomeTable.outerHTML;
             html += '<tr><td colspan="' + totalCols + '">&nbsp;</td></tr>';
-            
+
             // Expense section
             html += expenseTable.outerHTML;
             html += '<tr><td colspan="' + totalCols + '">&nbsp;</td></tr>';
-            
+
             // Net Profit/Loss section
             html += netProfitTable.outerHTML;
             html += '</table>';
-            
+
             var url = 'data:application/vnd.ms-excel,' + encodeURIComponent(html);
             var downloadLink = document.createElement("a");
             document.body.appendChild(downloadLink);
@@ -575,17 +616,17 @@
                 apply_filter();
             }
         );
-        $('#date_range_filter').on('cancel.daterangepicker', function(ev, picker) {
+        $('#date_range_filter').on('cancel.daterangepicker', function (ev, picker) {
             $('#date_range_filter').val('');
             apply_filter();
         });
 
-        // Gym Category filter change handler
-        $('#gym_category_filter').on('change', function() {
+        // Detail Type filter change handler
+        $('#detail_type_filter').on('change', function () {
             apply_filter();
         });
 
-        function apply_filter(){
+        function apply_filter() {
             var start = '';
             var end = '';
 
@@ -598,15 +639,15 @@
                     .endDate.format('YYYY-MM-DD');
             }
 
-            var gym_category_id = $('#gym_category_filter').val();
+            var detail_type_id = $('#detail_type_filter').val();
 
             const urlParams = new URLSearchParams(window.location.search);
             urlParams.set('start_date', start);
             urlParams.set('end_date', end);
-            if (gym_category_id) {
-                urlParams.set('gym_category_id', gym_category_id);
+            if (detail_type_id) {
+                urlParams.set('detail_type_id', detail_type_id);
             } else {
-                urlParams.delete('gym_category_id');
+                urlParams.delete('detail_type_id');
             }
             window.location.search = urlParams;
         }
@@ -614,18 +655,19 @@
 </script>
 
 <style>
-    .table th, .table td {
+    .table th,
+    .table td {
         white-space: nowrap;
     }
-    
+
     .text-success {
         color: #28a745 !important;
     }
-    
+
     .text-danger {
         color: #dc3545 !important;
     }
-    
+
     .diff-col {
         background-color: #fff8e1;
     }
@@ -640,16 +682,19 @@
         color: #fff;
     }
 
-    .bg-blue{
+    .bg-blue {
         background-color: #3099c4 !important;
         color: #fff;
     }
-    .table>thead>tr>td.gray{
+
+    .table>thead>tr>td.gray {
         background-color: #cecece;
     }
 
-    .bg-green th, .bg-green td,
-    .bg-red th, .bg-red td {
+    .bg-green th,
+    .bg-green td,
+    .bg-red th,
+    .bg-red td {
         color: #fff;
     }
 
@@ -657,6 +702,7 @@
         .no-print {
             display: none !important;
         }
+
         .print_section {
             display: block !important;
         }

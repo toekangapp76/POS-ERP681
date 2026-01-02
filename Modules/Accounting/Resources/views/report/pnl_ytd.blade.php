@@ -17,16 +17,17 @@
         $selected_month = $selected_end->format('m');
         $selected_year = $selected_end->format('Y');
 
-        $year_start = (int) \Carbon\Carbon::parse($start_date)->format('Y');
-        $year_end = (int) $selected_year;
-        if ($year_start > $year_end) {
-            $tmp = $year_start;
-            $year_start = $year_end;
-            $year_end = $tmp;
-        }
+        // Use first_transaction_year from controller, fallback to current year if not set
+        $year_start = isset($first_transaction_year) && !empty($first_transaction_year) 
+            ? (int) $first_transaction_year 
+            : (int) \Carbon\Carbon::now()->format('Y');
+        
+        // Year end: current year + 3 years
+        $current_year = (int) \Carbon\Carbon::now()->format('Y');
+        $year_end = $current_year + 3;
 
         $year_options = [];
-        for ($year = $year_start; $year <= $year_end + 2; $year++) {
+        for ($year = $year_start; $year <= $year_end; $year++) {
             $year_options[$year] = $year;
         }
 
@@ -53,9 +54,9 @@
         </div>
         <div class="col-md-3">
             <div class="form-group">
-                {!! Form::label('gym_category_id', __('gym::lang.gym_category') . ':') !!}
-                {!! Form::select('gym_category_id', $gym_categories, $gym_category_id, 
-                    ['class' => 'form-control select2', 'style' => 'width:100%', 'id' => 'gym_category_filter', 'placeholder' => __('messages.all')]); !!}
+                {!! Form::label('detail_type_id', __('accounting::lang.detail_type') . ':') !!}
+                {!! Form::select('detail_type_id', $detail_types ?? [], $detail_type_id ?? null, 
+                    ['class' => 'form-control select2', 'style' => 'width:100%', 'id' => 'detail_type_filter', 'placeholder' => __('messages.all')]) !!}
             </div>
         </div>
         <div class="col-md-2">
@@ -632,8 +633,8 @@
             apply_filter();
         });
 
-        // Gym Category filter change handler
-        $('#gym_category_filter').on('change', function() {
+        // Detail Type filter change handler
+        $('#detail_type_filter').on('change', function() {
             apply_filter();
         });
 
@@ -641,14 +642,14 @@
             var month = $('#month_filter').val();
             var year = $('#year_filter').val();
             var end_date = year + '-' + month + '-' + new Date(year, month, 0).getDate();
-            var gym_category_id = $('#gym_category_filter').val();
+            var detail_type_id = $('#detail_type_filter').val();
 
             const urlParams = new URLSearchParams(window.location.search);
             urlParams.set('end_date', end_date);
-            if (gym_category_id) {
-                urlParams.set('gym_category_id', gym_category_id);
+            if (detail_type_id) {
+                urlParams.set('detail_type_id', detail_type_id);
             } else {
-                urlParams.delete('gym_category_id');
+                urlParams.delete('detail_type_id');
             }
             window.location.search = urlParams;
         }

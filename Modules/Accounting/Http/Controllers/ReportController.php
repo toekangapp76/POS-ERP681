@@ -10,6 +10,7 @@ use DB;
 use Illuminate\Http\Response;
 use Illuminate\Routing\Controller;
 use Modules\Accounting\Entities\AccountingAccount;
+use Modules\Accounting\Entities\AccountingAccountType;
 use Modules\Accounting\Utils\AccountingUtil;
 use Modules\Gym\Entities\GymCategory;
 
@@ -637,14 +638,19 @@ class ReportController extends Controller
             abort(403, 'Unauthorized action.');
         }
 
-        // gym category filter
-        $gym_category_id = request()->input('gym_category_id', null);
-        $gym_categories = [];
-        try {
-            $gym_categories = GymCategory::forDropdown($business_id, false);
-        } catch (\Exception $e) {
-            // Module gym terinstall ??
-        }
+        // Detail Type filter
+        $detail_type_id = request()->input('detail_type_id', null);
+        $detail_types = AccountingAccountType::where('account_type', 'detail_type')
+            ->where(function ($q) use ($business_id) {
+                $q->whereNull('business_id')
+                    ->orWhere('business_id', $business_id);
+            })
+            ->get()
+            ->mapWithKeys(function ($item) {
+                $name = !empty($item->business_id) ? $item->name : __('accounting::lang.' . $item->name);
+                return [$item->id => $name];
+            })
+            ->toArray();
 
         if (!empty(request()->start_date) && !empty(request()->end_date)) {
             $start_date = request()->start_date;
@@ -683,12 +689,19 @@ class ReportController extends Controller
         }
 
         // Get all active accounts with gl_code starting from 4 (Income, Expenses, etc)
-        $all_accounts = AccountingAccount::where('business_id', $business_id)
+        $accountQuery = AccountingAccount::where('business_id', $business_id)
             ->where('status', 'active')
             ->whereNotNull('gl_code')
             ->where('gl_code', '!=', '')
-            ->whereRaw("CAST(SUBSTRING(gl_code, 1, 1) AS UNSIGNED) >= 4")
-            ->select('id', 'name', 'gl_code', 'account_primary_type')
+            ->whereRaw("CAST(SUBSTRING(gl_code, 1, 1) AS UNSIGNED) >= 4");
+
+        // Apply detail type filter if selected
+        if (!empty($detail_type_id)) {
+            $accountQuery->where('detail_type_id', $detail_type_id);
+        }
+
+        $all_accounts = $accountQuery
+            ->select('id', 'name', 'gl_code', 'account_primary_type', 'detail_type_id')
             ->orderBy('gl_code')
             ->get();
 
@@ -784,7 +797,7 @@ class ReportController extends Controller
         $net_profit = $total_income - $total_expense;
 
         return view('accounting::report.profit_loss')
-            ->with(compact('income_accounts', 'expense_accounts', 'total_income', 'total_expense', 'net_profit', 'start_date', 'end_date', 'months', 'monthly_totals', 'gym_categories', 'gym_category_id'));
+            ->with(compact('income_accounts', 'expense_accounts', 'total_income', 'total_expense', 'net_profit', 'start_date', 'end_date', 'months', 'monthly_totals', 'detail_types', 'detail_type_id'));
     }
 
     /**
@@ -805,14 +818,19 @@ class ReportController extends Controller
             abort(403, 'Unauthorized action.');
         }
 
-        // Gym category filter
-        $gym_category_id = request()->input('gym_category_id', null);
-        $gym_categories = [];
-        try {
-            $gym_categories = GymCategory::forDropdown($business_id, false);
-        } catch (\Exception $e) {
-            // Gym module not installed
-        }
+        // Detail Type filter
+        $detail_type_id = request()->input('detail_type_id', null);
+        $detail_types = AccountingAccountType::where('account_type', 'detail_type')
+            ->where(function ($q) use ($business_id) {
+                $q->whereNull('business_id')
+                    ->orWhere('business_id', $business_id);
+            })
+            ->get()
+            ->mapWithKeys(function ($item) {
+                $name = !empty($item->business_id) ? $item->name : __('accounting::lang.' . $item->name);
+                return [$item->id => $name];
+            })
+            ->toArray();
 
         if (!empty(request()->end_date)) {
             $selected_end = \Carbon\Carbon::parse(request()->end_date)->endOfMonth();
@@ -851,13 +869,20 @@ class ReportController extends Controller
             $current->addMonth();
         }
 
-        // Get all active P&L accounts (gl_code >= 4)
-        $all_accounts = AccountingAccount::where('business_id', $business_id)
+        // Get all active P&L accounts (gl_code >= 4), optionally filtered by detail_type
+        $accountQuery = AccountingAccount::where('business_id', $business_id)
             ->where('status', 'active')
             ->whereNotNull('gl_code')
             ->where('gl_code', '!=', '')
-            ->whereRaw("CAST(SUBSTRING(gl_code, 1, 1) AS UNSIGNED) >= 4")
-            ->select('id', 'name', 'gl_code', 'account_primary_type')
+            ->whereRaw("CAST(SUBSTRING(gl_code, 1, 1) AS UNSIGNED) >= 4");
+
+        // Apply detail type filter if selected
+        if (!empty($detail_type_id)) {
+            $accountQuery->where('detail_type_id', $detail_type_id);
+        }
+
+        $all_accounts = $accountQuery
+            ->select('id', 'name', 'gl_code', 'account_primary_type', 'detail_type_id')
             ->orderBy('gl_code')
             ->get();
 
@@ -965,8 +990,18 @@ class ReportController extends Controller
 
         $net_profit = $total_income - $total_expense;
 
+        // Get the first transaction year for year filter range
+        $first_transaction_year = DB::table('accounting_accounts_transactions')
+            ->whereIn('accounting_account_id', $all_accounts->pluck('id'))
+            ->min(DB::raw('YEAR(operation_date)'));
+        
+        // If no transactions, fallback to current year
+        if (empty($first_transaction_year)) {
+            $first_transaction_year = (int) date('Y');
+        }
+
         return view('accounting::report.pnl_ytd')
-            ->with(compact('income_accounts', 'expense_accounts', 'total_income', 'total_expense', 'net_profit', 'start_date', 'end_date', 'months', 'monthly_totals', 'gym_categories', 'gym_category_id'));
+            ->with(compact('income_accounts', 'expense_accounts', 'total_income', 'total_expense', 'net_profit', 'start_date', 'end_date', 'months', 'monthly_totals', 'first_transaction_year', 'detail_types', 'detail_type_id'));
     }
 
 
