@@ -94,26 +94,22 @@
                             <tr class="success">
                                 <th class="text-center" style="width:80px; vertical-align: middle;" rowspan="2">@lang('accounting::lang.gl_code')</th>
                                 <th class="text-center" style="vertical-align: middle; min-width:150px;" rowspan="2">@lang('user.name')</th>
-                                @foreach($gym_categories as $category)
-                                    <th class="text-center category-col" colspan="3" style="vertical-align: middle;">{{ $category->name }}</th>
+                                @foreach($business_categories as $cat_key => $cat_info)
+                                    <th class="text-center category-col" colspan="3" style="vertical-align: middle;">{{ $cat_info['name'] }}</th>
                                 @endforeach
-                                <th class="text-center category-col" colspan="3" style="vertical-align: middle; background-color: #e8f4f8;">Pro Shop</th>
-                                <th class="text-center category-col" colspan="3" style="vertical-align: middle; background-color: #fff3e0;">Sudest Café</th>
+                                <th class="text-center category-col" colspan="3" style="vertical-align: middle; background-color: #f0f0f0;">Other</th>
                                 <th class="text-center bg-primary text-black" style="width:100px; vertical-align: middle;" rowspan="2">Total</th>
                             </tr>
                             {{-- Sub-headers for periods --}}
                             <tr class="active" style="font-size: 10px;">
-                                @foreach($gym_categories as $category)
+                                @foreach($business_categories as $cat_key => $cat_info)
                                     <th class="text-center" style="padding: 3px;">LM</th>
                                     <th class="text-center" style="padding: 3px;">CM</th>
                                     <th class="text-center" style="padding: 3px;">YTD</th>
                                 @endforeach
-                                <th class="text-center" style="padding: 3px; background-color: #e8f4f8;">LM</th>
-                                <th class="text-center" style="padding: 3px; background-color: #e8f4f8;">CM</th>
-                                <th class="text-center" style="padding: 3px; background-color: #e8f4f8;">YTD</th>
-                                <th class="text-center" style="padding: 3px; background-color: #fff3e0;">LM</th>
-                                <th class="text-center" style="padding: 3px; background-color: #fff3e0;">CM</th>
-                                <th class="text-center" style="padding: 3px; background-color: #fff3e0;">YTD</th>
+                                <th class="text-center" style="padding: 3px; background-color: #f0f0f0;">LM</th>
+                                <th class="text-center" style="padding: 3px; background-color: #f0f0f0;">CM</th>
+                                <th class="text-center" style="padding: 3px; background-color: #f0f0f0;">YTD</th>
                             </tr>
                         </thead>
                         <tbody>
@@ -121,51 +117,43 @@
                                 <tr>
                                     <td>{{ $account->gl_code }}</td>
                                     <td>{{ $account->name }}</td>
-                                    @foreach($gym_categories as $category)
+                                    @foreach($business_categories as $cat_key => $cat_info)
                                         @php
-                                            $cat_data = $account->category_balances[$category->id] ?? ['last_month' => 0, 'current_month' => 0, 'ytd' => 0];
+                                            $cat_data = $account->category_balances[$cat_key] ?? ['last_month' => 0, 'current_month' => 0, 'ytd' => 0];
                                         @endphp
                                         <td class="text-right category-col">@format_currency($cat_data['last_month'])</td>
                                         <td class="text-right category-col">@format_currency($cat_data['current_month'])</td>
                                         <td class="text-right category-col"><strong>@format_currency($cat_data['ytd'])</strong></td>
                                     @endforeach
                                     @php
-                                        $ps_data = $account->category_balances['pro_shop'] ?? ['last_month' => 0, 'current_month' => 0, 'ytd' => 0];
-                                        $sc_data = $account->category_balances['sudest_cafe'] ?? ['last_month' => 0, 'current_month' => 0, 'ytd' => 0];
+                                        $other_data = $account->category_balances['other'] ?? ['last_month' => 0, 'current_month' => 0, 'ytd' => 0];
                                     @endphp
-                                    <td class="text-right category-col" style="background-color: #e8f4f8;">@format_currency($ps_data['last_month'])</td>
-                                    <td class="text-right category-col" style="background-color: #e8f4f8;">@format_currency($ps_data['current_month'])</td>
-                                    <td class="text-right category-col" style="background-color: #e8f4f8;"><strong>@format_currency($ps_data['ytd'])</strong></td>
-                                    <td class="text-right category-col" style="background-color: #fff3e0;">@format_currency($sc_data['last_month'])</td>
-                                    <td class="text-right category-col" style="background-color: #fff3e0;">@format_currency($sc_data['current_month'])</td>
-                                    <td class="text-right category-col" style="background-color: #fff3e0;"><strong>@format_currency($sc_data['ytd'])</strong></td>
+                                    <td class="text-right category-col" style="background-color: #f0f0f0;">@format_currency($other_data['last_month'])</td>
+                                    <td class="text-right category-col" style="background-color: #f0f0f0;">@format_currency($other_data['current_month'])</td>
+                                    <td class="text-right category-col" style="background-color: #f0f0f0;"><strong>@format_currency($other_data['ytd'])</strong></td>
                                     <td class="text-right"><strong>@format_currency($account->balance)</strong></td>
                                 </tr>
                             @empty
                                 <tr>
-                                    <td colspan="{{ 3 + (count($gym_categories) * 3) + 6 + 1 }}" class="text-center text-muted">@lang('lang_v1.no_data')</td>
+                                    <td colspan="{{ 3 + (count($business_categories) * 3) + 6 + 1 }}" class="text-center text-muted">@lang('lang_v1.no_data')</td>
                                 </tr>
                             @endforelse
                         </tbody>
                         <tfoot>
                             <tr class="success">
                                 <th colspan="2" class="text-right"><strong>@lang('accounting::lang.total_income')</strong></th>
-                                @foreach($gym_categories as $category)
-                                    @php $cat_tot = $category_totals['income'][$category->id] ?? ['last_month' => 0, 'current_month' => 0, 'ytd' => 0]; @endphp
+                                @foreach($business_categories as $cat_key => $cat_info)
+                                    @php $cat_tot = $category_totals['income'][$cat_key] ?? ['last_month' => 0, 'current_month' => 0, 'ytd' => 0]; @endphp
                                     <th class="text-right category-col">@format_currency($cat_tot['last_month'])</th>
                                     <th class="text-right category-col">@format_currency($cat_tot['current_month'])</th>
                                     <th class="text-right category-col"><strong>@format_currency($cat_tot['ytd'])</strong></th>
                                 @endforeach
                                 @php 
-                                    $ps_tot = $category_totals['income']['pro_shop'] ?? ['last_month' => 0, 'current_month' => 0, 'ytd' => 0]; 
-                                    $sc_tot = $category_totals['income']['sudest_cafe'] ?? ['last_month' => 0, 'current_month' => 0, 'ytd' => 0];
+                                    $other_tot = $category_totals['income']['other'] ?? ['last_month' => 0, 'current_month' => 0, 'ytd' => 0]; 
                                 @endphp
-                                <th class="text-right category-col" style="background-color: #e8f4f8; color:black">@format_currency($ps_tot['last_month'])</th>
-                                <th class="text-right category-col" style="background-color: #e8f4f8; color:black">@format_currency($ps_tot['current_month'])</th>
-                                <th class="text-right category-col" style="background-color: #e8f4f8; color:black"><strong>@format_currency($ps_tot['ytd'])</strong></th>
-                                <th class="text-right category-col" style="background-color: #fff3e0; color:black">@format_currency($sc_tot['last_month'])</th>
-                                <th class="text-right category-col" style="background-color: #fff3e0; color:black">@format_currency($sc_tot['current_month'])</th>
-                                <th class="text-right category-col" style="background-color: #fff3e0; color:black"><strong>@format_currency($sc_tot['ytd'])</strong></th>
+                                <th class="text-right category-col" style="background-color: #f0f0f0; color:black">@format_currency($other_tot['last_month'])</th>
+                                <th class="text-right category-col" style="background-color: #f0f0f0; color:black">@format_currency($other_tot['current_month'])</th>
+                                <th class="text-right category-col" style="background-color: #f0f0f0; color:black"><strong>@format_currency($other_tot['ytd'])</strong></th>
                                 <th class="text-right"><strong>@format_currency($total_income)</strong></th>
                             </tr>
                         </tfoot>
@@ -183,26 +171,22 @@
                             <tr class="danger">
                                 <th class="text-center" style="width:80px; vertical-align: middle;" rowspan="2">@lang('accounting::lang.gl_code')</th>
                                 <th class="text-center" style="vertical-align: middle; min-width:150px;" rowspan="2">@lang('user.name')</th>
-                                @foreach($gym_categories as $category)
-                                    <th class="text-center category-col" colspan="3" style="vertical-align: middle;">{{ $category->name }}</th>
+                                @foreach($business_categories as $cat_key => $cat_info)
+                                    <th class="text-center category-col" colspan="3" style="vertical-align: middle;">{{ $cat_info['name'] }}</th>
                                 @endforeach
-                                <th class="text-center category-col" colspan="3" style="vertical-align: middle; background-color: #e8f4f8;">Pro Shop</th>
-                                <th class="text-center category-col" colspan="3" style="vertical-align: middle; background-color: #fff3e0;">Sudest Café</th>
+                                <th class="text-center category-col" colspan="3" style="vertical-align: middle; background-color: #f0f0f0;">Other</th>
                                 <th class="text-center bg-primary text-black" style="width:100px; vertical-align: middle;" rowspan="2">Total</th>
                             </tr>
                             {{-- Sub-headers for periods --}}
                             <tr class="active" style="font-size: 10px;">
-                                @foreach($gym_categories as $category)
+                                @foreach($business_categories as $cat_key => $cat_info)
                                     <th class="text-center" style="padding: 3px;">LM</th>
                                     <th class="text-center" style="padding: 3px;">CM</th>
                                     <th class="text-center" style="padding: 3px;">YTD</th>
                                 @endforeach
-                                <th class="text-center" style="padding: 3px; background-color: #e8f4f8;">LM</th>
-                                <th class="text-center" style="padding: 3px; background-color: #e8f4f8;">CM</th>
-                                <th class="text-center" style="padding: 3px; background-color: #e8f4f8;">YTD</th>
-                                <th class="text-center" style="padding: 3px; background-color: #fff3e0;">LM</th>
-                                <th class="text-center" style="padding: 3px; background-color: #fff3e0;">CM</th>
-                                <th class="text-center" style="padding: 3px; background-color: #fff3e0;">YTD</th>
+                                <th class="text-center" style="padding: 3px; background-color: #f0f0f0;">LM</th>
+                                <th class="text-center" style="padding: 3px; background-color: #f0f0f0;">CM</th>
+                                <th class="text-center" style="padding: 3px; background-color: #f0f0f0;">YTD</th>
                             </tr>
                         </thead>
                         <tbody>
@@ -210,51 +194,43 @@
                                 <tr>
                                     <td>{{ $account->gl_code }}</td>
                                     <td>{{ $account->name }}</td>
-                                    @foreach($gym_categories as $category)
+                                    @foreach($business_categories as $cat_key => $cat_info)
                                         @php
-                                            $cat_data = $account->category_balances[$category->id] ?? ['last_month' => 0, 'current_month' => 0, 'ytd' => 0];
+                                            $cat_data = $account->category_balances[$cat_key] ?? ['last_month' => 0, 'current_month' => 0, 'ytd' => 0];
                                         @endphp
                                         <td class="text-right category-col">@format_currency($cat_data['last_month'])</td>
                                         <td class="text-right category-col">@format_currency($cat_data['current_month'])</td>
                                         <td class="text-right category-col"><strong>@format_currency($cat_data['ytd'])</strong></td>
                                     @endforeach
                                     @php
-                                        $ps_data = $account->category_balances['pro_shop'] ?? ['last_month' => 0, 'current_month' => 0, 'ytd' => 0];
-                                        $sc_data = $account->category_balances['sudest_cafe'] ?? ['last_month' => 0, 'current_month' => 0, 'ytd' => 0];
+                                        $other_data = $account->category_balances['other'] ?? ['last_month' => 0, 'current_month' => 0, 'ytd' => 0];
                                     @endphp
-                                    <td class="text-right category-col" style="background-color: #e8f4f8;">@format_currency($ps_data['last_month'])</td>
-                                    <td class="text-right category-col" style="background-color: #e8f4f8;">@format_currency($ps_data['current_month'])</td>
-                                    <td class="text-right category-col" style="background-color: #e8f4f8;"><strong>@format_currency($ps_data['ytd'])</strong></td>
-                                    <td class="text-right category-col" style="background-color: #fff3e0;">@format_currency($sc_data['last_month'])</td>
-                                    <td class="text-right category-col" style="background-color: #fff3e0;">@format_currency($sc_data['current_month'])</td>
-                                    <td class="text-right category-col" style="background-color: #fff3e0;"><strong>@format_currency($sc_data['ytd'])</strong></td>
+                                    <td class="text-right category-col" style="background-color: #f0f0f0;">@format_currency($other_data['last_month'])</td>
+                                    <td class="text-right category-col" style="background-color: #f0f0f0;">@format_currency($other_data['current_month'])</td>
+                                    <td class="text-right category-col" style="background-color: #f0f0f0;"><strong>@format_currency($other_data['ytd'])</strong></td>
                                     <td class="text-right"><strong>@format_currency($account->balance)</strong></td>
                                 </tr>
                             @empty
                                 <tr>
-                                    <td colspan="{{ 3 + (count($gym_categories) * 3) + 6 + 1 }}" class="text-center text-muted">@lang('lang_v1.no_data')</td>
+                                    <td colspan="{{ 2 + (count($business_categories) * 3) + 3 + 1 }}" class="text-center text-muted">@lang('lang_v1.no_data')</td>
                                 </tr>
                             @endforelse
                         </tbody>
                         <tfoot>
                             <tr class="danger">
                                 <th colspan="2" class="text-right"><strong>@lang('accounting::lang.total_expenses')</strong></th>
-                                @foreach($gym_categories as $category)
-                                    @php $cat_tot = $category_totals['expense'][$category->id] ?? ['last_month' => 0, 'current_month' => 0, 'ytd' => 0]; @endphp
+                                @foreach($business_categories as $cat_key => $cat_info)
+                                    @php $cat_tot = $category_totals['expense'][$cat_key] ?? ['last_month' => 0, 'current_month' => 0, 'ytd' => 0]; @endphp
                                     <th class="text-right category-col">@format_currency($cat_tot['last_month'])</th>
                                     <th class="text-right category-col">@format_currency($cat_tot['current_month'])</th>
                                     <th class="text-right category-col"><strong>@format_currency($cat_tot['ytd'])</strong></th>
                                 @endforeach
                                 @php 
-                                    $ps_tot = $category_totals['expense']['pro_shop'] ?? ['last_month' => 0, 'current_month' => 0, 'ytd' => 0]; 
-                                    $sc_tot = $category_totals['expense']['sudest_cafe'] ?? ['last_month' => 0, 'current_month' => 0, 'ytd' => 0];
+                                    $other_tot = $category_totals['expense']['other'] ?? ['last_month' => 0, 'current_month' => 0, 'ytd' => 0]; 
                                 @endphp
-                                <th class="text-right category-col" style="background-color: #e8f4f8;">@format_currency($ps_tot['last_month'])</th>
-                                <th class="text-right category-col" style="background-color: #e8f4f8;">@format_currency($ps_tot['current_month'])</th>
-                                <th class="text-right category-col" style="background-color: #e8f4f8;"><strong>@format_currency($ps_tot['ytd'])</strong></th>
-                                <th class="text-right category-col" style="background-color: #fff3e0;">@format_currency($sc_tot['last_month'])</th>
-                                <th class="text-right category-col" style="background-color: #fff3e0;">@format_currency($sc_tot['current_month'])</th>
-                                <th class="text-right category-col" style="background-color: #fff3e0;"><strong>@format_currency($sc_tot['ytd'])</strong></th>
+                                <th class="text-right category-col" style="background-color: #f0f0f0;">@format_currency($other_tot['last_month'])</th>
+                                <th class="text-right category-col" style="background-color: #f0f0f0;">@format_currency($other_tot['current_month'])</th>
+                                <th class="text-right category-col" style="background-color: #f0f0f0;"><strong>@format_currency($other_tot['ytd'])</strong></th>
                                 <th class="text-right"><strong>@format_currency($total_expense)</strong></th>
                             </tr>
                         </tfoot>
@@ -278,48 +254,40 @@
                                         @endif
                                     </strong>
                                 </th>
-                                @foreach($gym_categories as $category)
-                                    <th class="text-center category-col" colspan="3" style="vertical-align: middle;">{{ $category->name }}</th>
+                                @foreach($business_categories as $cat_key => $cat_info)
+                                    <th class="text-center category-col" colspan="3" style="vertical-align: middle;">{{ $cat_info['name'] }}</th>
                                 @endforeach
-                                <th class="text-center category-col" colspan="3" style="vertical-align: middle; background-color: #e8f4f8; color:black">Pro Shop</th>
-                                <th class="text-center category-col" colspan="3" style="vertical-align: middle; background-color: #fff3e0; color:black">Sudest Café</th>
+                                <th class="text-center category-col" colspan="3" style="vertical-align: middle; background-color: #f0f0f0; color:black">Other</th>
                                 <th class="text-center bg-primary" style="width:100px; vertical-align: middle;" rowspan="2">Total</th>
                             </tr>
                             <tr class="active" style="font-size: 10px;">
-                                @foreach($gym_categories as $category)
+                                @foreach($business_categories as $cat_key => $cat_info)
                                     <th class="text-center" style="padding: 3px;">LM</th>
                                     <th class="text-center" style="padding: 3px;">CM</th>
                                     <th class="text-center" style="padding: 3px;">YTD</th>
                                 @endforeach
-                                <th class="text-center" style="padding: 3px; background-color: #e8f4f8;">LM</th>
-                                <th class="text-center" style="padding: 3px; background-color: #e8f4f8;">CM</th>
-                                <th class="text-center" style="padding: 3px; background-color: #e8f4f8;">YTD</th>
-                                <th class="text-center" style="padding: 3px; background-color: #fff3e0;">LM</th>
-                                <th class="text-center" style="padding: 3px; background-color: #fff3e0;">CM</th>
-                                <th class="text-center" style="padding: 3px; background-color: #fff3e0;">YTD</th>
+                                <th class="text-center" style="padding: 3px; background-color: #f0f0f0;">LM</th>
+                                <th class="text-center" style="padding: 3px; background-color: #f0f0f0;">CM</th>
+                                <th class="text-center" style="padding: 3px; background-color: #f0f0f0;">YTD</th>
                             </tr>
                         </thead>
                         <tbody>
                             <tr class="{{ $net_profit >= 0 ? 'bg-cyan' : 'bg-blue' }}">
                                 <td colspan="2" style="font-size: 14px;"><strong>Nilai</strong></td>
-                                @foreach($gym_categories as $category)
+                                @foreach($business_categories as $cat_key => $cat_info)
                                     @php
-                                        $cat_net = $category_net_profit[$category->id] ?? ['last_month' => 0, 'current_month' => 0, 'ytd' => 0];
+                                        $cat_net = $category_net_profit[$cat_key] ?? ['last_month' => 0, 'current_month' => 0, 'ytd' => 0];
                                     @endphp
                                     <td class="text-right category-col {{ $cat_net['last_month'] < 0 ? 'text-danger' : '' }}">@format_currency($cat_net['last_month'])</td>
                                     <td class="text-right category-col {{ $cat_net['current_month'] < 0 ? 'text-danger' : '' }}">@format_currency($cat_net['current_month'])</td>
                                     <td class="text-right category-col {{ $cat_net['ytd'] < 0 ? 'text-danger' : '' }}"><strong>@format_currency($cat_net['ytd'])</strong></td>
                                 @endforeach
                                 @php
-                                    $ps_net = $category_net_profit['pro_shop'] ?? ['last_month' => 0, 'current_month' => 0, 'ytd' => 0];
-                                    $sc_net = $category_net_profit['sudest_cafe'] ?? ['last_month' => 0, 'current_month' => 0, 'ytd' => 0];
+                                    $other_net = $category_net_profit['other'] ?? ['last_month' => 0, 'current_month' => 0, 'ytd' => 0];
                                 @endphp
-                                <td class="text-right category-col {{ $ps_net['last_month'] < 0 ? 'text-danger' : '' }}" style="background-color: #e8f4f8;">@format_currency($ps_net['last_month'])</td>
-                                <td class="text-right category-col {{ $ps_net['current_month'] < 0 ? 'text-danger' : '' }}" style="background-color: #e8f4f8;">@format_currency($ps_net['current_month'])</td>
-                                <td class="text-right category-col {{ $ps_net['ytd'] < 0 ? 'text-danger' : '' }}" style="background-color: #e8f4f8;"><strong>@format_currency($ps_net['ytd'])</strong></td>
-                                <td class="text-right category-col {{ $sc_net['last_month'] < 0 ? 'text-danger' : '' }}" style="background-color: #fff3e0;">@format_currency($sc_net['last_month'])</td>
-                                <td class="text-right category-col {{ $sc_net['current_month'] < 0 ? 'text-danger' : '' }}" style="background-color: #fff3e0;">@format_currency($sc_net['current_month'])</td>
-                                <td class="text-right category-col {{ $sc_net['ytd'] < 0 ? 'text-danger' : '' }}" style="background-color: #fff3e0;"><strong>@format_currency($sc_net['ytd'])</strong></td>
+                                <td class="text-right category-col {{ $other_net['last_month'] < 0 ? 'text-danger' : '' }}" style="background-color: #f0f0f0;">@format_currency($other_net['last_month'])</td>
+                                <td class="text-right category-col {{ $other_net['current_month'] < 0 ? 'text-danger' : '' }}" style="background-color: #f0f0f0;">@format_currency($other_net['current_month'])</td>
+                                <td class="text-right category-col {{ $other_net['ytd'] < 0 ? 'text-danger' : '' }}" style="background-color: #f0f0f0;"><strong>@format_currency($other_net['ytd'])</strong></td>
                                 <td class="text-right" style="font-size: 14px;">
                                     <strong class="{{ $net_profit < 0 ? 'text-danger' : '' }}">@format_currency($net_profit)</strong>
                                 </td>
@@ -540,7 +508,7 @@
         });
 
         $('#export_all_excel').on('click', function() {
-            var categoryCount = {{ count($gym_categories) }};
+            var categoryCount = {{ count($business_categories) }};
             // GL Code + Name + Categories + Pro Shop + Sudest Cafe + Other + Total
             // 2 + N + 3 + 1 = 6 + N
             var totalCols = 6 + categoryCount;

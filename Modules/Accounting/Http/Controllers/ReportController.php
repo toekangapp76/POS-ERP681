@@ -1071,13 +1071,14 @@ class ReportController extends Controller
         $lm_start = $last_month_period ? $last_month_period['start'] : null;
         $lm_end = $last_month_period ? $last_month_period['end'] : null;
 
-        // Get all active P&L accounts (gl_code >= 4)
+        // Get all active P&L accounts (gl_code >= 4) with detail_type
         $all_accounts = AccountingAccount::where('business_id', $business_id)
             ->where('status', 'active')
             ->whereNotNull('gl_code')
             ->where('gl_code', '!=', '')
             ->whereRaw("CAST(SUBSTRING(gl_code, 1, 1) AS UNSIGNED) >= 4")
-            ->select('id', 'name', 'gl_code', 'account_primary_type')
+            ->with('detail_type')
+            ->select('id', 'name', 'gl_code', 'account_primary_type', 'detail_type_id')
             ->orderBy('gl_code')
             ->get();
 
@@ -1098,30 +1099,69 @@ class ReportController extends Controller
             return array_fill_keys($period_keys, 0);
         };
 
-        foreach ($gym_categories as $category) {
-            $category_totals['income'][$category->id] = $createPeriodStructure();
-            $category_totals['expense'][$category->id] = $createPeriodStructure();
+        // Fetch business categories dynamically from AccountingAccountType (detail_type)
+        // This allows business categories to be managed in Accounting Settings -> Detail Type tab
+        $detail_types_from_db = AccountingAccountType::where('account_type', 'detail_type')
+            ->where(function ($q) use ($business_id) {
+                $q->whereNull('business_id')
+                    ->orWhere('business_id', $business_id);
+            })
+            ->select('id', 'name', 'business_id')
+            ->orderBy('name')
+            ->get();
+
+        // Build business_categories dynamically from database
+        // IMPORTANT: Merge all Detail Type IDs that have the SAME NAME into one category
+        // This is needed because there can be multiple detail types with the same name but different parents
+        // e.g., "Padel" under "Paddle Revenue", "Padel" under "Payroll Expense", etc.
+        $business_categories = [];
+        foreach ($detail_types_from_db as $dt) {
+            // Create a slug-friendly key from the name
+            $cat_key = \Illuminate\Support\Str::slug($dt->name, '_');
+            
+            // Get display name (translated if system, raw if user-created)
+            $display_name = empty($dt->business_id) 
+                ? __('accounting::lang.' . $dt->name) 
+                : $dt->name;
+            
+            // Check if category already exists - if so, ADD the ID to the array
+            if (isset($business_categories[$cat_key])) {
+                // Append this ID to existing list
+                $business_categories[$cat_key]['detail_type_ids'][] = $dt->id;
+            } else {
+                // Create new category
+                $business_categories[$cat_key] = [
+                    'name' => $display_name,
+                    'detail_type_ids' => [$dt->id],
+                ];
+            }
         }
-        // Initialize Pro Shop, Sudest Café, and "Other" (no category)
-        $category_totals['income']['pro_shop'] = $createPeriodStructure();
-        $category_totals['expense']['pro_shop'] = $createPeriodStructure();
-        $category_totals['income']['sudest_cafe'] = $createPeriodStructure();
-        $category_totals['expense']['sudest_cafe'] = $createPeriodStructure();
+
+        // Initialize category totals for each business category
+        foreach (array_keys($business_categories) as $cat_key) {
+            $category_totals['income'][$cat_key] = $createPeriodStructure();
+            $category_totals['expense'][$cat_key] = $createPeriodStructure();
+        }
+        // Initialize "other" category for accounts without matching detail_type
         $category_totals['income']['other'] = $createPeriodStructure();
         $category_totals['expense']['other'] = $createPeriodStructure();
 
         // Helper function to calculate balance for a specific date range
-        $calculateBalance = function ($query_base, $start, $end, $account_type) {
+        $calculatePeriodBalance = function ($account_id, $start, $end, $account_type) {
             if (!$start || !$end)
                 return 0;
 
-            $query = clone $query_base;
-            $period = $query
-                ->whereDate('accounting_accounts_transactions.operation_date', '>=', $start)
-                ->whereDate('accounting_accounts_transactions.operation_date', '<=', $end)
+            $period = DB::table('accounting_accounts_transactions')
+                ->where('accounting_account_id', $account_id)
+                ->where(function ($q) {
+                    $q->whereNull('sub_type')
+                        ->orWhere('sub_type', '!=', 'opening_balance');
+                })
+                ->whereDate('operation_date', '>=', $start)
+                ->whereDate('operation_date', '<=', $end)
                 ->select(
-                    DB::raw("SUM(IF(accounting_accounts_transactions.type = 'debit', accounting_accounts_transactions.amount, 0)) as debit"),
-                    DB::raw("SUM(IF(accounting_accounts_transactions.type = 'credit', accounting_accounts_transactions.amount, 0)) as credit")
+                    DB::raw("SUM(IF(type = 'debit', amount, 0)) as debit"),
+                    DB::raw("SUM(IF(type = 'credit', amount, 0)) as credit")
                 )->first();
 
             $debit = $period->debit ?? 0;
@@ -1134,267 +1174,90 @@ class ReportController extends Controller
             }
         };
 
+        // Helper function to determine category from detail_type_id
+        $getCategoryFromDetailTypeId = function ($detail_type_id) use ($business_categories) {
+            if (empty($detail_type_id)) {
+                return 'other';
+            }
+            foreach ($business_categories as $cat_key => $cat_info) {
+                if (in_array($detail_type_id, $cat_info['detail_type_ids'])) {
+                    return $cat_key;
+                }
+            }
+            return 'other';
+        };
+
         foreach ($all_accounts as $account) {
+            // Get the detail type id for this account
+            $detail_type_id = $account->detail_type_id;
+            $category_key = $getCategoryFromDetailTypeId($detail_type_id);
+
+            // Calculate balances for all periods
+            $lm_balance = $calculatePeriodBalance($account->id, $lm_start, $lm_end, $account->account_primary_type);
+            $cm_balance = $calculatePeriodBalance($account->id, $cm_start, $cm_end, $account->account_primary_type);
+            $ytd_balance = $calculatePeriodBalance($account->id, $start_date, $end_date, $account->account_primary_type);
+
+            // Skip if no balance in any period
+            if ($ytd_balance == 0 && $lm_balance == 0 && $cm_balance == 0) {
+                continue;
+            }
+
+            // Build category_balances with only the matching category having values
             $category_balances = [];
-            $total_balance = 0;
-            $has_any_balance = false;
-
-            // Calculate balance for each gym category with period breakdown
-            foreach ($gym_categories as $category) {
-                // Base query for this category
-                $getBaseQuery = function () use ($account, $category) {
-                    return DB::table('accounting_accounts_transactions')
-                        ->leftJoin('transactions', 'accounting_accounts_transactions.transaction_id', '=', 'transactions.id')
-                        ->leftJoin('gym_packages', 'transactions.gym_package_id', '=', 'gym_packages.id')
-                        ->where('accounting_accounts_transactions.accounting_account_id', $account->id)
-                        ->where(function ($q) {
-                            $q->whereNull('accounting_accounts_transactions.sub_type')
-                                ->orWhere('accounting_accounts_transactions.sub_type', '!=', 'opening_balance');
-                        })
-                        ->where('gym_packages.gym_category_id', $category->id);
-                };
-
-                // Calculate for each period
-                $lm_balance = 0;
-                $cm_balance = 0;
-                $ytd_balance = 0;
-
-                // Last Month
-                if ($lm_start && $lm_end) {
-                    $lm_query = $getBaseQuery()
-                        ->whereDate('accounting_accounts_transactions.operation_date', '>=', $lm_start)
-                        ->whereDate('accounting_accounts_transactions.operation_date', '<=', $lm_end);
-                    $lm_period = $lm_query->select(
-                        DB::raw("SUM(IF(accounting_accounts_transactions.type = 'debit', accounting_accounts_transactions.amount, 0)) as debit"),
-                        DB::raw("SUM(IF(accounting_accounts_transactions.type = 'credit', accounting_accounts_transactions.amount, 0)) as credit")
-                    )->first();
-                    $lm_debit = $lm_period->debit ?? 0;
-                    $lm_credit = $lm_period->credit ?? 0;
-                    $lm_balance = ($account->account_primary_type == 'income') ? ($lm_credit - $lm_debit) : ($lm_debit - $lm_credit);
+            foreach (array_keys($business_categories) as $cat) {
+                if ($cat == $category_key) {
+                    $category_balances[$cat] = [
+                        'last_month' => $lm_balance,
+                        'current_month' => $cm_balance,
+                        'ytd' => $ytd_balance,
+                    ];
+                } else {
+                    $category_balances[$cat] = [
+                        'last_month' => 0,
+                        'current_month' => 0,
+                        'ytd' => 0,
+                    ];
                 }
-
-                // Current Month
-                if ($cm_start && $cm_end) {
-                    $cm_query = $getBaseQuery()
-                        ->whereDate('accounting_accounts_transactions.operation_date', '>=', $cm_start)
-                        ->whereDate('accounting_accounts_transactions.operation_date', '<=', $cm_end);
-                    $cm_period = $cm_query->select(
-                        DB::raw("SUM(IF(accounting_accounts_transactions.type = 'debit', accounting_accounts_transactions.amount, 0)) as debit"),
-                        DB::raw("SUM(IF(accounting_accounts_transactions.type = 'credit', accounting_accounts_transactions.amount, 0)) as credit")
-                    )->first();
-                    $cm_debit = $cm_period->debit ?? 0;
-                    $cm_credit = $cm_period->credit ?? 0;
-                    $cm_balance = ($account->account_primary_type == 'income') ? ($cm_credit - $cm_debit) : ($cm_debit - $cm_credit);
-                }
-
-                // YTD (full period)
-                $ytd_query = $getBaseQuery()
-                    ->whereDate('accounting_accounts_transactions.operation_date', '>=', $start_date)
-                    ->whereDate('accounting_accounts_transactions.operation_date', '<=', $end_date);
-                $ytd_period = $ytd_query->select(
-                    DB::raw("SUM(IF(accounting_accounts_transactions.type = 'debit', accounting_accounts_transactions.amount, 0)) as debit"),
-                    DB::raw("SUM(IF(accounting_accounts_transactions.type = 'credit', accounting_accounts_transactions.amount, 0)) as credit")
-                )->first();
-                $ytd_debit = $ytd_period->debit ?? 0;
-                $ytd_credit = $ytd_period->credit ?? 0;
-                $ytd_balance = ($account->account_primary_type == 'income') ? ($ytd_credit - $ytd_debit) : ($ytd_debit - $ytd_credit);
-
-                // Store with period breakdown
-                $category_balances[$category->id] = [
+            }
+            // Handle 'other' category
+            if ($category_key == 'other') {
+                $category_balances['other'] = [
                     'last_month' => $lm_balance,
                     'current_month' => $cm_balance,
                     'ytd' => $ytd_balance,
                 ];
-                $total_balance += $ytd_balance;
-
-                if ($ytd_balance != 0 || $lm_balance != 0 || $cm_balance != 0) {
-                    $has_any_balance = true;
-                }
-            }
-
-            // DB::enableQueryLog();
-
-            // Pro Shop: Semua transaksi type = 'sell' (POS) with period breakdown
-            $getProShopBaseQuery = function () use ($account) {
-                return DB::table('accounting_accounts_transactions')
-                    ->join('transactions', 'accounting_accounts_transactions.transaction_id', '=', 'transactions.id')
-                    ->where('accounting_accounts_transactions.accounting_account_id', $account->id)
-                    ->where(function ($q) {
-                        $q->whereNull('accounting_accounts_transactions.sub_type')
-                            ->orWhere('accounting_accounts_transactions.sub_type', '!=', 'opening_balance');
-                    })
-                    ->where('transactions.type', 'sell')
-                    ->whereNull('transactions.gym_package_id');
-            };
-
-            // Pro Shop - Last Month
-            $ps_lm_balance = 0;
-            if ($lm_start && $lm_end) {
-                $ps_lm_query = $getProShopBaseQuery()
-                    ->whereDate('accounting_accounts_transactions.operation_date', '>=', $lm_start)
-                    ->whereDate('accounting_accounts_transactions.operation_date', '<=', $lm_end);
-                $ps_lm_period = $ps_lm_query->select(
-                    DB::raw("SUM(IF(accounting_accounts_transactions.type = 'debit', accounting_accounts_transactions.amount, 0)) as debit"),
-                    DB::raw("SUM(IF(accounting_accounts_transactions.type = 'credit', accounting_accounts_transactions.amount, 0)) as credit")
-                )->first();
-                $ps_lm_balance = ($account->account_primary_type == 'income')
-                    ? (($ps_lm_period->credit ?? 0) - ($ps_lm_period->debit ?? 0))
-                    : (($ps_lm_period->debit ?? 0) - ($ps_lm_period->credit ?? 0));
-            }
-
-            // Pro Shop - Current Month
-            $ps_cm_balance = 0;
-            if ($cm_start && $cm_end) {
-                $ps_cm_query = $getProShopBaseQuery()
-                    ->whereDate('accounting_accounts_transactions.operation_date', '>=', $cm_start)
-                    ->whereDate('accounting_accounts_transactions.operation_date', '<=', $cm_end);
-                $ps_cm_period = $ps_cm_query->select(
-                    DB::raw("SUM(IF(accounting_accounts_transactions.type = 'debit', accounting_accounts_transactions.amount, 0)) as debit"),
-                    DB::raw("SUM(IF(accounting_accounts_transactions.type = 'credit', accounting_accounts_transactions.amount, 0)) as credit")
-                )->first();
-                $ps_cm_balance = ($account->account_primary_type == 'income')
-                    ? (($ps_cm_period->credit ?? 0) - ($ps_cm_period->debit ?? 0))
-                    : (($ps_cm_period->debit ?? 0) - ($ps_cm_period->credit ?? 0));
-            }
-
-            // Pro Shop - YTD
-            $ps_ytd_query = $getProShopBaseQuery()
-                ->whereDate('accounting_accounts_transactions.operation_date', '>=', $start_date)
-                ->whereDate('accounting_accounts_transactions.operation_date', '<=', $end_date);
-            $ps_ytd_period = $ps_ytd_query->select(
-                DB::raw("SUM(IF(accounting_accounts_transactions.type = 'debit', accounting_accounts_transactions.amount, 0)) as debit"),
-                DB::raw("SUM(IF(accounting_accounts_transactions.type = 'credit', accounting_accounts_transactions.amount, 0)) as credit")
-            )->first();
-            $ps_ytd_balance = ($account->account_primary_type == 'income')
-                ? (($ps_ytd_period->credit ?? 0) - ($ps_ytd_period->debit ?? 0))
-                : (($ps_ytd_period->debit ?? 0) - ($ps_ytd_period->credit ?? 0));
-
-            $category_balances['pro_shop'] = [
-                'last_month' => $ps_lm_balance,
-                'current_month' => $ps_cm_balance,
-                'ytd' => $ps_ytd_balance,
-            ];
-            $total_balance += $ps_ytd_balance;
-            if ($ps_ytd_balance != 0 || $ps_lm_balance != 0 || $ps_cm_balance != 0) {
-                $has_any_balance = true;
-            }
-
-            // Sudest Café: placeholder with period structure
-            $category_balances['sudest_cafe'] = [
-                'last_month' => 0,
-                'current_month' => 0,
-                'ytd' => 0,
-            ];
-
-            // Other: Journal entries and transactions that don't belong to gym categories or Pro Shop
-            $getOtherBaseQuery = function () use ($account) {
-                return DB::table('accounting_accounts_transactions')
-                    ->leftJoin('transactions', 'accounting_accounts_transactions.transaction_id', '=', 'transactions.id')
-                    ->leftJoin('gym_packages', 'transactions.gym_package_id', '=', 'gym_packages.id')
-                    ->where('accounting_accounts_transactions.accounting_account_id', $account->id)
-                    ->where(function ($q) {
-                        $q->whereNull('accounting_accounts_transactions.sub_type')
-                            ->orWhere('accounting_accounts_transactions.sub_type', '!=', 'opening_balance');
-                    })
-                    ->whereNull('gym_packages.gym_category_id')
-                    ->where(function ($q) {
-                        $q->whereNull('transactions.id')
-                            ->orWhere('transactions.type', '!=', 'sell')
-                            ->orWhereNotNull('transactions.gym_package_id');
-                    });
-            };
-
-            // Other - Last Month
-            $other_lm_balance = 0;
-            if ($lm_start && $lm_end) {
-                $other_lm_query = $getOtherBaseQuery()
-                    ->whereDate('accounting_accounts_transactions.operation_date', '>=', $lm_start)
-                    ->whereDate('accounting_accounts_transactions.operation_date', '<=', $lm_end);
-                $other_lm_period = $other_lm_query->select(
-                    DB::raw("SUM(IF(accounting_accounts_transactions.type = 'debit', accounting_accounts_transactions.amount, 0)) as debit"),
-                    DB::raw("SUM(IF(accounting_accounts_transactions.type = 'credit', accounting_accounts_transactions.amount, 0)) as credit")
-                )->first();
-                $other_lm_balance = ($account->account_primary_type == 'income')
-                    ? (($other_lm_period->credit ?? 0) - ($other_lm_period->debit ?? 0))
-                    : (($other_lm_period->debit ?? 0) - ($other_lm_period->credit ?? 0));
-            }
-
-            // Other - Current Month
-            $other_cm_balance = 0;
-            if ($cm_start && $cm_end) {
-                $other_cm_query = $getOtherBaseQuery()
-                    ->whereDate('accounting_accounts_transactions.operation_date', '>=', $cm_start)
-                    ->whereDate('accounting_accounts_transactions.operation_date', '<=', $cm_end);
-                $other_cm_period = $other_cm_query->select(
-                    DB::raw("SUM(IF(accounting_accounts_transactions.type = 'debit', accounting_accounts_transactions.amount, 0)) as debit"),
-                    DB::raw("SUM(IF(accounting_accounts_transactions.type = 'credit', accounting_accounts_transactions.amount, 0)) as credit")
-                )->first();
-                $other_cm_balance = ($account->account_primary_type == 'income')
-                    ? (($other_cm_period->credit ?? 0) - ($other_cm_period->debit ?? 0))
-                    : (($other_cm_period->debit ?? 0) - ($other_cm_period->credit ?? 0));
-            }
-
-            // Other - YTD
-            $other_ytd_query = $getOtherBaseQuery()
-                ->whereDate('accounting_accounts_transactions.operation_date', '>=', $start_date)
-                ->whereDate('accounting_accounts_transactions.operation_date', '<=', $end_date);
-            $other_ytd_period = $other_ytd_query->select(
-                DB::raw("SUM(IF(accounting_accounts_transactions.type = 'debit', accounting_accounts_transactions.amount, 0)) as debit"),
-                DB::raw("SUM(IF(accounting_accounts_transactions.type = 'credit', accounting_accounts_transactions.amount, 0)) as credit")
-            )->first();
-            $other_ytd_balance = ($account->account_primary_type == 'income')
-                ? (($other_ytd_period->credit ?? 0) - ($other_ytd_period->debit ?? 0))
-                : (($other_ytd_period->debit ?? 0) - ($other_ytd_period->credit ?? 0));
-
-            $category_balances['other'] = [
-                'last_month' => $other_lm_balance,
-                'current_month' => $other_cm_balance,
-                'ytd' => $other_ytd_balance,
-            ];
-            $total_balance += $other_ytd_balance;
-            if ($other_ytd_balance != 0 || $other_lm_balance != 0 || $other_cm_balance != 0) {
-                $has_any_balance = true;
-            }
-
-            // Only include accounts with balance
-            if ($has_any_balance) {
-                $account_data = (object) [
-                    'gl_code' => $account->gl_code,
-                    'name' => $account->name,
-                    'account_primary_type' => $account->account_primary_type,
-                    'category_balances' => $category_balances,
-                    'balance' => $total_balance,
+            } else {
+                $category_balances['other'] = [
+                    'last_month' => 0,
+                    'current_month' => 0,
+                    'ytd' => 0,
                 ];
+            }
 
-                if ($account->account_primary_type == 'income') {
-                    $income_accounts->push($account_data);
-                    $total_income += $total_balance;
-                    // Update category totals with period breakdown
-                    foreach ($gym_categories as $category) {
-                        foreach ($period_keys as $pk) {
-                            $category_totals['income'][$category->id][$pk] += $category_balances[$category->id][$pk];
-                        }
-                    }
-                    foreach ($period_keys as $pk) {
-                        $category_totals['income']['pro_shop'][$pk] += $category_balances['pro_shop'][$pk];
-                        $category_totals['income']['sudest_cafe'][$pk] += $category_balances['sudest_cafe'][$pk];
-                        $category_totals['income']['other'][$pk] += $category_balances['other'][$pk];
-                    }
-                } else {
-                    $expense_accounts->push($account_data);
-                    $total_expense += $total_balance;
-                    // Update category totals with period breakdown
-                    foreach ($gym_categories as $category) {
-                        foreach ($period_keys as $pk) {
-                            $category_totals['expense'][$category->id][$pk] += $category_balances[$category->id][$pk];
-                        }
-                    }
-                    foreach ($period_keys as $pk) {
-                        $category_totals['expense']['pro_shop'][$pk] += $category_balances['pro_shop'][$pk];
-                        $category_totals['expense']['sudest_cafe'][$pk] += $category_balances['sudest_cafe'][$pk];
-                        $category_totals['expense']['other'][$pk] += $category_balances['other'][$pk];
-                    }
-                }
+            $account_data = (object) [
+                'gl_code' => $account->gl_code,
+                'name' => $account->name,
+                'account_primary_type' => $account->account_primary_type,
+                'category_balances' => $category_balances,
+                'balance' => $ytd_balance,
+                'detail_type' => $account->detail_type ? $account->detail_type->name : null,
+                'category_key' => $category_key,
+            ];
+
+            if ($account->account_primary_type == 'income') {
+                $income_accounts->push($account_data);
+                $total_income += $ytd_balance;
+                // Update category totals for this account's category
+                $category_totals['income'][$category_key]['last_month'] += $lm_balance;
+                $category_totals['income'][$category_key]['current_month'] += $cm_balance;
+                $category_totals['income'][$category_key]['ytd'] += $ytd_balance;
+            } else {
+                $expense_accounts->push($account_data);
+                $total_expense += $ytd_balance;
+                // Update category totals for this account's category
+                $category_totals['expense'][$category_key]['last_month'] += $lm_balance;
+                $category_totals['expense'][$category_key]['current_month'] += $cm_balance;
+                $category_totals['expense'][$category_key]['ytd'] += $ytd_balance;
             }
         }
 
@@ -1402,23 +1265,13 @@ class ReportController extends Controller
 
         // Calculate net profit per category with period breakdown
         $category_net_profit = [];
-        foreach ($gym_categories as $category) {
-            $category_net_profit[$category->id] = [
-                'last_month' => $category_totals['income'][$category->id]['last_month'] - $category_totals['expense'][$category->id]['last_month'],
-                'current_month' => $category_totals['income'][$category->id]['current_month'] - $category_totals['expense'][$category->id]['current_month'],
-                'ytd' => $category_totals['income'][$category->id]['ytd'] - $category_totals['expense'][$category->id]['ytd'],
+        foreach (array_keys($business_categories) as $cat_key) {
+            $category_net_profit[$cat_key] = [
+                'last_month' => $category_totals['income'][$cat_key]['last_month'] - $category_totals['expense'][$cat_key]['last_month'],
+                'current_month' => $category_totals['income'][$cat_key]['current_month'] - $category_totals['expense'][$cat_key]['current_month'],
+                'ytd' => $category_totals['income'][$cat_key]['ytd'] - $category_totals['expense'][$cat_key]['ytd'],
             ];
         }
-        $category_net_profit['pro_shop'] = [
-            'last_month' => $category_totals['income']['pro_shop']['last_month'] - $category_totals['expense']['pro_shop']['last_month'],
-            'current_month' => $category_totals['income']['pro_shop']['current_month'] - $category_totals['expense']['pro_shop']['current_month'],
-            'ytd' => $category_totals['income']['pro_shop']['ytd'] - $category_totals['expense']['pro_shop']['ytd'],
-        ];
-        $category_net_profit['sudest_cafe'] = [
-            'last_month' => $category_totals['income']['sudest_cafe']['last_month'] - $category_totals['expense']['sudest_cafe']['last_month'],
-            'current_month' => $category_totals['income']['sudest_cafe']['current_month'] - $category_totals['expense']['sudest_cafe']['current_month'],
-            'ytd' => $category_totals['income']['sudest_cafe']['ytd'] - $category_totals['expense']['sudest_cafe']['ytd'],
-        ];
         $category_net_profit['other'] = [
             'last_month' => $category_totals['income']['other']['last_month'] - $category_totals['expense']['other']['last_month'],
             'current_month' => $category_totals['income']['other']['current_month'] - $category_totals['expense']['other']['current_month'],
@@ -1435,7 +1288,7 @@ class ReportController extends Controller
                 'start_date',
                 'end_date',
                 'months',
-                'gym_categories',
+                'business_categories',
                 'category_totals',
                 'category_net_profit'
             ));
