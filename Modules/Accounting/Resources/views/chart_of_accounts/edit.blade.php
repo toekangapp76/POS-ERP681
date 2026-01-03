@@ -42,7 +42,11 @@
                         <option value="">@lang('messages.please_select')</option>
                         @foreach($account_detail_types as $detail_type)
                             <option value="{{$detail_type->id}}" 
+                            data-parent-id="{{$detail_type->parent_id}}"
                             @if($account->detail_type_id == $detail_type->id) selected @endif >
+                            @if(!empty($detail_type->parent_sub_type_name))
+                                [{{$detail_type->parent_sub_type_name}}] - 
+                            @endif
                             {{$detail_type->account_type_name}}</option>
                         @endforeach
                     </select>

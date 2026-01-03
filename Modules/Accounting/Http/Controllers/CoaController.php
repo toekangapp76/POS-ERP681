@@ -1324,12 +1324,19 @@ class CoaController extends Controller
                         ->orWhere('business_id', $business_id);
                 })
                 ->get();
-            $account_detail_types = AccountingAccountType::where('parent_id', $account->account_sub_type_id)
-                ->where('account_type', 'detail_type')
+            $account_detail_types = AccountingAccountType::where('accounting_account_types.parent_id', $account->account_sub_type_id)
+                ->where('accounting_account_types.account_type', 'detail_type')
+                ->leftJoin('accounting_account_types as parent_type', 'accounting_account_types.parent_id', '=', 'parent_type.id')
                 ->where(function ($q) use ($business_id) {
-                    $q->whereNull('business_id')
-                        ->orWhere('business_id', $business_id);
+                    $q->whereNull('accounting_account_types.business_id')
+                        ->orWhere('accounting_account_types.business_id', $business_id);
                 })
+                ->select(
+                    'accounting_account_types.*',
+                    'parent_type.name as parent_sub_type_name'
+                )
+                ->orderBy('parent_type.name')
+                ->orderBy('accounting_account_types.name')
                 ->get();
 
             $parent_accounts = AccountingAccount::where('business_id', $business_id)

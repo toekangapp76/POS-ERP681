@@ -49,7 +49,11 @@
                             <th>@lang('accounting::lang.detail_type'):</th>
                             <td class="account-details-detailtype">
                                 @if(!empty($account->detail_type))
-                                    {{__('accounting::lang.' . $account->detail_type->name)}}
+                                    @if(empty($account->detail_type->business_id))
+                                        {{__('accounting::lang.' . $account->detail_type->name)}}
+                                    @else
+                                        {{$account->detail_type->name}}
+                                    @endif
                                 @endif
                             </td>
                         </tr>
