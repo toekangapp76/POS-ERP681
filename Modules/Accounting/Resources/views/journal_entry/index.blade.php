@@ -122,14 +122,14 @@
             aaSorting: [[1, 'desc']],
             columns: [
                 { data: 'action', name: 'action', orderable: false, searchable: false },
-                { data: 'operation_date', name: 'map.operation_date' },
-                { data: 'gl_number', name: 'map.ref_no' },
-                { data: 'gl_code', name: 'acc.gl_code' },
-                { data: 'account_name', name: 'acc.name' },
-                { data: 'description', name: 'map.note' },
-                { data: 'debit', name: 'accounting_accounts_transactions.amount', orderable: false, searchable: false, className: 'text-right' },
-                { data: 'credit', name: 'accounting_accounts_transactions.amount', orderable: false, searchable: false, className: 'text-right' },
-                { data: 'balance', name: 'accounting_accounts_transactions.amount', orderable: false, searchable: false, className: 'text-right' },
+                { data: 'operation_date', name: 'operation_date' },
+                { data: 'ref_no', name: 'ref_no' },
+                { data: 'gl_code', name: 'gl_code' },
+                { data: 'account_name', name: 'account_name' },
+                { data: 'description', name: 'description' },
+                { data: 'debit', name: 'debit', orderable: false, searchable: false, className: 'text-right' },
+                { data: 'credit', name: 'credit', orderable: false, searchable: false, className: 'text-right' },
+                { data: 'balance', name: 'balance', orderable: false, searchable: false, className: 'text-right' },
             ],
             createdRow: function(row, data) {
                 if (data.type === 'debit') {
@@ -151,6 +151,15 @@
                 journal_table.ajax.reload();
             }
         );
+        
+        // Set default date range to current month on first load
+        $('#journal_entry_date_range_filter').data('daterangepicker').setStartDate(moment().startOf('month'));
+        $('#journal_entry_date_range_filter').data('daterangepicker').setEndDate(moment().endOf('month'));
+        $('#journal_entry_date_range_filter').val(
+            moment().startOf('month').format(moment_date_format) + ' ~ ' + 
+            moment().endOf('month').format(moment_date_format)
+        );
+        
         $('#journal_entry_date_range_filter').on('cancel.daterangepicker', function(ev, picker) {
             $('#journal_entry_date_range_filter').val('');
             journal_table.ajax.reload();

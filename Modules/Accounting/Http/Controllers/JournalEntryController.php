@@ -55,88 +55,125 @@ class JournalEntryController extends Controller
         }
 
         if (request()->ajax()) {
-            $journal = AccountingAccountsTransaction::join('accounting_acc_trans_mappings as map', 'accounting_accounts_transactions.acc_trans_mapping_id', 'map.id')
-                        ->join('accounting_accounts as acc', 'accounting_accounts_transactions.accounting_account_id', 'acc.id')
-                        ->where('map.business_id', $business_id)
-                        ->where('map.type', 'journal_entry')
-                        ->select([
-                            'accounting_accounts_transactions.id',
-                            'map.id as mapping_id',
-                            'map.ref_no',
-                            'map.operation_date',
-                            'map.note as description',
-                            'acc.gl_code',
-                            'acc.name as account_name',
-                            'accounting_accounts_transactions.amount',
-                            'accounting_accounts_transactions.type',
-                        ]);
+            // Build query using DB query builder
+            $query = DB::table('accounting_accounts_transactions')
+                ->join('accounting_acc_trans_mappings as map', 'accounting_accounts_transactions.acc_trans_mapping_id', '=', 'map.id')
+                ->join('accounting_accounts as acc', 'accounting_accounts_transactions.accounting_account_id', '=', 'acc.id')
+                ->where('map.business_id', $business_id)
+                ->where('map.type', 'journal_entry')
+                ->select([
+                    'accounting_accounts_transactions.id',
+                    'map.id as mapping_id',
+                    'map.ref_no',
+                    'map.operation_date',
+                    'map.note as description',
+                    'acc.gl_code',
+                    'acc.name as account_name',
+                    'accounting_accounts_transactions.amount',
+                    'accounting_accounts_transactions.type',
+                ]);
 
-            if (! empty(request()->start_date) && ! empty(request()->end_date)) {
+            // Apply date filter
+            if (!empty(request()->start_date) && !empty(request()->end_date)) {
                 $start = request()->start_date;
                 $end = request()->end_date;
-                $journal->whereDate('map.operation_date', '>=', $start)
-                            ->whereDate('map.operation_date', '<=', $end);
+                $query->whereDate('map.operation_date', '>=', $start)
+                      ->whereDate('map.operation_date', '<=', $end);
             }
 
-            return Datatables::of($journal)
-                ->editColumn('operation_date', '{{@format_datetime($operation_date)}}')
-                ->editColumn('description', function ($row) {
-                    return e($row->description);
-                })
-                ->addColumn('gl_number', function ($row) {
-                    return $row->ref_no;
-                })
-                ->addColumn('account_number', function ($row) {
-                    return $row->gl_code;
-                })
-                ->addColumn('debit', function ($row) {
-                    if ($row->type == 'debit') {
-                        return '<span class="display_currency tw-block" data-currency_symbol="false" data-orig-value="'.$row->amount.'">'.$row->amount.'</span>';
-                    }
-                    return '';
-                })
-                ->addColumn('credit', function ($row) {
-                    if ($row->type == 'credit') {
-                        return '<span class="display_currency tw-block" data-currency_symbol="false" data-orig-value="'.$row->amount.'">'.$row->amount.'</span>';
-                    }
-                    return '';
-                })
-                ->addColumn('balance', function ($row) {
+            // Use Datatables::of() with the query - this will handle everything
+            $datatable = Datatables::of($query);
+            
+            // Edit columns
+            $datatable->editColumn('operation_date', function ($row) {
+                return \Carbon\Carbon::parse($row->operation_date)->format('d M Y H:i');
+            });
+            
+            $datatable->addColumn('debit', function ($row) {
+                if ($row->type == 'debit') {
                     return '<span class="display_currency tw-block" data-currency_symbol="false" data-orig-value="'.$row->amount.'">'.$row->amount.'</span>';
-                })
-                ->addColumn(
-                    'action',
-                    function ($row) {
-                        $html = '<div class="btn-group">
-                                <button type="button" class="btn btn-info dropdown-toggle btn-xs" 
-                                    data-toggle="dropdown" aria-expanded="false">'.
-                                    __('messages.actions').
-                                    '<span class="caret"></span><span class="sr-only">Toggle Dropdown
-                                    </span>
-                                </button>
-                                <ul class="dropdown-menu" role="menu">';
-                        if (auth()->user()->can('accounting.edit_journal')) {
-                            $html .= '<li>
-                                <a href="'.action([\Modules\Accounting\Http\Controllers\JournalEntryController::class, 'edit'], [$row->mapping_id]).'">
-                                    <i class="fas fa-edit"></i>'.__('messages.edit').'
-                                </a>
+                }
+                return '';
+            });
+            
+            $datatable->addColumn('credit', function ($row) {
+                if ($row->type == 'credit') {
+                    return '<span class="display_currency tw-block" data-currency_symbol="false" data-orig-value="'.$row->amount.'">'.$row->amount.'</span>';
+                }
+                return '';
+            });
+            
+            $datatable->addColumn('balance', function ($row) {
+                return '<span class="display_currency tw-block" data-currency_symbol="false" data-orig-value="'.$row->amount.'">'.$row->amount.'</span>';
+            });
+            
+            $datatable->addColumn('action', function ($row) {
+                $html = '<div class="btn-group">
+                        <button type="button" class="btn btn-info dropdown-toggle btn-xs" 
+                            data-toggle="dropdown" aria-expanded="false">'.
+                            __('messages.actions').
+                            '<span class="caret"></span><span class="sr-only">Toggle Dropdown
+                            </span>
+                        </button>
+                        <ul class="dropdown-menu" role="menu">';
+                if (auth()->user()->can('accounting.edit_journal')) {
+                    $html .= '<li>
+                        <a href="'.action([\Modules\Accounting\Http\Controllers\JournalEntryController::class, 'edit'], [$row->mapping_id]).'">
+                            <i class="fas fa-edit"></i>'.__('messages.edit').'
+                        </a>
+                    </li>';
+                }
+                if (auth()->user()->can('accounting.delete_journal')) {
+                    $html .= '<li>
+                            <a href="#" data-href="'.action([\Modules\Accounting\Http\Controllers\JournalEntryController::class, 'destroy'], [$row->mapping_id]).'" class="delete_journal_button">
+                                <i class="fas fa-trash" aria-hidden="true"></i>'.__('messages.delete').'
+                            </a>
                             </li>';
-                        }
-                        if (auth()->user()->can('accounting.delete_journal')) {
-                            $html .= '<li>
-                                    <a href="#" data-href="'.action([\Modules\Accounting\Http\Controllers\JournalEntryController::class, 'destroy'], [$row->mapping_id]).'" class="delete_journal_button">
-                                        <i class="fas fa-trash" aria-hidden="true"></i>'.__('messages.delete').'
-                                    </a>
-                                    </li>';
-                        }
-
-                        $html .= '</ul></div>';
-
-                        return $html;
-                    }
-                )
-                ->rawColumns(['debit', 'credit', 'balance', 'action'])
-                ->make(true);
+                }
+                $html .= '</ul></div>';
+                return $html;
+            });
+            
+            // Global search filter - searches across all searchable columns
+            $datatable->filter(function ($query) {
+                if (request()->has('search') && !empty(request()->search['value'])) {
+                    $keyword = request()->search['value'];
+                    $query->where(function ($q) use ($keyword) {
+                        $q->where('map.ref_no', 'like', "%{$keyword}%")
+                          ->orWhere('acc.gl_code', 'like', "%{$keyword}%")
+                          ->orWhere('acc.name', 'like', "%{$keyword}%")
+                          ->orWhere('map.note', 'like', "%{$keyword}%")
+                          ->orWhereRaw("DATE_FORMAT(map.operation_date, '%Y-%m-%d') like ?", ["%{$keyword}%"]);
+                    });
+                }
+            });
+            
+            // Add filter columns for individual column search
+            $datatable->filterColumn('ref_no', function ($query, $keyword) {
+                $query->where('map.ref_no', 'like', "%{$keyword}%");
+            });
+            
+            $datatable->filterColumn('gl_code', function ($query, $keyword) {
+                $query->where('acc.gl_code', 'like', "%{$keyword}%");
+            });
+            
+            $datatable->filterColumn('account_name', function ($query, $keyword) {
+                $query->where('acc.name', 'like', "%{$keyword}%");
+            });
+            
+            $datatable->filterColumn('description', function ($query, $keyword) {
+                $query->where('map.note', 'like', "%{$keyword}%");
+            });
+            
+            // Add order columns for sorting
+            $datatable->orderColumn('ref_no', 'map.ref_no $1');
+            $datatable->orderColumn('gl_code', 'acc.gl_code $1');
+            $datatable->orderColumn('account_name', 'acc.name $1');
+            $datatable->orderColumn('description', 'map.note $1');
+            
+            $datatable->rawColumns(['debit', 'credit', 'balance', 'action']);
+            
+            return $datatable->make(true);
         }
 
         return view('accounting::journal_entry.index');
