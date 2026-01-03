@@ -1293,4 +1293,228 @@ class ReportController extends Controller
                 'category_net_profit'
             ));
     }
+
+    /**
+     * Diagnostic page for P&L Business Categories
+     * Shows the complete flow: Detail Types -> Accounts -> Transactions -> Report
+     */
+    public function diagnosa()
+    {
+        $business_id = request()->session()->get('user.business_id');
+
+        if (
+            !(auth()->user()->can('superadmin') ||
+                $this->moduleUtil->hasThePermissionInSubscription($business_id, 'accounting_module')) ||
+            !(auth()->user()->can('accounting.view_reports'))
+        ) {
+            abort(403, 'Unauthorized action.');
+        }
+
+        // Get date range
+        if (!empty(request()->start_date) && !empty(request()->end_date)) {
+            $start_date = request()->start_date;
+            $end_date = request()->end_date;
+        } else {
+            $fy = $this->businessUtil->getCurrentFinancialYear($business_id);
+            $start_date = $fy['start'];
+            $end_date = $fy['end'];
+        }
+
+        // STEP 1: Get all Detail Types with account count
+        $detail_types = AccountingAccountType::where('account_type', 'detail_type')
+            ->where(function ($q) use ($business_id) {
+                $q->whereNull('business_id')
+                    ->orWhere('business_id', $business_id);
+            })
+            ->select('id', 'name', 'business_id', 'parent_id')
+            ->withCount(['accounts' => function ($q) use ($business_id) {
+                $q->where('business_id', $business_id);
+            }])
+            ->orderBy('name')
+            ->get()
+            ->map(function ($dt) {
+                $dt->parent_name = $dt->parent ? $dt->parent->name : null;
+                return $dt;
+            });
+
+        // STEP 2: Get accounts with detail type
+        $accounts_with_detail_type = AccountingAccount::where('business_id', $business_id)
+            ->where('status', 'active')
+            ->whereNotNull('detail_type_id')
+            ->whereRaw("CAST(SUBSTRING(gl_code, 1, 1) AS UNSIGNED) >= 4")
+            ->with('detail_type')
+            ->select('id', 'name', 'gl_code', 'account_primary_type', 'detail_type_id')
+            ->orderBy('gl_code')
+            ->get()
+            ->map(function ($acc) use ($start_date, $end_date) {
+                $acc->detail_type_name = $acc->detail_type ? $acc->detail_type->name : 'N/A';
+                $acc->transactions_count = DB::table('accounting_accounts_transactions')
+                    ->where('accounting_account_id', $acc->id)
+                    ->where(function ($q) {
+                        $q->whereNull('sub_type')
+                            ->orWhere('sub_type', '!=', 'opening_balance');
+                    })
+                    ->whereDate('operation_date', '>=', $start_date)
+                    ->whereDate('operation_date', '<=', $end_date)
+                    ->count();
+                return $acc;
+            });
+
+        // Get accounts WITHOUT detail type (these go to "Other")
+        $accounts_without_detail_type = AccountingAccount::where('business_id', $business_id)
+            ->where('status', 'active')
+            ->whereNull('detail_type_id')
+            ->whereRaw("CAST(SUBSTRING(gl_code, 1, 1) AS UNSIGNED) >= 4")
+            ->select('id', 'name', 'gl_code', 'account_primary_type')
+            ->orderBy('gl_code')
+            ->get()
+            ->map(function ($acc) use ($start_date, $end_date) {
+                $acc->transactions_count = DB::table('accounting_accounts_transactions')
+                    ->where('accounting_account_id', $acc->id)
+                    ->where(function ($q) {
+                        $q->whereNull('sub_type')
+                            ->orWhere('sub_type', '!=', 'opening_balance');
+                    })
+                    ->whereDate('operation_date', '>=', $start_date)
+                    ->whereDate('operation_date', '<=', $end_date)
+                    ->count();
+                return $acc;
+            });
+
+        // STEP 3: Calculate category summary
+        $business_categories = [];
+        foreach ($detail_types as $dt) {
+            $cat_key = \Illuminate\Support\Str::slug($dt->name, '_');
+            if (isset($business_categories[$cat_key])) {
+                $business_categories[$cat_key]['detail_type_ids'][] = $dt->id;
+            } else {
+                $business_categories[$cat_key] = [
+                    'name' => $dt->name,
+                    'detail_type_ids' => [$dt->id],
+                ];
+            }
+        }
+
+        $category_summary = [];
+        $total_income = 0;
+        $total_expense = 0;
+
+        foreach ($business_categories as $cat_key => $cat_info) {
+            $dt_ids = $cat_info['detail_type_ids'];
+            
+            // Get income for this category
+            $income = DB::table('accounting_accounts_transactions as aat')
+                ->join('accounting_accounts as acc', 'aat.accounting_account_id', '=', 'acc.id')
+                ->whereIn('acc.detail_type_id', $dt_ids)
+                ->where('acc.business_id', $business_id)
+                ->where('acc.account_primary_type', 'income')
+                ->where(function ($q) {
+                    $q->whereNull('aat.sub_type')
+                        ->orWhere('aat.sub_type', '!=', 'opening_balance');
+                })
+                ->whereDate('aat.operation_date', '>=', $start_date)
+                ->whereDate('aat.operation_date', '<=', $end_date)
+                ->select(
+                    DB::raw("COALESCE(SUM(IF(aat.type = 'credit', aat.amount, 0)), 0) as credit"),
+                    DB::raw("COALESCE(SUM(IF(aat.type = 'debit', aat.amount, 0)), 0) as debit")
+                )
+                ->first();
+
+            $income_val = ($income->credit ?? 0) - ($income->debit ?? 0);
+
+            // Get expense for this category
+            $expense = DB::table('accounting_accounts_transactions as aat')
+                ->join('accounting_accounts as acc', 'aat.accounting_account_id', '=', 'acc.id')
+                ->whereIn('acc.detail_type_id', $dt_ids)
+                ->where('acc.business_id', $business_id)
+                ->where('acc.account_primary_type', '!=', 'income')
+                ->where(function ($q) {
+                    $q->whereNull('aat.sub_type')
+                        ->orWhere('aat.sub_type', '!=', 'opening_balance');
+                })
+                ->whereDate('aat.operation_date', '>=', $start_date)
+                ->whereDate('aat.operation_date', '<=', $end_date)
+                ->select(
+                    DB::raw("COALESCE(SUM(IF(aat.type = 'debit', aat.amount, 0)), 0) as debit"),
+                    DB::raw("COALESCE(SUM(IF(aat.type = 'credit', aat.amount, 0)), 0) as credit")
+                )
+                ->first();
+
+            $expense_val = ($expense->debit ?? 0) - ($expense->credit ?? 0);
+
+            $category_summary[$cat_key] = [
+                'name' => $cat_info['name'],
+                'income' => $income_val,
+                'expense' => $expense_val,
+                'net_profit' => $income_val - $expense_val,
+            ];
+
+            $total_income += $income_val;
+            $total_expense += $expense_val;
+        }
+
+        // Add "Other" category
+        $other_income = DB::table('accounting_accounts_transactions as aat')
+            ->join('accounting_accounts as acc', 'aat.accounting_account_id', '=', 'acc.id')
+            ->whereNull('acc.detail_type_id')
+            ->where('acc.business_id', $business_id)
+            ->where('acc.account_primary_type', 'income')
+            ->whereRaw("CAST(SUBSTRING(acc.gl_code, 1, 1) AS UNSIGNED) >= 4")
+            ->where(function ($q) {
+                $q->whereNull('aat.sub_type')
+                    ->orWhere('aat.sub_type', '!=', 'opening_balance');
+            })
+            ->whereDate('aat.operation_date', '>=', $start_date)
+            ->whereDate('aat.operation_date', '<=', $end_date)
+            ->select(
+                DB::raw("COALESCE(SUM(IF(aat.type = 'credit', aat.amount, 0)), 0) as credit"),
+                DB::raw("COALESCE(SUM(IF(aat.type = 'debit', aat.amount, 0)), 0) as debit")
+            )
+            ->first();
+
+        $other_expense = DB::table('accounting_accounts_transactions as aat')
+            ->join('accounting_accounts as acc', 'aat.accounting_account_id', '=', 'acc.id')
+            ->whereNull('acc.detail_type_id')
+            ->where('acc.business_id', $business_id)
+            ->where('acc.account_primary_type', '!=', 'income')
+            ->whereRaw("CAST(SUBSTRING(acc.gl_code, 1, 1) AS UNSIGNED) >= 4")
+            ->where(function ($q) {
+                $q->whereNull('aat.sub_type')
+                    ->orWhere('aat.sub_type', '!=', 'opening_balance');
+            })
+            ->whereDate('aat.operation_date', '>=', $start_date)
+            ->whereDate('aat.operation_date', '<=', $end_date)
+            ->select(
+                DB::raw("COALESCE(SUM(IF(aat.type = 'debit', aat.amount, 0)), 0) as debit"),
+                DB::raw("COALESCE(SUM(IF(aat.type = 'credit', aat.amount, 0)), 0) as credit")
+            )
+            ->first();
+
+        $other_income_val = ($other_income->credit ?? 0) - ($other_income->debit ?? 0);
+        $other_expense_val = ($other_expense->debit ?? 0) - ($other_expense->credit ?? 0);
+
+        $category_summary['other'] = [
+            'name' => 'Other',
+            'income' => $other_income_val,
+            'expense' => $other_expense_val,
+            'net_profit' => $other_income_val - $other_expense_val,
+        ];
+
+        $total_income += $other_income_val;
+        $total_expense += $other_expense_val;
+        $net_profit = $total_income - $total_expense;
+
+        return view('accounting::report.diagnosa')
+            ->with(compact(
+                'detail_types',
+                'accounts_with_detail_type',
+                'accounts_without_detail_type',
+                'category_summary',
+                'total_income',
+                'total_expense',
+                'net_profit',
+                'start_date',
+                'end_date'
+            ));
+    }
 }

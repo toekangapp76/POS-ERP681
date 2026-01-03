@@ -40,6 +40,14 @@ class AccountingAccountType extends Model
         return $this->belongsTo('Modules\Accounting\Entities\AccountingAccountType', 'parent_id', 'id');
     }
 
+    /**
+     * Get accounts that use this detail type
+     */
+    public function accounts()
+    {
+        return $this->hasMany('Modules\Accounting\Entities\AccountingAccount', 'detail_type_id', 'id');
+    }
+
     public static function accounting_primary_type()
     {
         $accounting_primary_type = [

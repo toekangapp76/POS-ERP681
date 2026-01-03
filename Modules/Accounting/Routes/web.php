@@ -59,6 +59,9 @@ Route::middleware('web', 'SetSessionData', 'auth', 'language', 'timezone', 'Admi
     Route::get('reports/pnl-bisnis',
     [\Modules\Accounting\Http\Controllers\ReportController::class, 'pnlBisnis'])->name('accounting.pnlBisnis');
 
+    Route::get('reports/diagnosa',
+    [\Modules\Accounting\Http\Controllers\ReportController::class, 'diagnosa'])->name('accounting.diagnosa');
+
     Route::get('transactions', [\Modules\Accounting\Http\Controllers\TransactionController::class, 'index']);
     Route::get('transactions/map', [\Modules\Accounting\Http\Controllers\TransactionController::class, 'map']);
     Route::post('transactions/save-map', [\Modules\Accounting\Http\Controllers\TransactionController::class, 'saveMap']);
