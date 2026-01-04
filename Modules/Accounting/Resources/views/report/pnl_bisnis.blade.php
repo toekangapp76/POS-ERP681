@@ -29,6 +29,15 @@
                 </button>
             </div>
         </div>
+        <div class="col-md-2">
+            <div class="form-group">
+                <label>&nbsp;</label>
+                <a class="btn btn-primary btn-block" href="{{ route('accounting.diagnosa') }}">
+                    {{-- <i class="fa fa-print"></i>  --}}
+                    Diagnosa
+                </a>
+            </div>
+        </div>
     </div>
 </section>
 
