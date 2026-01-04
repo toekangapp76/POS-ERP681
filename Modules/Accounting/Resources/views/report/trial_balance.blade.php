@@ -100,22 +100,6 @@
             return tmp.textContent || tmp.innerText || "";
         }
 
-        // Format number with Indonesian separators (dot thousands, comma decimals)
-        function formatIndonesianNumber(num) {
-            if (num === '' || num === null || typeof num === 'undefined') return '';
-            if (typeof num !== 'number') {
-                var parsed = parseFloat(num);
-                if (isNaN(parsed)) return num;
-                num = parsed;
-            }
-
-            var hasFraction = Math.abs(num % 1) > 0;
-            return num.toLocaleString('id-ID', {
-                minimumFractionDigits: hasFraction ? 2 : 0,
-                maximumFractionDigits: hasFraction ? 2 : 0
-            });
-        }
-
         // Initialize DataTable with export buttons and sorting
         $('#trial_balance_table').DataTable({
             dom: 'Bfrtip',
@@ -131,7 +115,7 @@
                                 if (column >= 2 && column <= 5) {
                                     var $el = $(data);
                                     if ($el.data('orig-value') !== undefined) {
-                                        return formatIndonesianNumber(parseFloat($el.data('orig-value')));
+                                        return parseFloat($el.data('orig-value'));
                                     }
                                     // Fallback: strip HTML and return text
                                     return stripHtml(data);
