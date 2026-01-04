@@ -605,6 +605,24 @@
             var incomeTable = document.getElementById('income_report_table').cloneNode(true);
             var expenseTable = document.getElementById('expense_report_table').cloneNode(true);
             var netProfitTable = document.getElementById('net_profit_table').cloneNode(true);
+
+            function padNetProfitTable(table) {
+                var rows = table.querySelectorAll('tr');
+                rows.forEach(function(row) {
+                    var cells = row.querySelectorAll('th, td');
+                    if (cells.length === 5) {
+                        var emptyCell = document.createElement(cells[0].tagName.toLowerCase());
+                        emptyCell.innerHTML = '&nbsp;';
+                        if (cells[1]) {
+                            row.insertBefore(emptyCell, cells[1]);
+                        } else {
+                            row.appendChild(emptyCell);
+                        }
+                    }
+                });
+            }
+
+            padNetProfitTable(netProfitTable);
             
             [incomeTable, expenseTable, netProfitTable].forEach(function(table) {
                 $(table).find('td, th').each(function() {
