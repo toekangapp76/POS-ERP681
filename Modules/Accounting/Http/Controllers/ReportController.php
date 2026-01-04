@@ -349,19 +349,26 @@ class ReportController extends Controller
 
         if (!empty(request()->end_date)) {
             $selected_end = \Carbon\Carbon::parse(request()->end_date)->endOfMonth();
-            $business_start = Business::where('id', $business_id)->value('start_date');
+            $requested_start = request()->input('start_date');
+            $start_candidate = !empty($requested_start)
+                ? \Carbon\Carbon::parse($requested_start)->startOfDay()
+                : $selected_end->copy()->startOfYear();
 
+            $business_start = Business::where('id', $business_id)->value('start_date');
             if (!empty($business_start)) {
                 $business_start = \Carbon\Carbon::parse($business_start)->startOfDay();
                 if ($business_start->greaterThan($selected_end)) {
-                    $start_date = $selected_end->copy()->startOfMonth()->format('Y-m-d');
-                } else {
-                    $start_date = $business_start->format('Y-m-d');
+                    $start_candidate = $selected_end->copy()->startOfMonth();
+                } elseif ($business_start->greaterThan($start_candidate)) {
+                    $start_candidate = $business_start;
                 }
-            } else {
-                $start_date = $selected_end->copy()->startOfYear()->format('Y-m-d');
             }
 
+            if ($start_candidate->greaterThan($selected_end)) {
+                $start_candidate = $selected_end->copy()->startOfMonth();
+            }
+
+            $start_date = $start_candidate->format('Y-m-d');
             $end_date = $selected_end->format('Y-m-d');
         } else {
             $fy = $this->businessUtil->getCurrentFinancialYear($business_id);

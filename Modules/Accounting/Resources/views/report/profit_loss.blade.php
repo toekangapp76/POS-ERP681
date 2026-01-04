@@ -513,6 +513,22 @@
             return isNaN(num) ? 0 : num;
         }
 
+        // Format number with Indonesian separators (dot thousands, comma decimals)
+        function formatIndonesianNumber(num) {
+            if (num === '' || num === null || typeof num === 'undefined') return '';
+            if (typeof num !== 'number') {
+                var parsed = parseFloat(num);
+                if (isNaN(parsed)) return num;
+                num = parsed;
+            }
+
+            var hasFraction = Math.abs(num % 1) > 0;
+            return num.toLocaleString('id-ID', {
+                minimumFractionDigits: hasFraction ? 2 : 0,
+                maximumFractionDigits: hasFraction ? 2 : 0
+            });
+        }
+
         // Function to export table to Excel (strips currency prefix and converts numbers)
         function exportTableToExcel(tableId, filename) {
             var table = document.getElementById(tableId);
@@ -528,7 +544,7 @@
                 if (text.match(/Rp\s*-?[\d.,]+/) || text.match(/^-?[\d.,]+$/)) {
                     // Parse the Indonesian formatted number
                     var num = parseIndonesianNumber(text);
-                    $(this).text(num);
+                    $(this).text(formatIndonesianNumber(num));
                 } else {
                     // Just set the stripped text (removes HTML)
                     $(this).text(text);
@@ -558,12 +574,19 @@
         // Export All (Income + Expense)
         $('#export_all_excel').on('click', function () {
             var monthCount = {{ count($months) }};
-            var totalCols = 2 + monthCount + (monthCount > 1 ? monthCount - 1 : 0) + 1;
+            var totalCols = 3 + monthCount + (monthCount > 1 ? monthCount - 1 : 0) + 1;
 
             // Clone tables to avoid modifying originals
             var incomeTable = document.getElementById('income_report_table').cloneNode(true);
             var expenseTable = document.getElementById('expense_report_table').cloneNode(true);
             var netProfitTable = document.getElementById('net_profit_table').cloneNode(true);
+
+            // Net profit has one fewer leading column; add a blank column to align with GL Code + Name
+            $(netProfitTable).find('tr').each(function () {
+                var $row = $(this);
+                var cellTag = $row.closest('thead').length ? 'th' : 'td';
+                $row.children().first().after('<' + cellTag + '></' + cellTag + '>');
+            });
 
             // Process all cells in cloned tables - strip HTML and convert numbers
             [incomeTable, expenseTable, netProfitTable].forEach(function (table) {
@@ -573,7 +596,7 @@
                     // Check if it looks like a currency value
                     if (text.match(/Rp\s*-?[\d.,]+/) || text.match(/^-?[\d.,]+$/)) {
                         var num = parseIndonesianNumber(text);
-                        $(this).text(num);
+                        $(this).text(formatIndonesianNumber(num));
                     } else {
                         $(this).text(text);
                     }

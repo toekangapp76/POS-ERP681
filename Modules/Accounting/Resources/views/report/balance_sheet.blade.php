@@ -439,6 +439,22 @@
             return isNaN(num) ? 0 : num;
         }
 
+        // Format number with Indonesian separators (dot thousands, comma decimals)
+        function formatIndonesianNumber(num) {
+            if (num === '' || num === null || typeof num === 'undefined') return '';
+            if (typeof num !== 'number') {
+                var parsed = parseFloat(num);
+                if (isNaN(parsed)) return num;
+                num = parsed;
+            }
+
+            var hasFraction = Math.abs(num % 1) > 0;
+            return num.toLocaleString('id-ID', {
+                minimumFractionDigits: hasFraction ? 2 : 0,
+                maximumFractionDigits: hasFraction ? 2 : 0
+            });
+        }
+
         // Initialize DataTable with export buttons and sorting
         var table = $('#balance_sheet_table').DataTable({
             dom: 'Bfrtip',
@@ -453,7 +469,7 @@
                             body: function (data, row, column, node) {
                                 // For columns with currency (columns 3 onwards), extract numeric value
                                 if (column >= 3) {
-                                    return parseIndonesianNumber(data);
+                                    return formatIndonesianNumber(parseIndonesianNumber(data));
                                 }
                                 // Strip HTML from other columns
                                 return stripHtml(data);

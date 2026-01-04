@@ -94,6 +94,33 @@
                             : '-';
                     @endphp
 
+                    @php
+                        $category_count = count($business_categories);
+                        $total_columns = 2 + ($category_count * 3) + 3 + 3;
+
+                        $income_totals_period = ['last_month' => 0, 'current_month' => 0, 'ytd' => 0];
+                        $expense_totals_period = ['last_month' => 0, 'current_month' => 0, 'ytd' => 0];
+                        foreach ($business_categories as $cat_key => $cat_info) {
+                            $inc = $category_totals['income'][$cat_key] ?? ['last_month' => 0, 'current_month' => 0, 'ytd' => 0];
+                            $exp = $category_totals['expense'][$cat_key] ?? ['last_month' => 0, 'current_month' => 0, 'ytd' => 0];
+                            foreach (['last_month', 'current_month', 'ytd'] as $period_key) {
+                                $income_totals_period[$period_key] += $inc[$period_key];
+                                $expense_totals_period[$period_key] += $exp[$period_key];
+                            }
+                        }
+                        $other_income_tot = $category_totals['income']['other'] ?? ['last_month' => 0, 'current_month' => 0, 'ytd' => 0];
+                        $other_expense_tot = $category_totals['expense']['other'] ?? ['last_month' => 0, 'current_month' => 0, 'ytd' => 0];
+                        foreach (['last_month', 'current_month', 'ytd'] as $period_key) {
+                            $income_totals_period[$period_key] += $other_income_tot[$period_key];
+                            $expense_totals_period[$period_key] += $other_expense_tot[$period_key];
+                        }
+                        $net_totals_period = [
+                            'last_month' => $income_totals_period['last_month'] - $expense_totals_period['last_month'],
+                            'current_month' => $income_totals_period['current_month'] - $expense_totals_period['current_month'],
+                            'ytd' => $income_totals_period['ytd'] - $expense_totals_period['ytd'],
+                        ];
+                    @endphp
+
                     {{-- Income Section --}}
                     <h4 class="text-success"><strong><i class="fa fa-arrow-up"></i> @lang('accounting::lang.income')</strong></h4>
                     <div class="table-responsive">
@@ -107,7 +134,7 @@
                                     <th class="text-center category-col" colspan="3" style="vertical-align: middle;">{{ $cat_info['name'] }}</th>
                                 @endforeach
                                 <th class="text-center category-col" colspan="3" style="vertical-align: middle; background-color: #f0f0f0;">Other</th>
-                                <th class="text-center bg-primary text-black" style="width:100px; vertical-align: middle;" rowspan="2">Total</th>
+                                <th class="text-center bg-primary text-black" style="width:100px; vertical-align: middle;" colspan="3">Total</th>
                             </tr>
                             {{-- Sub-headers for periods --}}
                             <tr class="active" style="font-size: 10px;">
@@ -119,10 +146,21 @@
                                 <th class="text-center" style="padding: 3px; background-color: #f0f0f0;">LM</th>
                                 <th class="text-center" style="padding: 3px; background-color: #f0f0f0;">CM</th>
                                 <th class="text-center" style="padding: 3px; background-color: #f0f0f0;">YTD</th>
+                                <th class="text-center" style="padding: 3px;">LM</th>
+                                <th class="text-center" style="padding: 3px;">CM</th>
+                                <th class="text-center" style="padding: 3px;">YTD</th>
                             </tr>
                         </thead>
                         <tbody>
                             @forelse($income_accounts as $account)
+                                @php
+                                    $account_totals = ['last_month' => 0, 'current_month' => 0, 'ytd' => 0];
+                                    foreach ($account->category_balances as $cat_vals) {
+                                        $account_totals['last_month'] += $cat_vals['last_month'] ?? 0;
+                                        $account_totals['current_month'] += $cat_vals['current_month'] ?? 0;
+                                        $account_totals['ytd'] += $cat_vals['ytd'] ?? 0;
+                                    }
+                                @endphp
                                 <tr>
                                     <td>{{ $account->gl_code }}</td>
                                     <td>{{ $account->name }}</td>
@@ -140,11 +178,13 @@
                                     <td class="text-right category-col" style="background-color: #f0f0f0;">@format_currency($other_data['last_month'])</td>
                                     <td class="text-right category-col" style="background-color: #f0f0f0;">@format_currency($other_data['current_month'])</td>
                                     <td class="text-right category-col" style="background-color: #f0f0f0;"><strong>@format_currency($other_data['ytd'])</strong></td>
-                                    <td class="text-right"><strong>@format_currency($account->balance)</strong></td>
+                                    <td class="text-right">@format_currency($account_totals['last_month'])</td>
+                                    <td class="text-right">@format_currency($account_totals['current_month'])</td>
+                                    <td class="text-right"><strong>@format_currency($account_totals['ytd'])</strong></td>
                                 </tr>
                             @empty
                                 <tr>
-                                    <td colspan="{{ 3 + (count($business_categories) * 3) + 6 + 1 }}" class="text-center text-muted">@lang('lang_v1.no_data')</td>
+                                    <td colspan="{{ $total_columns }}" class="text-center text-muted">@lang('lang_v1.no_data')</td>
                                 </tr>
                             @endforelse
                         </tbody>
@@ -157,13 +197,12 @@
                                     <th class="text-right category-col">@format_currency($cat_tot['current_month'])</th>
                                     <th class="text-right category-col"><strong>@format_currency($cat_tot['ytd'])</strong></th>
                                 @endforeach
-                                @php 
-                                    $other_tot = $category_totals['income']['other'] ?? ['last_month' => 0, 'current_month' => 0, 'ytd' => 0]; 
-                                @endphp
-                                <th class="text-right category-col" style="background-color: #f0f0f0; color:black">@format_currency($other_tot['last_month'])</th>
-                                <th class="text-right category-col" style="background-color: #f0f0f0; color:black">@format_currency($other_tot['current_month'])</th>
-                                <th class="text-right category-col" style="background-color: #f0f0f0; color:black"><strong>@format_currency($other_tot['ytd'])</strong></th>
-                                <th class="text-right"><strong>@format_currency($total_income)</strong></th>
+                                <th class="text-right category-col" style="background-color: #f0f0f0; color:black">@format_currency($other_income_tot['last_month'])</th>
+                                <th class="text-right category-col" style="background-color: #f0f0f0; color:black">@format_currency($other_income_tot['current_month'])</th>
+                                <th class="text-right category-col" style="background-color: #f0f0f0; color:black"><strong>@format_currency($other_income_tot['ytd'])</strong></th>
+                                <th class="text-right">@format_currency($income_totals_period['last_month'])</th>
+                                <th class="text-right">@format_currency($income_totals_period['current_month'])</th>
+                                <th class="text-right"><strong>@format_currency($income_totals_period['ytd'])</strong></th>
                             </tr>
                         </tfoot>
                     </table>
@@ -184,7 +223,7 @@
                                     <th class="text-center category-col" colspan="3" style="vertical-align: middle;">{{ $cat_info['name'] }}</th>
                                 @endforeach
                                 <th class="text-center category-col" colspan="3" style="vertical-align: middle; background-color: #f0f0f0;">Other</th>
-                                <th class="text-center bg-primary text-black" style="width:100px; vertical-align: middle;" rowspan="2">Total</th>
+                                <th class="text-center bg-primary text-black" colspan="3" style="vertical-align: middle;">Total</th>
                             </tr>
                             {{-- Sub-headers for periods --}}
                             <tr class="active" style="font-size: 10px;">
@@ -196,10 +235,21 @@
                                 <th class="text-center" style="padding: 3px; background-color: #f0f0f0;">LM</th>
                                 <th class="text-center" style="padding: 3px; background-color: #f0f0f0;">CM</th>
                                 <th class="text-center" style="padding: 3px; background-color: #f0f0f0;">YTD</th>
+                                <th class="text-center" style="padding: 3px;">LM</th>
+                                <th class="text-center" style="padding: 3px;">CM</th>
+                                <th class="text-center" style="padding: 3px;">YTD</th>
                             </tr>
                         </thead>
                         <tbody>
                             @forelse($expense_accounts as $account)
+                                @php
+                                    $account_totals = ['last_month' => 0, 'current_month' => 0, 'ytd' => 0];
+                                    foreach ($account->category_balances as $cat_vals) {
+                                        $account_totals['last_month'] += $cat_vals['last_month'] ?? 0;
+                                        $account_totals['current_month'] += $cat_vals['current_month'] ?? 0;
+                                        $account_totals['ytd'] += $cat_vals['ytd'] ?? 0;
+                                    }
+                                @endphp
                                 <tr>
                                     <td>{{ $account->gl_code }}</td>
                                     <td>{{ $account->name }}</td>
@@ -217,11 +267,13 @@
                                     <td class="text-right category-col" style="background-color: #f0f0f0;">@format_currency($other_data['last_month'])</td>
                                     <td class="text-right category-col" style="background-color: #f0f0f0;">@format_currency($other_data['current_month'])</td>
                                     <td class="text-right category-col" style="background-color: #f0f0f0;"><strong>@format_currency($other_data['ytd'])</strong></td>
-                                    <td class="text-right"><strong>@format_currency($account->balance)</strong></td>
+                                    <td class="text-right">@format_currency($account_totals['last_month'])</td>
+                                    <td class="text-right">@format_currency($account_totals['current_month'])</td>
+                                    <td class="text-right"><strong>@format_currency($account_totals['ytd'])</strong></td>
                                 </tr>
                             @empty
                                 <tr>
-                                    <td colspan="{{ 2 + (count($business_categories) * 3) + 3 + 1 }}" class="text-center text-muted">@lang('lang_v1.no_data')</td>
+                                    <td colspan="{{ $total_columns }}" class="text-center text-muted">@lang('lang_v1.no_data')</td>
                                 </tr>
                             @endforelse
                         </tbody>
@@ -234,13 +286,12 @@
                                     <th class="text-right category-col">@format_currency($cat_tot['current_month'])</th>
                                     <th class="text-right category-col"><strong>@format_currency($cat_tot['ytd'])</strong></th>
                                 @endforeach
-                                @php 
-                                    $other_tot = $category_totals['expense']['other'] ?? ['last_month' => 0, 'current_month' => 0, 'ytd' => 0]; 
-                                @endphp
-                                <th class="text-right category-col" style="background-color: #f0f0f0;">@format_currency($other_tot['last_month'])</th>
-                                <th class="text-right category-col" style="background-color: #f0f0f0;">@format_currency($other_tot['current_month'])</th>
-                                <th class="text-right category-col" style="background-color: #f0f0f0;"><strong>@format_currency($other_tot['ytd'])</strong></th>
-                                <th class="text-right"><strong>@format_currency($total_expense)</strong></th>
+                                <th class="text-right category-col" style="background-color: #f0f0f0;">@format_currency($other_expense_tot['last_month'])</th>
+                                <th class="text-right category-col" style="background-color: #f0f0f0;">@format_currency($other_expense_tot['current_month'])</th>
+                                <th class="text-right category-col" style="background-color: #f0f0f0;"><strong>@format_currency($other_expense_tot['ytd'])</strong></th>
+                                <th class="text-right">@format_currency($expense_totals_period['last_month'])</th>
+                                <th class="text-right">@format_currency($expense_totals_period['current_month'])</th>
+                                <th class="text-right"><strong>@format_currency($expense_totals_period['ytd'])</strong></th>
                             </tr>
                         </tfoot>
                     </table>
@@ -267,7 +318,7 @@
                                     <th class="text-center category-col" colspan="3" style="vertical-align: middle;">{{ $cat_info['name'] }}</th>
                                 @endforeach
                                 <th class="text-center category-col" colspan="3" style="vertical-align: middle; background-color: #f0f0f0; color:black">Other</th>
-                                <th class="text-center bg-primary" style="width:100px; vertical-align: middle;" rowspan="2">Total</th>
+                                <th class="text-center bg-primary" colspan="3" style="vertical-align: middle;">Total</th>
                             </tr>
                             <tr class="active" style="font-size: 10px;">
                                 @foreach($business_categories as $cat_key => $cat_info)
@@ -278,6 +329,9 @@
                                 <th class="text-center" style="padding: 3px; background-color: #f0f0f0;">LM</th>
                                 <th class="text-center" style="padding: 3px; background-color: #f0f0f0;">CM</th>
                                 <th class="text-center" style="padding: 3px; background-color: #f0f0f0;">YTD</th>
+                                <th class="text-center" style="padding: 3px;">LM</th>
+                                <th class="text-center" style="padding: 3px;">CM</th>
+                                <th class="text-center" style="padding: 3px;">YTD</th>
                             </tr>
                         </thead>
                         <tbody>
@@ -297,11 +351,115 @@
                                 <td class="text-right category-col {{ $other_net['last_month'] < 0 ? 'text-danger' : '' }}" style="background-color: #f0f0f0;">@format_currency($other_net['last_month'])</td>
                                 <td class="text-right category-col {{ $other_net['current_month'] < 0 ? 'text-danger' : '' }}" style="background-color: #f0f0f0;">@format_currency($other_net['current_month'])</td>
                                 <td class="text-right category-col {{ $other_net['ytd'] < 0 ? 'text-danger' : '' }}" style="background-color: #f0f0f0;"><strong>@format_currency($other_net['ytd'])</strong></td>
+                                <td class="text-right {{ $net_totals_period['last_month'] < 0 ? 'text-danger' : '' }}" style="font-size: 14px;">
+                                    @format_currency($net_totals_period['last_month'])
+                                </td>
+                                <td class="text-right {{ $net_totals_period['current_month'] < 0 ? 'text-danger' : '' }}" style="font-size: 14px;">
+                                    @format_currency($net_totals_period['current_month'])
+                                </td>
                                 <td class="text-right" style="font-size: 14px;">
-                                    <strong class="{{ $net_profit < 0 ? 'text-danger' : '' }}">@format_currency($net_profit)</strong>
+                                    <strong class="{{ $net_totals_period['ytd'] < 0 ? 'text-danger' : '' }}">@format_currency($net_totals_period['ytd'])</strong>
                                 </td>
                             </tr>
                         </tbody>
+                    </table>
+                    </div>
+
+                    {{-- Category Totals Summary --}}
+                    @php
+                        $summary_totals = [
+                            'income' => ['last_month' => 0, 'current_month' => 0, 'ytd' => 0],
+                            'expense' => ['last_month' => 0, 'current_month' => 0, 'ytd' => 0],
+                            'net' => ['last_month' => 0, 'current_month' => 0, 'ytd' => 0],
+                        ];
+                        foreach ($business_categories as $cat_key => $cat_info) {
+                            $inc = $category_totals['income'][$cat_key] ?? ['last_month' => 0, 'current_month' => 0, 'ytd' => 0];
+                            $exp = $category_totals['expense'][$cat_key] ?? ['last_month' => 0, 'current_month' => 0, 'ytd' => 0];
+                            $net = $category_net_profit[$cat_key] ?? ['last_month' => 0, 'current_month' => 0, 'ytd' => 0];
+                            foreach (['last_month', 'current_month', 'ytd'] as $period_key) {
+                                $summary_totals['income'][$period_key] += $inc[$period_key];
+                                $summary_totals['expense'][$period_key] += $exp[$period_key];
+                                $summary_totals['net'][$period_key] += $net[$period_key];
+                            }
+                        }
+                        $inc_other = $category_totals['income']['other'] ?? ['last_month' => 0, 'current_month' => 0, 'ytd' => 0];
+                        $exp_other = $category_totals['expense']['other'] ?? ['last_month' => 0, 'current_month' => 0, 'ytd' => 0];
+                        $net_other = $category_net_profit['other'] ?? ['last_month' => 0, 'current_month' => 0, 'ytd' => 0];
+                        foreach (['last_month', 'current_month', 'ytd'] as $period_key) {
+                            $summary_totals['income'][$period_key] += $inc_other[$period_key];
+                            $summary_totals['expense'][$period_key] += $exp_other[$period_key];
+                            $summary_totals['net'][$period_key] += $net_other[$period_key];
+                        }
+                    @endphp
+                    <h4><strong><i class="fa fa-list"></i> Total per Kategori (LM / CM / YTD)</strong></h4>
+                    <div class="table-responsive">
+                    <table class="table table-bordered table-condensed" id="category_totals_table" style="width:100%; font-size: 11px;">
+                        <thead>
+                            <tr class="info">
+                                <th class="text-center" style="vertical-align: middle;" rowspan="2">Kategori</th>
+                                <th class="text-center" colspan="3" style="vertical-align: middle;">Income</th>
+                                <th class="text-center" colspan="3" style="vertical-align: middle;">Expense</th>
+                                <th class="text-center" colspan="3" style="vertical-align: middle;">Net</th>
+                            </tr>
+                            <tr class="active" style="font-size: 10px;">
+                                <th class="text-center">LM</th>
+                                <th class="text-center">CM</th>
+                                <th class="text-center">YTD</th>
+                                <th class="text-center">LM</th>
+                                <th class="text-center">CM</th>
+                                <th class="text-center">YTD</th>
+                                <th class="text-center">LM</th>
+                                <th class="text-center">CM</th>
+                                <th class="text-center">YTD</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            @foreach($business_categories as $cat_key => $cat_info)
+                                @php
+                                    $inc = $category_totals['income'][$cat_key] ?? ['last_month' => 0, 'current_month' => 0, 'ytd' => 0];
+                                    $exp = $category_totals['expense'][$cat_key] ?? ['last_month' => 0, 'current_month' => 0, 'ytd' => 0];
+                                    $net = $category_net_profit[$cat_key] ?? ['last_month' => 0, 'current_month' => 0, 'ytd' => 0];
+                                @endphp
+                                <tr>
+                                    <td>{{ $cat_info['name'] }}</td>
+                                    <td class="text-right">@format_currency($inc['last_month'])</td>
+                                    <td class="text-right">@format_currency($inc['current_month'])</td>
+                                    <td class="text-right"><strong>@format_currency($inc['ytd'])</strong></td>
+                                    <td class="text-right">@format_currency($exp['last_month'])</td>
+                                    <td class="text-right">@format_currency($exp['current_month'])</td>
+                                    <td class="text-right"><strong>@format_currency($exp['ytd'])</strong></td>
+                                    <td class="text-right {{ $net['last_month'] < 0 ? 'text-danger' : '' }}">@format_currency($net['last_month'])</td>
+                                    <td class="text-right {{ $net['current_month'] < 0 ? 'text-danger' : '' }}">@format_currency($net['current_month'])</td>
+                                    <td class="text-right {{ $net['ytd'] < 0 ? 'text-danger' : '' }}"><strong>@format_currency($net['ytd'])</strong></td>
+                                </tr>
+                            @endforeach
+                            <tr>
+                                <td style="background-color: #f0f0f0;"><strong>Other</strong></td>
+                                <td class="text-right" style="background-color: #f0f0f0;">@format_currency($inc_other['last_month'])</td>
+                                <td class="text-right" style="background-color: #f0f0f0;">@format_currency($inc_other['current_month'])</td>
+                                <td class="text-right" style="background-color: #f0f0f0;"><strong>@format_currency($inc_other['ytd'])</strong></td>
+                                <td class="text-right" style="background-color: #f0f0f0;">@format_currency($exp_other['last_month'])</td>
+                                <td class="text-right" style="background-color: #f0f0f0;">@format_currency($exp_other['current_month'])</td>
+                                <td class="text-right" style="background-color: #f0f0f0;"><strong>@format_currency($exp_other['ytd'])</strong></td>
+                                <td class="text-right {{ $net_other['last_month'] < 0 ? 'text-danger' : '' }}" style="background-color: #f0f0f0;">@format_currency($net_other['last_month'])</td>
+                                <td class="text-right {{ $net_other['current_month'] < 0 ? 'text-danger' : '' }}" style="background-color: #f0f0f0;">@format_currency($net_other['current_month'])</td>
+                                <td class="text-right {{ $net_other['ytd'] < 0 ? 'text-danger' : '' }}" style="background-color: #f0f0f0;"><strong>@format_currency($net_other['ytd'])</strong></td>
+                            </tr>
+                        </tbody>
+                        <tfoot>
+                            <tr class="info">
+                                <th class="text-right">Total</th>
+                                <th class="text-right">@format_currency($summary_totals['income']['last_month'])</th>
+                                <th class="text-right">@format_currency($summary_totals['income']['current_month'])</th>
+                                <th class="text-right"><strong>@format_currency($summary_totals['income']['ytd'])</strong></th>
+                                <th class="text-right">@format_currency($summary_totals['expense']['last_month'])</th>
+                                <th class="text-right">@format_currency($summary_totals['expense']['current_month'])</th>
+                                <th class="text-right"><strong>@format_currency($summary_totals['expense']['ytd'])</strong></th>
+                                <th class="text-right {{ $summary_totals['net']['last_month'] < 0 ? 'text-danger' : '' }}">@format_currency($summary_totals['net']['last_month'])</th>
+                                <th class="text-right {{ $summary_totals['net']['current_month'] < 0 ? 'text-danger' : '' }}">@format_currency($summary_totals['net']['current_month'])</th>
+                                <th class="text-right {{ $summary_totals['net']['ytd'] < 0 ? 'text-danger' : '' }}"><strong>@format_currency($summary_totals['net']['ytd'])</strong></th>
+                            </tr>
+                        </tfoot>
                     </table>
                     </div>
 
@@ -482,6 +640,22 @@
             return isNaN(num) ? 0 : num;
         }
 
+        // Format number with Indonesian separators (dot thousands, comma decimals)
+        function formatIndonesianNumber(num) {
+            if (num === '' || num === null || typeof num === 'undefined') return '';
+            if (typeof num !== 'number') {
+                var parsed = parseFloat(num);
+                if (isNaN(parsed)) return num;
+                num = parsed;
+            }
+
+            var hasFraction = Math.abs(num % 1) > 0;
+            return num.toLocaleString('id-ID', {
+                minimumFractionDigits: hasFraction ? 2 : 0,
+                maximumFractionDigits: hasFraction ? 2 : 0
+            });
+        }
+
         // Function to export table to Excel
         function exportTableToExcel(tableId, filename) {
             var table = document.getElementById(tableId);
@@ -518,9 +692,9 @@
 
         $('#export_all_excel').on('click', function() {
             var categoryCount = {{ count($business_categories) }};
-            // GL Code + Name + Categories + Pro Shop + Sudest Cafe + Other + Total
-            // 2 + N + 3 + 1 = 6 + N
-            var totalCols = 6 + categoryCount;
+            // GL Code + Name + Categories(LM/CM/YTD) + Other(LM/CM/YTD) + Total(LM/CM/YTD)
+            // 2 + (3 * N) + 3 + 3
+            var totalCols = 2 + (categoryCount * 3) + 3 + 3;
             
             var incomeTable = document.getElementById('income_report_table').cloneNode(true);
             var expenseTable = document.getElementById('expense_report_table').cloneNode(true);
@@ -531,7 +705,7 @@
                     var text = $(this).text().trim();
                     if (text.match(/Rp\s*-?[\d.,]+/) || text.match(/^-?[\d.,]+$/)) {
                         var num = parseIndonesianNumber(text);
-                        $(this).text(num);
+                        $(this).text(formatIndonesianNumber(num));
                     } else {
                         $(this).text(text);
                     }

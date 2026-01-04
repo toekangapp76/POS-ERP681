@@ -550,24 +550,53 @@
             return isNaN(num) ? 0 : num;
         }
 
-        // Initialize DataTables with export buttons
-        var incomeTable = $('#income_report_table').DataTable({
-            dom: 'rtip',
-            paging: false,
-            searching: false,
-            info: false,
-            ordering: true,
-            order: [[0, 'asc']]
+        // Format number with Indonesian separators (dot thousands, comma decimals)
+        function formatIndonesianNumber(num) {
+            if (num === '' || num === null || typeof num === 'undefined') return '';
+            if (typeof num !== 'number') {
+                var parsed = parseFloat(num);
+                if (isNaN(parsed)) return num;
+                num = parsed;
+            }
+
+            var hasFraction = Math.abs(num % 1) > 0;
+            return num.toLocaleString('id-ID', {
+                minimumFractionDigits: hasFraction ? 2 : 0,
+                maximumFractionDigits: hasFraction ? 2 : 0
+            });
+        }
+
+        $(document).on('change', '#month_filter, #year_filter, #detail_type_filter', function() {
+            apply_filter();
         });
 
-        var expenseTable = $('#expense_report_table').DataTable({
-            dom: 'rtip',
-            paging: false,
-            searching: false,
-            info: false,
-            ordering: true,
-            order: [[0, 'asc']]
+        $(document).on('select2:select select2:unselect', '#detail_type_filter', function() {
+            apply_filter();
         });
+
+        // Initialize DataTables with export buttons
+        var incomeTable = null;
+        var expenseTable = null;
+
+        if ($.fn.DataTable) {
+            incomeTable = $('#income_report_table').DataTable({
+                dom: 'rtip',
+                paging: false,
+                searching: false,
+                info: false,
+                ordering: true,
+                order: [[0, 'asc']]
+            });
+
+            expenseTable = $('#expense_report_table').DataTable({
+                dom: 'rtip',
+                paging: false,
+                searching: false,
+                info: false,
+                ordering: true,
+                order: [[0, 'asc']]
+            });
+        }
 
         // Export All Tables to Excel
         $('#export_all_excel').on('click', function() {
@@ -582,7 +611,7 @@
                     var text = $(this).text().trim();
                     if (text.match(/Rp\s*-?[\d.,]+/) || text.match(/^-?[\d.,]+$/)) {
                         var num = parseIndonesianNumber(text);
-                        $(this).text(num);
+                        $(this).text(formatIndonesianNumber(num));
                     } else {
                         $(this).text(text);
                     }
@@ -624,28 +653,44 @@
             } else {
                 $('.diff-col').hide();
             }
-            incomeTable.columns.adjust().draw();
-            expenseTable.columns.adjust().draw();
-        });
-
-        // Month/Year filter change handler
-        $('#month_filter, #year_filter').on('change', function() {
-            apply_filter();
-        });
-
-        // Detail Type filter change handler
-        $('#detail_type_filter').on('change', function() {
-            apply_filter();
+            if (incomeTable) {
+                incomeTable.columns.adjust().draw();
+            }
+            if (expenseTable) {
+                expenseTable.columns.adjust().draw();
+            }
         });
 
         function apply_filter(){
             var month = $('#month_filter').val();
             var year = $('#year_filter').val();
-            var end_date = year + '-' + month + '-' + new Date(year, month, 0).getDate();
+            var start_date = '';
+            var end_date = '';
+            var month_num = parseInt(month, 10);
+            var year_num = parseInt(year, 10);
+
+            if (!isNaN(month_num) && !isNaN(year_num)) {
+                var last_day = new Date(year_num, month_num, 0).getDate();
+                var day_str = String(last_day);
+                if (day_str.length < 2) {
+                    day_str = '0' + day_str;
+                }
+                start_date = year + '-01-01';
+                end_date = year + '-' + month + '-' + day_str;
+            }
             var detail_type_id = $('#detail_type_filter').val();
 
             const urlParams = new URLSearchParams(window.location.search);
-            urlParams.set('end_date', end_date);
+            if (start_date) {
+                urlParams.set('start_date', start_date);
+            } else {
+                urlParams.delete('start_date');
+            }
+            if (end_date) {
+                urlParams.set('end_date', end_date);
+            } else {
+                urlParams.delete('end_date');
+            }
             if (detail_type_id) {
                 urlParams.set('detail_type_id', detail_type_id);
             } else {
