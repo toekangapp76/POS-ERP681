@@ -376,6 +376,25 @@ class ReportController extends Controller
             $end_date = $fy['end'];
         }
 
+        // Get the first transaction year for year filter
+        $first_transaction_date = DB::table('accounting_accounts_transactions')
+            ->join('accounting_accounts', 'accounting_accounts_transactions.accounting_account_id', '=', 'accounting_accounts.id')
+            ->where('accounting_accounts.business_id', $business_id)
+            ->min('accounting_accounts_transactions.operation_date');
+        
+        $first_transaction_year = $first_transaction_date 
+            ? (int) \Carbon\Carbon::parse($first_transaction_date)->format('Y')
+            : (int) \Carbon\Carbon::now()->format('Y');
+        
+        // Year filter options: from first transaction year to 2 years from now
+        $current_year = (int) \Carbon\Carbon::now()->format('Y');
+        $year_filter_end = $current_year + 2;
+        
+        $year_filter_options = [];
+        for ($y = $first_transaction_year; $y <= $year_filter_end; $y++) {
+            $year_filter_options[$y] = $y;
+        }
+
         // Generate list of months in the date range
         $months = [];
         $current = \Carbon\Carbon::parse($start_date)->startOfMonth();
@@ -474,8 +493,39 @@ class ReportController extends Controller
             ->select('id', 'account_primary_type')
             ->get();
 
+        // Calculate prior period profit (from beginning of time to day before $start_date)
+        // This ensures R/E Current Year is cumulative and includes 2025 profit when viewing 2026
+        $prior_period_profit = 0;
+        $prior_date = \Carbon\Carbon::parse($start_date)->subDay()->format('Y-m-d');
+        
+        if ($first_transaction_date && \Carbon\Carbon::parse($first_transaction_date)->lt(\Carbon\Carbon::parse($start_date))) {
+            foreach ($pl_accounts as $pl_account) {
+                $prior_balance = DB::table('accounting_accounts_transactions')
+                    ->where('accounting_account_id', $pl_account->id)
+                    ->where(function ($q) {
+                        $q->whereNull('sub_type')
+                            ->orWhere('sub_type', '!=', 'opening_balance');
+                    })
+                    ->whereDate('operation_date', '<=', $prior_date)
+                    ->select(
+                        DB::raw("COALESCE(SUM(IF(type = 'debit', amount, 0)), 0) as debit"),
+                        DB::raw("COALESCE(SUM(IF(type = 'credit', amount, 0)), 0) as credit")
+                    )
+                    ->first();
+
+                $debit = $prior_balance->debit ?? 0;
+                $credit = $prior_balance->credit ?? 0;
+
+                if ($pl_account->account_primary_type == 'income') {
+                    $prior_period_profit += ($credit - $debit);
+                } else {
+                    $prior_period_profit -= ($debit - $credit);
+                }
+            }
+        }
+
         $net_profit_monthly = [];
-        $total_net_profit = 0;
+        $total_net_profit = $prior_period_profit; // Start with prior period profit
 
         foreach ($months as $month) {
             $month_income = 0;
@@ -511,6 +561,7 @@ class ReportController extends Controller
         }
 
         // R/E Current Year account info (GL Code: 3202-0000)
+        // Now includes prior period profit for cumulative balance
         $re_current_year = (object) [
             'id' => null,
             'name' => 'R/E Current Year (Net Profit/Loss)',
@@ -519,11 +570,12 @@ class ReportController extends Controller
             'sub_type' => 'Retained Earnings',
             'monthly_balances' => $net_profit_monthly,
             'balance' => $total_net_profit,
+            'prior_period_profit' => $prior_period_profit, // Track prior period for display
             'is_calculated' => true, // Flag to identify this is calculated, not from DB
         ];
 
         return view('accounting::report.balance_sheet')
-            ->with(compact('all_accounts', 'start_date', 'end_date', 'months', 're_current_year', 'net_profit_monthly', 'total_net_profit'));
+            ->with(compact('all_accounts', 'start_date', 'end_date', 'months', 're_current_year', 'net_profit_monthly', 'total_net_profit', 'year_filter_options'));
     }
 
     public function accountReceivableAgeingReport()
