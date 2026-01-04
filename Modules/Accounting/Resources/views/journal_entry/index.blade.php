@@ -45,6 +45,7 @@
                 <tr>
                     <th>@lang('messages.action')</th>
                     <th>@lang('accounting::lang.gl_date')</th>
+                    <th>@lang('lang_v1.type')</th>
                     <th>@lang('accounting::lang.gl_number')</th>
                     <th>@lang('accounting::lang.gl_code')</th>
                     <th>@lang('accounting::lang.account_name')</th>
@@ -123,6 +124,7 @@
             columns: [
                 { data: 'action', name: 'action', orderable: false, searchable: false },
                 { data: 'operation_date', name: 'operation_date' },
+                { data: 'sub_type', name: 'sub_type', searchable: true },
                 { data: 'ref_no', name: 'ref_no' },
                 { data: 'gl_code', name: 'gl_code' },
                 { data: 'account_name', name: 'account_name' },
@@ -133,10 +135,10 @@
             ],
             createdRow: function(row, data) {
                 if (data.type === 'debit') {
-                    $('td', row).eq(6).addClass('bg-light-green');
+                    $('td', row).eq(7).addClass('bg-light-green');
                 }
                 if (data.type === 'credit') {
-                    $('td', row).eq(7).addClass('bg-light-green');
+                    $('td', row).eq(8).addClass('bg-light-green');
                 }
             }
         });

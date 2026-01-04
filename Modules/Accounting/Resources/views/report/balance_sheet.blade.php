@@ -17,17 +17,16 @@
         $selected_month = $selected_end->format('m');
         $selected_year = $selected_end->format('Y');
 
-        $year_start = (int) \Carbon\Carbon::parse($start_date)->format('Y');
-        $year_end = (int) $selected_year;
-        if ($year_start > $year_end) {
-            $tmp = $year_start;
-            $year_start = $year_end;
-            $year_end = $tmp;
-        }
+        // pilihan tahun dari awal transaksi sampai 2 tahun ke depan
+        $year_options = $year_filter_options ?? [];
 
-        $year_options = [];
-        for ($year = $year_start; $year <= $year_end; $year++) {
-            $year_options[$year] = $year;
+        if (empty($year_options)) {
+            $current_year = (int) \Carbon\Carbon::now()->format('Y');
+            $year_start = (int) \Carbon\Carbon::parse($start_date)->format('Y');
+            $year_end = $current_year + 2;
+            for ($year = $year_start; $year <= $year_end; $year++) {
+                $year_options[$year] = $year;
+            }
         }
 
         $month_options = [];
@@ -199,9 +198,13 @@
                                     //    $monthly_totals_equity[$month['key']] += $re_current_year->monthly_balances[$month['key']] ?? 0;
                                     // }
 
+                                    // Include prior period profit (from previous years) in running balance
+                                    $prior_profit = $re_current_year->prior_period_profit ?? 0;
+                                    
                                     $re_last_balance = 0;
                                     $re_current_balance = 0;
-                                    $re_running_balance = 0;
+                                    $re_running_balance = $prior_profit; // Start with prior period profit
+                                    
                                     foreach ($months as $month) {
                                         $re_running_balance += $re_current_year->monthly_balances[$month['key']] ?? 0;
                                         if ($last_key && $month['key'] === $last_key) {
