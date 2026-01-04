@@ -55,7 +55,6 @@ class JournalEntryController extends Controller
         }
 
         if (request()->ajax()) {
-            // Query 1: Manual Journal Entries (with acc_trans_mapping_id)
             $manualJournals = DB::table('accounting_accounts_transactions')
                 ->join('accounting_acc_trans_mappings as map', 'accounting_accounts_transactions.acc_trans_mapping_id', '=', 'map.id')
                 ->join('accounting_accounts as acc', 'accounting_accounts_transactions.accounting_account_id', '=', 'acc.id')
@@ -75,8 +74,6 @@ class JournalEntryController extends Controller
                     DB::raw("'manual' as source"),
                 ]);
 
-            // Query 2: Mapped Transactions (sell, purchase, expense, payment, gym_subscription)
-            // These don't have acc_trans_mapping_id but have transaction_id or transaction_payment_id
             $mappedTransactions = DB::table('accounting_accounts_transactions')
                 ->join('accounting_accounts as acc', 'accounting_accounts_transactions.accounting_account_id', '=', 'acc.id')
                 ->leftJoin('transactions as t', 'accounting_accounts_transactions.transaction_id', '=', 't.id')
@@ -111,10 +108,8 @@ class JournalEntryController extends Controller
                       ->whereDate('accounting_accounts_transactions.operation_date', '<=', $end);
             }
 
-            // Combine both queries using UNION
             $unionQuery = $manualJournals->union($mappedTransactions);
             
-            // Wrap the union in a subquery for DataTables compatibility
             $query = DB::table(DB::raw("({$unionQuery->toSql()}) as combined"))
                 ->mergeBindings($unionQuery);
 
@@ -126,7 +121,6 @@ class JournalEntryController extends Controller
                 return \Carbon\Carbon::parse($row->operation_date)->format('d M Y H:i');
             });
             
-            // Add source badge column
             $datatable->editColumn('sub_type', function ($row) {
                 $badges = [
                     'journal_entry' => '<span class="badge bg-primary">Manual</span>',
@@ -160,7 +154,7 @@ class JournalEntryController extends Controller
             });
             
             $datatable->addColumn('action', function ($row) {
-                // For manual journal entries and transfers (have mapping_id)
+                // manual
                 if (!empty($row->mapping_id)) {
                     $html = '<div class="btn-group">
                             <button type="button" class="btn btn-info dropdown-toggle btn-xs" 
@@ -188,13 +182,13 @@ class JournalEntryController extends Controller
                     return $html;
                 }
                 
-                // For mapped transactions (no mapping_id) - show link to transactions page
+                // For mapped transactions (no mapping_id) hehe
                 return '<a href="'.url('/accounting/transactions').'" class="btn btn-xs btn-default" title="'.__('accounting::lang.view_in_transactions').'">
                     <i class="fas fa-external-link-alt"></i> '.__('accounting::lang.transactions').'
                 </a>';
             });
             
-            // Global search filter for UNION query
+            // Global search
             $datatable->filter(function ($query) {
                 if (request()->has('search') && !empty(request()->search['value'])) {
                     $keyword = request()->search['value'];
