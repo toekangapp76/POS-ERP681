@@ -430,7 +430,8 @@ class ReportController extends Controller
             ->orderBy('accounting_accounts.gl_code')
             ->get();
 
-        // Get monthly balances for each account
+        // Kumulatif all
+        
         $all_accounts = [];
         foreach ($base_accounts as $account) {
             $account_data = [
@@ -440,16 +441,16 @@ class ReportController extends Controller
                 'account_primary_type' => $account->account_primary_type,
                 'sub_type' => $account->sub_type,
                 'monthly_balances' => [],
-                'balance' => 0, // Total balance for the entire period
+                'balance' => 0,
             ];
 
             $has_any_balance = false;
 
             foreach ($months as $month) {
+                // Hitung kumulatid semua bulan
                 $balance = DB::table('accounting_accounts_transactions')
                     ->where('accounting_account_id', $account->id)
-                    ->whereDate('operation_date', '>=', $month['start'])
-                    ->whereDate('operation_date', '<=', $month['end'])
+                    ->whereDate('operation_date', '<=', $month['end']) // From beginning of time to end of month
                     ->select(
                         DB::raw("COALESCE(SUM(IF(type = 'debit', amount, 0)), 0) as debit"),
                         DB::raw("COALESCE(SUM(IF(type = 'credit', amount, 0)), 0) as credit")
@@ -469,7 +470,8 @@ class ReportController extends Controller
                 }
 
                 $account_data['monthly_balances'][$month['key']] = $monthly_balance;
-                $account_data['balance'] += $monthly_balance;
+                
+                $account_data['balance'] = $monthly_balance;
 
                 if ($monthly_balance != 0) {
                     $has_any_balance = true;
@@ -485,6 +487,7 @@ class ReportController extends Controller
         $all_accounts = collect($all_accounts);
 
         // Calculate Net Profit/Loss for R/E Current Year (from P&L accounts - gl_code >= 4)
+        // R/E Current Year = Cumulative net profit from all time to end of each month
         $pl_accounts = AccountingAccount::where('business_id', $business_id)
             ->where('status', 'active')
             ->whereNotNull('gl_code')
@@ -493,43 +496,13 @@ class ReportController extends Controller
             ->select('id', 'account_primary_type')
             ->get();
 
-        // Calculate prior period profit (from beginning of time to day before $start_date)
-        // This ensures R/E Current Year is cumulative and includes 2025 profit when viewing 2026
-        $prior_period_profit = 0;
-        $prior_date = \Carbon\Carbon::parse($start_date)->subDay()->format('Y-m-d');
-        
-        if ($first_transaction_date && \Carbon\Carbon::parse($first_transaction_date)->lt(\Carbon\Carbon::parse($start_date))) {
-            foreach ($pl_accounts as $pl_account) {
-                $prior_balance = DB::table('accounting_accounts_transactions')
-                    ->where('accounting_account_id', $pl_account->id)
-                    ->where(function ($q) {
-                        $q->whereNull('sub_type')
-                            ->orWhere('sub_type', '!=', 'opening_balance');
-                    })
-                    ->whereDate('operation_date', '<=', $prior_date)
-                    ->select(
-                        DB::raw("COALESCE(SUM(IF(type = 'debit', amount, 0)), 0) as debit"),
-                        DB::raw("COALESCE(SUM(IF(type = 'credit', amount, 0)), 0) as credit")
-                    )
-                    ->first();
-
-                $debit = $prior_balance->debit ?? 0;
-                $credit = $prior_balance->credit ?? 0;
-
-                if ($pl_account->account_primary_type == 'income') {
-                    $prior_period_profit += ($credit - $debit);
-                } else {
-                    $prior_period_profit -= ($debit - $credit);
-                }
-            }
-        }
-
         $net_profit_monthly = [];
-        $total_net_profit = $prior_period_profit; // Start with prior period profit
+        $total_net_profit = 0;
 
         foreach ($months as $month) {
-            $month_income = 0;
-            $month_expense = 0;
+            // Calculate CUMULATIVE net profit from ALL TIME up to end of this month
+            $cumulative_income = 0;
+            $cumulative_expense = 0;
 
             foreach ($pl_accounts as $pl_account) {
                 $pl_balance = DB::table('accounting_accounts_transactions')
@@ -538,8 +511,7 @@ class ReportController extends Controller
                         $q->whereNull('sub_type')
                             ->orWhere('sub_type', '!=', 'opening_balance');
                     })
-                    ->whereDate('operation_date', '>=', $month['start'])
-                    ->whereDate('operation_date', '<=', $month['end'])
+                    ->whereDate('operation_date', '<=', $month['end']) // From beginning to end of month
                     ->select(
                         DB::raw("COALESCE(SUM(IF(type = 'debit', amount, 0)), 0) as debit"),
                         DB::raw("COALESCE(SUM(IF(type = 'credit', amount, 0)), 0) as credit")
@@ -550,18 +522,19 @@ class ReportController extends Controller
                 $credit = $pl_balance->credit ?? 0;
 
                 if ($pl_account->account_primary_type == 'income') {
-                    $month_income += ($credit - $debit);
+                    $cumulative_income += ($credit - $debit);
                 } else {
-                    $month_expense += ($debit - $credit);
+                    $cumulative_expense += ($debit - $credit);
                 }
             }
 
-            $net_profit_monthly[$month['key']] = $month_income - $month_expense;
-            $total_net_profit += $net_profit_monthly[$month['key']];
+            // Net profit = cumulative income - cumulative expense
+            $net_profit_monthly[$month['key']] = $cumulative_income - $cumulative_expense;
+            $total_net_profit = $net_profit_monthly[$month['key']]; // Last value is total
         }
 
         // R/E Current Year account info (GL Code: 3202-0000)
-        // Now includes prior period profit for cumulative balance
+        // monthly_balances now contains CUMULATIVE net profit up to each month
         $re_current_year = (object) [
             'id' => null,
             'name' => 'R/E Current Year (Net Profit/Loss)',
@@ -570,7 +543,6 @@ class ReportController extends Controller
             'sub_type' => 'Retained Earnings',
             'monthly_balances' => $net_profit_monthly,
             'balance' => $total_net_profit,
-            'prior_period_profit' => $prior_period_profit, // Track prior period for display
             'is_calculated' => true, // Flag to identify this is calculated, not from DB
         ];
 

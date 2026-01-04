@@ -80,12 +80,13 @@
                             $last_month = $month_count > 1 ? $months[$month_count - 2] : null;
                             $current_key = $current_month['key'] ?? null;
                             $last_key = $last_month['key'] ?? null;
-                            $period_start = $month_count > 0 ? \Carbon\Carbon::parse($months[0]['start']) : null;
-                            $current_range_label = ($current_month && $period_start)
-                                ? 'as at ' . \Carbon\Carbon::parse($current_month['end'])->format('M')
+                            
+                            // Labels: cumulative balance from all time to end of each month
+                            $current_range_label = $current_month
+                                ? 's.d. ' . \Carbon\Carbon::parse($current_month['end'])->format('d M Y')
                                 : '-';
-                            $last_range_label = ($last_month && $period_start)
-                                ? ' as at ' . \Carbon\Carbon::parse($last_month['end'])->format('M')
+                            $last_range_label = $last_month
+                                ? 's.d. ' . \Carbon\Carbon::parse($last_month['end'])->format('d M Y')
                                 : '-';
                         @endphp
                         <thead>
@@ -99,11 +100,11 @@
                                     @lang('accounting::lang.account_type')
                                 </th>
                                 <th class="text-center align-middle bg-info" style="vertical-align: middle;">
-                                    Last Month
+                                    Saldo Bulan Lalu
                                     <div class="text-muted" style="font-size: 11px;">{{ $last_range_label }}</div>
                                 </th>
                                 <th class="text-center align-middle bg-info" style="vertical-align: middle;">
-                                    Current Month
+                                    Saldo Saat Ini
                                     <div class="text-muted" style="font-size: 11px;">{{ $current_range_label }}</div>
                                 </th>
                                 <th class="text-center align-middle bg-warning diff-col"
@@ -144,18 +145,11 @@
                                     <td>{{ $account->name }}</td>
                                     <td>{{ __('accounting::lang.' . $account->account_primary_type) }}</td>
                                     @php
-                                        $last_balance = 0;
-                                        $current_balance = 0;
-                                        $running_balance = 0;
-                                        foreach ($months as $month) {
-                                            $running_balance += $account->monthly_balances[$month['key']] ?? 0;
-                                            if ($last_key && $month['key'] === $last_key) {
-                                                $last_balance = $running_balance;
-                                            }
-                                            if ($current_key && $month['key'] === $current_key) {
-                                                $current_balance = $running_balance;
-                                            }
-                                        }
+                                        // monthly_balances now contains CUMULATIVE values from controller
+                                        // So we just directly use them
+                                        $last_balance = $last_key ? ($account->monthly_balances[$last_key] ?? 0) : 0;
+                                        $current_balance = $current_key ? ($account->monthly_balances[$current_key] ?? 0) : 0;
+                                        
                                         // Varian calculation based on COA:
                                         // COA 1XXX (Asset) = Debit - Credit (current - last is already positive when assets increase)
                                         // COA 2XXX (Liability) & 3XXX (Equity) = Credit - Debit (need to negate for proper variance)
@@ -193,27 +187,11 @@
                             {{-- R/E Current Year (Net Profit/Loss from P&L) --}}
                             @if(isset($re_current_year))
                                 @php
-                                    // R/E Calculation logic moved to explicit addition in footer to prevent double counting
-                                    // foreach ($months as $month) {
-                                    //    $monthly_totals_equity[$month['key']] += $re_current_year->monthly_balances[$month['key']] ?? 0;
-                                    // }
-
-                                    // Include prior period profit (from previous years) in running balance
-                                    $prior_profit = $re_current_year->prior_period_profit ?? 0;
+                                    // monthly_balances now contains CUMULATIVE net profit from controller
+                                    // So we just directly use them
+                                    $re_last_balance = $last_key ? ($re_current_year->monthly_balances[$last_key] ?? 0) : 0;
+                                    $re_current_balance = $current_key ? ($re_current_year->monthly_balances[$current_key] ?? 0) : 0;
                                     
-                                    $re_last_balance = 0;
-                                    $re_current_balance = 0;
-                                    $re_running_balance = $prior_profit; // Start with prior period profit
-                                    
-                                    foreach ($months as $month) {
-                                        $re_running_balance += $re_current_year->monthly_balances[$month['key']] ?? 0;
-                                        if ($last_key && $month['key'] === $last_key) {
-                                            $re_last_balance = $re_running_balance;
-                                        }
-                                        if ($current_key && $month['key'] === $current_key) {
-                                            $re_current_balance = $re_running_balance;
-                                        }
-                                    }
                                     // R/E Current Year is equity (3XXX), so negate for balance
                                     $re_difference = -($re_current_balance - $re_last_balance);
                                     $re_diff_color = $re_difference > 0 ? 'text-success' : ($re_difference < 0 ? 'text-danger' : '');
