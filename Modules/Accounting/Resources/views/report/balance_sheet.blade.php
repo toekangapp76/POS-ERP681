@@ -231,18 +231,9 @@
                             <tr class="bg-success">
                                 <th colspan="3" class="text-right">@lang('accounting::lang.total_assets'):</th>
                                 @php
-                                    $last_asset_total = 0;
-                                    $current_asset_total = 0;
-                                    $running_asset_total = 0;
-                                    foreach ($months as $month) {
-                                        $running_asset_total += $monthly_totals_assets[$month['key']] ?? 0;
-                                        if ($last_key && $month['key'] === $last_key) {
-                                            $last_asset_total = $running_asset_total;
-                                        }
-                                        if ($current_key && $month['key'] === $current_key) {
-                                            $current_asset_total = $running_asset_total;
-                                        }
-                                    }
+                                    // monthly_totals now contain CUMULATIVE values, so we directly use them
+                                    $last_asset_total = $last_key ? ($monthly_totals_assets[$last_key] ?? 0) : 0;
+                                    $current_asset_total = $current_key ? ($monthly_totals_assets[$current_key] ?? 0) : 0;
                                     $asset_diff = $current_asset_total - $last_asset_total;
                                 @endphp
                                 <th class="text-right month-col">@format_currency($last_asset_total)</th>
@@ -259,18 +250,8 @@
                             <tr class="bg-warning">
                                 <th colspan="3" class="text-right">@lang('accounting::lang.total_liabilities'):</th>
                                 @php
-                                    $last_liab_total = 0;
-                                    $current_liab_total = 0;
-                                    $running_liab_total = 0;
-                                    foreach ($months as $month) {
-                                        $running_liab_total += $monthly_totals_liabilities[$month['key']] ?? 0;
-                                        if ($last_key && $month['key'] === $last_key) {
-                                            $last_liab_total = $running_liab_total;
-                                        }
-                                        if ($current_key && $month['key'] === $current_key) {
-                                            $current_liab_total = $running_liab_total;
-                                        }
-                                    }
+                                    $last_liab_total = $last_key ? ($monthly_totals_liabilities[$last_key] ?? 0) : 0;
+                                    $current_liab_total = $current_key ? ($monthly_totals_liabilities[$current_key] ?? 0) : 0;
                                     // Liability (COA 2XXX) - negate for balance sheet equation
                                     $liab_diff = -($current_liab_total - $last_liab_total);
                                 @endphp
@@ -288,18 +269,11 @@
                             <tr class="bg-info">
                                 <th colspan="3" class="text-right">@lang('accounting::lang.total_equity'):</th>
                                 @php
-                                    $last_equity_total = 0;
-                                    $current_equity_total = 0;
-                                    $running_equity_total = 0;
-                                    foreach ($months as $month) {
-                                        $running_equity_total += $monthly_totals_equity[$month['key']] ?? 0;
-                                        if ($last_key && $month['key'] === $last_key) {
-                                            $last_equity_total = $running_equity_total + ($re_last_balance ?? 0);
-                                        }
-                                        if ($current_key && $month['key'] === $current_key) {
-                                            $current_equity_total = $running_equity_total + ($re_current_balance ?? 0);
-                                        }
-                                    }
+                                    $last_equity_base = $last_key ? ($monthly_totals_equity[$last_key] ?? 0) : 0;
+                                    $current_equity_base = $current_key ? ($monthly_totals_equity[$current_key] ?? 0) : 0;
+                                    // Add R/E Current Year (already cumulative)
+                                    $last_equity_total = $last_equity_base + ($re_last_balance ?? 0);
+                                    $current_equity_total = $current_equity_base + ($re_current_balance ?? 0);
                                     // Equity (COA 3XXX) - negate for balance sheet equation
                                     $equity_diff = -($current_equity_total - $last_equity_total);
                                 @endphp
