@@ -83,7 +83,7 @@ class JournalEntryController extends Controller
                       ->orWhere('tp.business_id', $business_id);
                 })
                 ->whereNull('accounting_accounts_transactions.acc_trans_mapping_id')
-                ->whereIn('accounting_accounts_transactions.sub_type', ['sell', 'purchase', 'expense', 'sell_payment', 'purchase_payment', 'gym_subscription'])
+                ->whereIn('accounting_accounts_transactions.sub_type', ['sell', 'purchase', 'expense', 'sell_payment', 'purchase_payment', 'gym_subscription', 'deferred_revenue_recognition'])
                 ->select([
                     'accounting_accounts_transactions.id',
                     DB::raw('NULL as mapping_id'),
@@ -131,6 +131,7 @@ class JournalEntryController extends Controller
                     'sell_payment' => '<span class="badge bg-teal">Sale Payment</span>',
                     'purchase_payment' => '<span class="badge bg-yellow">Purchase Payment</span>',
                     'gym_subscription' => '<span class="badge bg-purple">Gym</span>',
+                    'deferred_revenue_recognition' => '<span class="badge bg-maroon">Deferred Rev</span>',
                 ];
                 return $badges[$row->sub_type] ?? '<span class="badge bg-gray">'.$row->sub_type.'</span>';
             });
