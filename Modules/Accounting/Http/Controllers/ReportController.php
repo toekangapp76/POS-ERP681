@@ -397,7 +397,9 @@ class ReportController extends Controller
 
         // Generate list of months in the date range
         $months = [];
-        $current = \Carbon\Carbon::parse($start_date)->startOfMonth();
+        
+        $start_for_months = \Carbon\Carbon::parse($start_date)->startOfMonth()->subMonth();
+        $current = $start_for_months->copy();
         $end = \Carbon\Carbon::parse($end_date)->endOfMonth();
 
         while ($current <= $end) {
