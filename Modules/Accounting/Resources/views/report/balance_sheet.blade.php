@@ -174,12 +174,14 @@
                                         $diff_color = $difference > 0 ? 'text-success' : ($difference < 0 ? 'text-danger' : '');
                                     @endphp
                                     <td class="text-right diff-col {{ $diff_color }}">
-                                        @if($difference > 0)
-                                            <i class="fa fa-arrow-up"></i>
-                                        @elseif($difference < 0)
-                                            <i class="fa fa-arrow-down"></i>
-                                        @endif
-                                        @format_currency(abs($difference))
+                                        <span data-orig-value="{{ $difference }}">
+                                            @if($difference > 0)
+                                                <i class="fa fa-arrow-up"></i>
+                                            @elseif($difference < 0)
+                                                <i class="fa fa-arrow-down"></i>
+                                            @endif
+                                            @format_currency(abs($difference))
+                                        </span>
                                     </td>
                                 </tr>
                             @endforeach
@@ -216,12 +218,14 @@
                                         </span>
                                     </td>
                                     <td class="text-right diff-col {{ $re_diff_color }}">
-                                        @if($re_difference > 0)
-                                            <i class="fa fa-arrow-up"></i>
-                                        @elseif($re_difference < 0)
-                                            <i class="fa fa-arrow-down"></i>
-                                        @endif
-                                        @format_currency(abs($re_difference))
+                                        <span data-orig-value="{{ $re_difference }}">
+                                            @if($re_difference > 0)
+                                                <i class="fa fa-arrow-up"></i>
+                                            @elseif($re_difference < 0)
+                                                <i class="fa fa-arrow-down"></i>
+                                            @endif
+                                            @format_currency(abs($re_difference))
+                                        </span>
                                     </td>
                                 </tr>
                             @endif
@@ -419,11 +423,13 @@
                         columns: ':visible',
                         format: {
                             body: function (data, row, column, node) {
-                                // For columns with currency (columns 3 onwards), extract numeric value
                                 if (column >= 3) {
-                                    return formatIndonesianNumber(parseIndonesianNumber(data));
+                                    var $el = $(data);
+                                    if ($el.data('orig-value') !== undefined) {
+                                        return parseFloat($el.data('orig-value'));
+                                    }
+                                    return stripHtml(data);
                                 }
-                                // Strip HTML from other columns
                                 return stripHtml(data);
                             }
                         }
@@ -440,9 +446,11 @@
                         format: {
                             body: function (data, row, column, node) {
                                 if (column >= 3) {
-                                    var num = parseIndonesianNumber(data);
-                                    // Format for PDF display with Indonesian locale
-                                    return num.toLocaleString('id-ID', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+                                    var $el = $(data);
+                                    if ($el.data('orig-value') !== undefined) {
+                                        return parseFloat($el.data('orig-value')).toLocaleString('id-ID', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+                                    }
+                                    return stripHtml(data);
                                 }
                                 return stripHtml(data);
                             }

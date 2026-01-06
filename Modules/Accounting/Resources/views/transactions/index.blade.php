@@ -52,6 +52,11 @@
 
 </section>
 <!-- /.content -->
+<div class="modal fade payment_modal" tabindex="-1" role="dialog" aria-labelledby="gridSystemModalLabel">
+</div>
+
+<div class="modal fade edit_payment_modal" tabindex="-1" role="dialog" aria-labelledby="gridSystemModalLabel">
+</div>
 @stop
 
 @section('javascript')
@@ -347,4 +352,5 @@
         });
     });
 </script>
+<script src="{{ asset('js/payment.js?v=' . $asset_v) }}"></script>
 @stop
