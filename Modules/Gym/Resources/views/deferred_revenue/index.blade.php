@@ -53,7 +53,7 @@
             </div>
             <div class="box-body">
                 <div class="row">
-                    <div class="col-md-4">
+                    <div class="col-md-3">
                         <div class="form-group">
                             {!! Form::label('date_range_filter', __('gym::lang.recognition_date') . ':') !!}
                             {!! Form::text('date_range_filter', null, 
@@ -61,7 +61,7 @@
                                 'class' => 'form-control', 'readonly', 'id' => 'date_range_filter']); !!}
                         </div>
                     </div>
-                    <div class="col-md-3">
+                    <div class="col-md-2">
                         <div class="form-group">
                             <label>Status:</label>
                             <select class="form-control" id="status_filter">
@@ -72,7 +72,7 @@
                             </select>
                         </div>
                     </div>
-                    <div class="col-md-3">
+                    <div class="col-md-2">
                         <div class="form-group">
                             <label>&nbsp;</label>
                             <button class="btn btn-primary btn-block" id="filter_btn">
@@ -80,7 +80,7 @@
                             </button>
                         </div>
                     </div>
-                    <div class="col-md-3">
+                    <div class="col-md-2">
                         <div class="form-group">
                             <label>&nbsp;</label>
                             <button class="btn btn-success btn-block" id="process_all_btn">
@@ -90,12 +90,12 @@
                     </div>
                 </div>
                 <div class="row" style="margin-top: 10px;">
-                    <div class="col-md-4">
+                    <div class="col-md-2">
                         <button class="btn btn-warning" id="generate_missing_btn">
                             <i class="fa fa-magic"></i> Generate Missing Schedules
                         </button>
                     </div>
-                    <div class="col-md-4">
+                    <div class="col-md-1">
                         <button class="btn btn-info" id="diagnostic_btn">
                             <i class="fa fa-stethoscope"></i> Diagnostic
                         </button>
