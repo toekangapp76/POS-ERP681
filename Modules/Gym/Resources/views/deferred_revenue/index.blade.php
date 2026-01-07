@@ -116,16 +116,10 @@
                             <th>@lang('gym::lang.period_start')</th>
                             <th>@lang('gym::lang.period_end')</th>
                             <th>@lang('gym::lang.active_days')</th>
-<<<<<<< HEAD
                             <th>No Reff GL</th>
                             <th class="text-right">Total Membership</th>
                             <th>@lang('gym::lang.recognition_amount')</th>
                             <th class="text-right">Remaining Value</th>
-=======
-                            <th class="text-right">Nilai Total Membership</th>
-                            <th class="text-right">Nilai Sisa Membership</th>
-                            <th class="text-right">@lang('gym::lang.recognition_amount')</th>
->>>>>>> 5893375a6bcd2012903e83c9d3bc66fc103e3d47
                             <th>Deposit Acc</th>
                             <th>Revenue Acc</th>
                             <th>Status</th>
@@ -194,13 +188,8 @@
                     { data: 'period_start', name: 'period_start' },
                     { data: 'period_end', name: 'period_end' },
                     { data: 'active_days', name: 'active_days' },
-<<<<<<< HEAD
                     { data: 'ref_no', name: 'ref_no', orderable: false, searchable: false },
                     { data: 'total_membership', name: 'total_membership', className: 'text-right', orderable: false, searchable: false },
-=======
-                    { data: 'total_membership', name: 'total_membership', className: 'text-right' },
-                    { data: 'remaining_membership', name: 'remaining_membership', className: 'text-right' },
->>>>>>> 5893375a6bcd2012903e83c9d3bc66fc103e3d47
                     { data: 'recognition_amount', name: 'recognition_amount', className: 'text-right' },
                     { data: 'remaining_value', name: 'remaining_value', className: 'text-right', orderable: false, searchable: false },
                     { data: 'deposit_account_name', name: 'deposit_account_name' },
