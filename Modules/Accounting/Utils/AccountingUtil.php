@@ -161,7 +161,7 @@ class AccountingUtil extends Util
     /**
      * Function to save a mapping
      */
-    public function saveMap($type, $id, $user_id, $business_id, $deposit_to, $payment_account, $ppn_account = null, $discount_account = null, $operation_date = null){
+    public function saveMap($type, $id, $user_id, $business_id, $deposit_to, $payment_account, $ppn_account = null, $discount_account = null, $operation_date = null, $deposit_to_2 = null, $payment_account_2 = null){
         if ($type == 'sell') {
             $transaction = Transaction::where('business_id', $business_id)->where('id', $id)->firstorFail();
             
@@ -371,8 +371,38 @@ class AccountingUtil extends Util
             }
         }
 
-        AccountingAccountsTransaction::updateOrCreateMapTransaction($payment_data);
-        AccountingAccountsTransaction::updateOrCreateMapTransaction($deposit_data);
+        if ($type == 'expense') {
+            AccountingAccountsTransaction::where('transaction_id', $id)
+                ->whereNull('transaction_payment_id')
+                ->whereIn('map_type', ['payment_account', 'deposit_to'])
+                ->delete();
+            AccountingAccountsTransaction::where('transaction_id', $id)
+                ->whereNull('transaction_payment_id')
+                ->whereIn('map_type', ['payment_account_2', 'deposit_to_2'])
+                ->delete();
+
+            AccountingAccountsTransaction::createTransaction($payment_data);
+            AccountingAccountsTransaction::createTransaction($deposit_data);
+
+            if (!empty($payment_account_2)) {
+                $payment_data_2 = $payment_data;
+                $payment_data_2['accounting_account_id'] = $payment_account_2;
+                AccountingAccountsTransaction::createTransaction($payment_data_2);
+            }
+
+            if (!empty($deposit_to_2)) {
+                $deposit_data_2 = $deposit_data;
+                $deposit_data_2['accounting_account_id'] = $deposit_to_2;
+                AccountingAccountsTransaction::createTransaction($deposit_data_2);
+            }
+        } else {
+            AccountingAccountsTransaction::updateOrCreateMapTransaction($payment_data);
+            AccountingAccountsTransaction::updateOrCreateMapTransaction($deposit_data);
+            AccountingAccountsTransaction::where('transaction_id', $payment_data['transaction_id'])
+                ->where('transaction_payment_id', $payment_data['transaction_payment_id'])
+                ->whereIn('map_type', ['payment_account_2', 'deposit_to_2'])
+                ->delete();
+        }
     }
 
     /**

@@ -4,6 +4,7 @@ namespace Modules\Accounting\Http\Controllers;
 
 use App\BusinessLocation;
 use App\Contact;
+use App\ExpenseCategory;
 use App\Transaction;
 use App\TransactionPayment;
 use App\Utils\ModuleUtil;
@@ -659,17 +660,26 @@ class TransactionController extends Controller
                 //if not paid - Payment account = Sales
                 //Deposit to = Account Receivable
 
-                $existing_payment = AccountingAccountsTransaction::where('transaction_id', $id)
+                $payment_maps = AccountingAccountsTransaction::where('transaction_id', $id)
                                         ->where('map_type', 'payment_account')
-                                        ->first();
-                $existing_deposit = AccountingAccountsTransaction::where('transaction_id', $id)
+                                        ->orderBy('id')
+                                        ->get()
+                                        ->values();
+                $deposit_maps = AccountingAccountsTransaction::where('transaction_id', $id)
                                         ->where('map_type', 'deposit_to')
-                                        ->first();
-                $default_payment_account = ! empty($existing_payment) ? AccountingAccount::find($existing_payment->accounting_account_id) : null;
-                $default_deposit_to = ! empty($existing_deposit) ? AccountingAccount::find($existing_deposit->accounting_account_id) : null;
+                                        ->orderBy('id')
+                                        ->get()
+                                        ->values();
+                $default_payment_account = $payment_maps->get(0) ? AccountingAccount::find($payment_maps->get(0)->accounting_account_id) : null;
+                $default_deposit_to = $deposit_maps->get(0) ? AccountingAccount::find($deposit_maps->get(0)->accounting_account_id) : null;
+                $default_payment_account_2 = $payment_maps->get(1) ? AccountingAccount::find($payment_maps->get(1)->accounting_account_id) : null;
+                $default_deposit_to_2 = $deposit_maps->get(1) ? AccountingAccount::find($deposit_maps->get(1)->accounting_account_id) : null;
+                $expense_categories = ExpenseCategory::where('business_id', $business_id)
+                                        ->whereNull('parent_id')
+                                        ->pluck('name', 'id');
 
                 return view('accounting::transactions.map')
-                        ->with(compact('transaction', 'type', 'default_payment_account', 'default_deposit_to'));
+                        ->with(compact('transaction', 'type', 'default_payment_account', 'default_deposit_to', 'default_payment_account_2', 'default_deposit_to_2', 'expense_categories'));
             } elseif ($type == 'gym_subscription') {
                 $transaction = Transaction::where('id', $id)->where('business_id', $business_id)
                                     ->firstorFail();
@@ -712,21 +722,93 @@ class TransactionController extends Controller
                 $id = $request->get('id');
                 $user_id = request()->session()->get('user.id');
 
-                $deposit_to = $request->get('deposit_to');
-                $payment_account = $request->get('payment_account');
+                $deposit_to_input = $request->get('deposit_to');
+                $payment_account_input = $request->get('payment_account');
+                $deposit_to_values = [];
+                $payment_account_values = [];
+                if ($type == 'expense') {
+                    $deposit_to_values = is_array($deposit_to_input) ? $deposit_to_input : [$deposit_to_input];
+                    $deposit_to_values = array_values(array_filter($deposit_to_values, function ($value) {
+                        return $value !== null && $value !== '';
+                    }));
+                    $payment_account_values = is_array($payment_account_input) ? $payment_account_input : [$payment_account_input];
+                    $payment_account_values = array_values(array_filter($payment_account_values, function ($value) {
+                        return $value !== null && $value !== '';
+                    }));
+                    $deposit_to = $deposit_to_values[0] ?? null;
+                    $deposit_to_2 = $deposit_to_values[1] ?? null;
+                    $payment_account = $payment_account_values[0] ?? null;
+                    $payment_account_2 = $payment_account_values[1] ?? null;
+                } else {
+                    $deposit_to = is_array($deposit_to_input) ? reset($deposit_to_input) : $deposit_to_input;
+                    $payment_account = is_array($payment_account_input) ? reset($payment_account_input) : $payment_account_input;
+                    $deposit_to_2 = null;
+                    $payment_account_2 = null;
+                }
                 $ppn_account = $request->get('ppn_account');
                 $discount_account = $request->get('discount_account');
                 $booking_date = $request->get('booking_date');
+                $expense_category_id = $request->get('expense_category_id');
+                $force_remap = $request->boolean('force_remap');
                 
                 $operation_date = null;
-                if (!empty($booking_date) && in_array($type, ['sell', 'purchase', 'expense', 'gym_subscription'])) {
+                if (in_array($type, ['sell', 'purchase', 'expense', 'gym_subscription']) && (!empty($booking_date) || $type == 'expense')) {
                     $transaction = Transaction::where('business_id', $business_id)->where('id', $id)->firstOrFail();
-                    $operation_date = $this->transactionUtil->uf_date($booking_date, true);
-                    $transaction->transaction_date = $operation_date;
-                    $transaction->save();
+                    $existing_expense_category_id = $transaction->expense_category_id ?? null;
+                    $existing_payment_accounts = [];
+                    $existing_deposit_accounts = [];
+                    if ($type == 'expense') {
+                        $existing_payment_accounts = AccountingAccountsTransaction::where('transaction_id', $id)
+                            ->whereNull('transaction_payment_id')
+                            ->where('map_type', 'payment_account')
+                            ->orderBy('id')
+                            ->pluck('accounting_account_id')
+                            ->toArray();
+                        $existing_deposit_accounts = AccountingAccountsTransaction::where('transaction_id', $id)
+                            ->whereNull('transaction_payment_id')
+                            ->where('map_type', 'deposit_to')
+                            ->orderBy('id')
+                            ->pluck('accounting_account_id')
+                            ->toArray();
+                    }
+
+                    if (!empty($booking_date)) {
+                        $operation_date = $this->transactionUtil->uf_date($booking_date, true);
+                        $transaction->transaction_date = $operation_date;
+                    }
+                    if ($type == 'expense') {
+                        $transaction->expense_category_id = !empty($expense_category_id) ? $expense_category_id : null;
+                    }
+                    if ($transaction->isDirty()) {
+                        $transaction->save();
+                    }
+
+                    if ($type == 'expense') {
+                        $category_changed = (string) $existing_expense_category_id !== (string) ($expense_category_id ?: null);
+                        if ($category_changed || $force_remap) {
+                            $default_payment = null;
+                            $default_deposit = null;
+                            if (!empty($transaction->location_id)) {
+                                $business_location = BusinessLocation::find($transaction->location_id);
+                                $accounting_default_map = !empty($business_location) ? json_decode($business_location->accounting_default_map, true) : [];
+                                $category_key = !empty($expense_category_id) ? 'expense_' . $expense_category_id : 'expense';
+                                $category_map = $accounting_default_map[$category_key] ?? $accounting_default_map['expense'] ?? [];
+                                $default_payment = $category_map['payment_account'] ?? null;
+                                $default_deposit = $category_map['deposit_to'] ?? null;
+                            }
+                            if (!empty($default_payment) && !empty($default_deposit)) {
+                                $payment_account_values = [$default_payment];
+                                $deposit_to_values = [$default_deposit];
+                                $payment_account = $payment_account_values[0];
+                                $payment_account_2 = $payment_account_values[1] ?? null;
+                                $deposit_to = $deposit_to_values[0];
+                                $deposit_to_2 = $deposit_to_values[1] ?? null;
+                            }
+                        }
+                    }
                 }
 
-                $this->accountingUtil->saveMap($type, $id, $user_id, $business_id, $deposit_to, $payment_account, $ppn_account, $discount_account, $operation_date);
+                $this->accountingUtil->saveMap($type, $id, $user_id, $business_id, $deposit_to, $payment_account, $ppn_account, $discount_account, $operation_date, $deposit_to_2, $payment_account_2);
 
                 if (!empty($operation_date)) {
                     AccountingAccountsTransaction::where('transaction_id', $id)
