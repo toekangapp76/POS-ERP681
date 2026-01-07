@@ -672,16 +672,12 @@ class TransactionController extends Controller
                                         ->values();
                 $default_payment_account = $payment_maps->get(0) ? AccountingAccount::find($payment_maps->get(0)->accounting_account_id) : null;
                 $default_deposit_to = $deposit_maps->get(0) ? AccountingAccount::find($deposit_maps->get(0)->accounting_account_id) : null;
-                $default_payment_account_2 = $payment_maps->get(1) ? AccountingAccount::find($payment_maps->get(1)->accounting_account_id) : null;
-                $default_deposit_to_2 = $deposit_maps->get(1) ? AccountingAccount::find($deposit_maps->get(1)->accounting_account_id) : null;
-                $default_payment_account_3 = $payment_maps->get(2) ? AccountingAccount::find($payment_maps->get(2)->accounting_account_id) : null;
-                $default_deposit_to_3 = $deposit_maps->get(2) ? AccountingAccount::find($deposit_maps->get(2)->accounting_account_id) : null;
                 $expense_categories = ExpenseCategory::where('business_id', $business_id)
                                         ->whereNull('parent_id')
                                         ->pluck('name', 'id');
 
                 return view('accounting::transactions.map')
-                        ->with(compact('transaction', 'type', 'default_payment_account', 'default_deposit_to', 'default_payment_account_2', 'default_deposit_to_2', 'default_payment_account_3', 'default_deposit_to_3', 'expense_categories'));
+                        ->with(compact('transaction', 'type', 'default_payment_account', 'default_deposit_to', 'expense_categories'));
             } elseif ($type == 'gym_subscription') {
                 $transaction = Transaction::where('id', $id)->where('business_id', $business_id)
                                     ->firstorFail();
@@ -738,18 +734,10 @@ class TransactionController extends Controller
                         return $value !== null && $value !== '';
                     }));
                     $deposit_to = $deposit_to_values[0] ?? null;
-                    $deposit_to_2 = $deposit_to_values[1] ?? null;
-                    $deposit_to_3 = $deposit_to_values[2] ?? null;
                     $payment_account = $payment_account_values[0] ?? null;
-                    $payment_account_2 = $payment_account_values[1] ?? null;
-                    $payment_account_3 = $payment_account_values[2] ?? null;
                 } else {
                     $deposit_to = is_array($deposit_to_input) ? reset($deposit_to_input) : $deposit_to_input;
                     $payment_account = is_array($payment_account_input) ? reset($payment_account_input) : $payment_account_input;
-                    $deposit_to_2 = null;
-                    $payment_account_2 = null;
-                    $deposit_to_3 = null;
-                    $payment_account_3 = null;
                 }
                 $ppn_account = $request->get('ppn_account');
                 $discount_account = $request->get('discount_account');
@@ -806,17 +794,13 @@ class TransactionController extends Controller
                                 $payment_account_values = [$default_payment];
                                 $deposit_to_values = [$default_deposit];
                                 $payment_account = $payment_account_values[0];
-                                $payment_account_2 = $payment_account_values[1] ?? null;
-                                $payment_account_3 = $payment_account_values[2] ?? null;
                                 $deposit_to = $deposit_to_values[0];
-                                $deposit_to_2 = $deposit_to_values[1] ?? null;
-                                $deposit_to_3 = $deposit_to_values[2] ?? null;
                             }
                         }
                     }
                 }
 
-                $this->accountingUtil->saveMap($type, $id, $user_id, $business_id, $deposit_to, $payment_account, $ppn_account, $discount_account, $operation_date, $deposit_to_2, $payment_account_2, $deposit_to_3, $payment_account_3);
+                $this->accountingUtil->saveMap($type, $id, $user_id, $business_id, $deposit_to, $payment_account, $ppn_account, $discount_account, $operation_date);
 
                 if (!empty($operation_date)) {
                     AccountingAccountsTransaction::where('transaction_id', $id)
