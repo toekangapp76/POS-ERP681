@@ -80,7 +80,7 @@
                             $last_month = $month_count > 1 ? $months[$month_count - 2] : null;
                             $current_key = $current_month['key'] ?? null;
                             $last_key = $last_month['key'] ?? null;
-                            
+
                             // Labels: cumulative balance from all time to end of each month
                             $current_range_label = $current_month
                                 ? 's.d. ' . \Carbon\Carbon::parse($current_month['end'])->format('d M Y')
@@ -149,7 +149,7 @@
                                         // So we just directly use them
                                         $last_balance = $last_key ? ($account->monthly_balances[$last_key] ?? 0) : 0;
                                         $current_balance = $current_key ? ($account->monthly_balances[$current_key] ?? 0) : 0;
-                                        
+
                                         // Varian calculation based on COA:
                                         // COA 1XXX (Asset) = Debit - Credit (current - last is already positive when assets increase)
                                         // COA 2XXX (Liability) & 3XXX (Equity) = Credit - Debit (need to negate for proper variance)
@@ -193,7 +193,7 @@
                                     // So we just directly use them
                                     $re_last_balance = $last_key ? ($re_current_year->monthly_balances[$last_key] ?? 0) : 0;
                                     $re_current_balance = $current_key ? ($re_current_year->monthly_balances[$current_key] ?? 0) : 0;
-                                    
+
                                     // R/E Current Year is equity (3XXX), so negate for balance
                                     $re_difference = -($re_current_balance - $re_last_balance);
                                     $re_diff_color = $re_difference > 0 ? 'text-success' : ($re_difference < 0 ? 'text-danger' : '');
@@ -240,13 +240,14 @@
                                     $current_asset_total = $current_key ? ($monthly_totals_assets[$current_key] ?? 0) : 0;
                                     $asset_diff = $current_asset_total - $last_asset_total;
                                 @endphp
-                                <th class="text-right month-col">@format_currency($last_asset_total)</th>
-                                <th class="text-right month-col">@format_currency($current_asset_total)</th>
+                                <th class="text-right month-col"><span data-orig-value="{{ $last_asset_total }}">@format_currency($last_asset_total)</span></th>
+                                <th class="text-right month-col"><span data-orig-value="{{ $current_asset_total }}">@format_currency($current_asset_total)</span></th>
                                 <th class="text-right diff-col {{ $asset_diff > 0 ? 'text-success' : ($asset_diff < 0 ? 'text-danger' : '') }}"
                                     style="background-color: #d4edda;">
-                                    @if($asset_diff > 0) <i class="fa fa-arrow-up"></i> @elseif($asset_diff < 0) <i
-                                    class="fa fa-arrow-down"></i> @endif
-                                    @format_currency(abs($asset_diff))
+                                    <span data-orig-value="{{ $asset_diff }}">
+                                        @if($asset_diff > 0) <i class="fa fa-arrow-up"></i> @elseif($asset_diff < 0) <i class="fa fa-arrow-down"></i> @endif
+                                        @format_currency(abs($asset_diff))
+                                    </span>
                                 </th>
                             </tr>
 
@@ -259,13 +260,14 @@
                                     // Liability (COA 2XXX) - negate for balance sheet equation
                                     $liab_diff = -($current_liab_total - $last_liab_total);
                                 @endphp
-                                <th class="text-right month-col">@format_currency($last_liab_total)</th>
-                                <th class="text-right month-col">@format_currency($current_liab_total)</th>
+                                <th class="text-right month-col"><span data-orig-value="{{ $last_liab_total }}">@format_currency($last_liab_total)</span></th>
+                                <th class="text-right month-col"><span data-orig-value="{{ $current_liab_total }}">@format_currency($current_liab_total)</span></th>
                                 <th class="text-right diff-col {{ $liab_diff > 0 ? 'text-success' : ($liab_diff < 0 ? 'text-danger' : '') }}"
                                     style="background-color: #fff3cd;">
-                                    @if($liab_diff > 0) <i class="fa fa-arrow-up"></i> @elseif($liab_diff < 0) <i
-                                    class="fa fa-arrow-down"></i> @endif
-                                    @format_currency(abs($liab_diff))
+                                    <span data-orig-value="{{ $liab_diff }}">
+                                        @if($liab_diff > 0) <i class="fa fa-arrow-up"></i> @elseif($liab_diff < 0) <i class="fa fa-arrow-down"></i> @endif
+                                        @format_currency(abs($liab_diff))
+                                    </span>
                                 </th>
                             </tr>
 
@@ -281,13 +283,14 @@
                                     // Equity (COA 3XXX) - negate for balance sheet equation
                                     $equity_diff = -($current_equity_total - $last_equity_total);
                                 @endphp
-                                <th class="text-right month-col">@format_currency($last_equity_total)</th>
-                                <th class="text-right month-col">@format_currency($current_equity_total)</th>
+                                <th class="text-right month-col"><span data-orig-value="{{ $last_equity_total }}">@format_currency($last_equity_total)</span></th>
+                                <th class="text-right month-col"><span data-orig-value="{{ $current_equity_total }}">@format_currency($current_equity_total)</span></th>
                                 <th class="text-right diff-col {{ $equity_diff > 0 ? 'text-success' : ($equity_diff < 0 ? 'text-danger' : '') }}"
                                     style="background-color: #d1ecf1;">
-                                    @if($equity_diff > 0) <i class="fa fa-arrow-up"></i> @elseif($equity_diff < 0) <i
-                                    class="fa fa-arrow-down"></i> @endif
-                                    @format_currency(abs($equity_diff))
+                                    <span data-orig-value="{{ $equity_diff }}">
+                                        @if($equity_diff > 0) <i class="fa fa-arrow-up"></i> @elseif($equity_diff < 0) <i class="fa fa-arrow-down"></i> @endif
+                                        @format_currency(abs($equity_diff))
+                                    </span>
                                 </th>
                             </tr>
 
@@ -300,12 +303,13 @@
                                     // Liabilities + Equity is contra to Assets, negate for variance
                                     $liab_eq_diff = -($current_liab_eq - $last_liab_eq);
                                 @endphp
-                                <th class="text-right month-col">@format_currency($last_liab_eq)</th>
-                                <th class="text-right month-col">@format_currency($current_liab_eq)</th>
+                                <th class="text-right month-col"><span data-orig-value="{{ $last_liab_eq }}">@format_currency($last_liab_eq)</span></th>
+                                <th class="text-right month-col"><span data-orig-value="{{ $current_liab_eq }}">@format_currency($current_liab_eq)</span></th>
                                 <th class="text-right diff-col" style="background-color: #cce5ff;">
-                                    @if($liab_eq_diff > 0) <i class="fa fa-arrow-up"></i> @elseif($liab_eq_diff < 0) <i
-                                    class="fa fa-arrow-down"></i> @endif
-                                    @format_currency(abs($liab_eq_diff))
+                                    <span data-orig-value="{{ $liab_eq_diff }}">
+                                        @if($liab_eq_diff > 0) <i class="fa fa-arrow-up"></i> @elseif($liab_eq_diff < 0) <i class="fa fa-arrow-down"></i> @endif
+                                        @format_currency(abs($liab_eq_diff))
+                                    </span>
                                 </th>
                             </tr>
 
@@ -317,15 +321,17 @@
                                     // Since we already negated liab/equity, just add them
                                     $total_variance = $asset_diff + $liab_diff + $equity_diff;
                                 @endphp
-                                <th class="text-center month-col">-</th>
-                                <th class="text-center month-col">-</th>
+                                <th class="text-center month-col"><span data-orig-value="">-</span></th>
+                                <th class="text-center month-col"><span data-orig-value="">-</span></th>
                                 <th class="text-right diff-col {{ abs($total_variance) < 0.01 ? 'text-success' : 'text-danger' }}"
                                     style="background-color: {{ abs($total_variance) < 0.01 ? '#d4edda' : '#f8d7da' }};">
-                                    @if(abs($total_variance) < 0.01)
-                                        <i class="fa fa-check-circle"></i> 0
-                                    @else
-                                        <i class="fa fa-exclamation-triangle"></i> @format_currency($total_variance)
-                                    @endif
+                                    <span data-orig-value="{{ $total_variance }}">
+                                        @if(abs($total_variance) < 0.01)
+                                            <i class="fa fa-check-circle"></i> 0
+                                        @else
+                                            <i class="fa fa-exclamation-triangle"></i> @format_currency($total_variance)
+                                        @endif
+                                    </span>
                                 </th>
                             </tr>
                         </tfoot>
@@ -426,7 +432,18 @@
                                 if (column >= 3) {
                                     var $el = $(data);
                                     if ($el.data('orig-value') !== undefined) {
-                                        return parseFloat($el.data('orig-value'));
+                                        var origValue = parseFloat($el.data('orig-value'));
+                                        // Kolom Varian (index 5) - tambahkan tanda + atau -
+                                        if (column === 5) {
+                                            if (origValue > 0) {
+                                                return '+' + origValue;
+                                            } else if (origValue < 0) {
+                                                return origValue; // Sudah ada tanda minus
+                                            } else {
+                                                return 0;
+                                            }
+                                        }
+                                        return origValue;
                                     }
                                     return stripHtml(data);
                                 }
