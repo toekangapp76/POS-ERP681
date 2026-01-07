@@ -49,3 +49,17 @@
 
   </div><!-- /.modal-content -->
 </div><!-- /.modal-dialog -->
+
+<script>
+$(document).ready(function() {
+  
+    if ($('#default_expense_account_id').length) {
+        $('#default_expense_account_id').select2({
+            dropdownParent: $('.expense_category_modal'),
+            placeholder: "@lang('messages.please_select')",
+            allowClear: true,
+            width: '100%'
+        });
+    }
+});
+</script>

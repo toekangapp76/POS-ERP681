@@ -320,6 +320,7 @@ Route::middleware(['setData', 'auth', 'SetSessionData', 'language', 'timezone', 
     Route::post('get-expense-sub-categories', [ExpenseCategoryController::class, 'getSubCategories']);
 
     //Expense Categories...
+    Route::get('expense-categories/diagnose', [ExpenseCategoryController::class, 'diagnose'])->name('expense-categories.diagnose');
     Route::resource('expense-categories', ExpenseCategoryController::class);
 
     //Expenses...
