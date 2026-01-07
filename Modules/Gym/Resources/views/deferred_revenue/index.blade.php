@@ -116,7 +116,9 @@
                             <th>@lang('gym::lang.period_start')</th>
                             <th>@lang('gym::lang.period_end')</th>
                             <th>@lang('gym::lang.active_days')</th>
-                            <th>@lang('gym::lang.recognition_amount')</th>
+                            <th class="text-right">Nilai Total Membership</th>
+                            <th class="text-right">Nilai Sisa Membership</th>
+                            <th class="text-right">@lang('gym::lang.recognition_amount')</th>
                             <th>Deposit Acc</th>
                             <th>Revenue Acc</th>
                             <th>Status</th>
@@ -184,6 +186,8 @@
                     { data: 'period_start', name: 'period_start' },
                     { data: 'period_end', name: 'period_end' },
                     { data: 'active_days', name: 'active_days' },
+                    { data: 'total_membership', name: 'total_membership', className: 'text-right' },
+                    { data: 'remaining_membership', name: 'remaining_membership', className: 'text-right' },
                     { data: 'recognition_amount', name: 'recognition_amount', className: 'text-right' },
                     { data: 'deposit_account_name', name: 'deposit_account_name' },
                     { data: 'revenue_account_name', name: 'revenue_account_name' },

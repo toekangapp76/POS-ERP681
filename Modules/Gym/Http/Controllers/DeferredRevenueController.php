@@ -52,12 +52,30 @@ class DeferredRevenueController extends Controller
                 $schedules = $schedules->whereBetween('recognition_date', [$start, $end]);
             }
 
+            $recognizedAmounts = GymDeferredRevenue::forBusiness($business_id)
+                ->where('status', 'recognized')
+                ->selectRaw('transaction_id, SUM(recognition_amount) as total_recognized')
+                ->groupBy('transaction_id')
+                ->pluck('total_recognized', 'transaction_id');
+
             return DataTables::of($schedules)
                 ->addColumn('member_name', function ($row) {
                     return $row->transaction->contact->name ?? '-';
                 })
                 ->addColumn('package_name', function ($row) {
                     return $row->gymPackage->name ?? '-';
+                })
+                ->addColumn('total_membership', function ($row) {
+                    // Nilai Total Membership (total_amount dari transaksi)
+                    $totalMembership = $row->total_amount ?? ($row->transaction->final_total ?? 0);
+                    return number_format($totalMembership, 2, ',', '.');
+                })
+                ->addColumn('remaining_membership', function ($row) use ($recognizedAmounts) {
+                    // Nilai Sisa Membership = Total Membership - Akumulasi Pengakuan Revenue
+                    $totalMembership = $row->total_amount ?? ($row->transaction->final_total ?? 0);
+                    $accumulatedRecognized = $recognizedAmounts[$row->transaction_id] ?? 0;
+                    $remaining = $totalMembership - $accumulatedRecognized;
+                    return number_format($remaining, 2, ',', '.');
                 })
                 ->editColumn('recognition_date', function ($row) {
                     return $row->recognition_date->format('d/m/Y');
