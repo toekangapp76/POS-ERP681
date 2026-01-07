@@ -157,7 +157,8 @@ class AccountingController extends Controller
         if (request()->ajax()) {
             $business_id = request()->session()->get('user.business_id');
             $q = request()->input('q', '');
-            $accounts = AccountingAccount::forDropdown($business_id, true, $q);
+            $primary_type = request()->input('account_primary_type');
+            $accounts = AccountingAccount::forDropdown($business_id, true, $q, $primary_type);
 
             $accounts_array = [];
             foreach ($accounts as $account) {

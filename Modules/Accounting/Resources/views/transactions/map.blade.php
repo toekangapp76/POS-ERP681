@@ -25,6 +25,7 @@
     @php
         $payment_account_name = $type == 'expense' ? 'payment_account[]' : 'payment_account';
         $deposit_to_name = $type == 'expense' ? 'deposit_to[]' : 'deposit_to';
+        $expense_account_attr = $type == 'expense' ? ['data-account-primary-type' => 'expenses'] : [];
     @endphp
     @if(in_array($type, ['sell', 'purchase', 'expense', 'gym_subscription']))
     <div class="row">
@@ -66,7 +67,7 @@
         <div class="col-md-6">
             <div class="form-group">
                 {!! Form::label('payment_account', __('accounting::lang.payment_account') . ':*' ) !!}
-                {!! Form::select($payment_account_name, !is_null($default_payment_account) ? [$default_payment_account->id => $default_payment_account->name] : [], $default_payment_account->id ?? null, ['class' => 'form-control accounts-dropdown', 'id' => 'payment_account', 'placeholder' => __('accounting::lang.payment_account'), 'required' => 'required']); !!}
+                {!! Form::select($payment_account_name, !is_null($default_payment_account) ? [$default_payment_account->id => $default_payment_account->name] : [], $default_payment_account->id ?? null, array_merge(['class' => 'form-control accounts-dropdown', 'id' => 'payment_account', 'placeholder' => __('accounting::lang.payment_account'), 'required' => 'required'], $expense_account_attr)); !!}
                 @if($type == 'gym_subscription')
                     <small class="text-muted">@lang('accounting::lang.bank_debit')</small>
                 @elseif($type == 'purchase')
@@ -79,7 +80,7 @@
             <div class="form-group">
                 {!! Form::label('deposit_to', __('accounting::lang.deposit_to') . ':*' ) !!}
                 {!! Form::select($deposit_to_name, !is_null($default_deposit_to) ? 
-                    [$default_deposit_to->id => $default_deposit_to->name] : [], $default_deposit_to->id ?? null, ['class' => 'form-control accounts-dropdown', 'id' => 'deposit_to', 'placeholder' => __('accounting::lang.deposit_to'), 'required' => 'required']); !!}
+                    [$default_deposit_to->id => $default_deposit_to->name] : [], $default_deposit_to->id ?? null, array_merge(['class' => 'form-control accounts-dropdown', 'id' => 'deposit_to', 'placeholder' => __('accounting::lang.deposit_to'), 'required' => 'required'], $expense_account_attr)); !!}
                 @if($type == 'gym_subscription')
                     <small class="text-muted">@lang('accounting::lang.revenue_credit')</small>
                 @elseif($type == 'purchase')
@@ -90,38 +91,6 @@
     </div>
 
     @if($type == 'expense')
-        <div class="row">
-            <div class="col-md-6">
-                <div class="form-group">
-                    {!! Form::label('payment_account_2', __('accounting::lang.payment_account') . ' 2:*' ) !!}
-                    {!! Form::select('payment_account[]', !is_null($default_payment_account_2 ?? null) ? [$default_payment_account_2->id => $default_payment_account_2->name] : [], $default_payment_account_2->id ?? null, ['class' => 'form-control accounts-dropdown', 'id' => 'payment_account_2', 'placeholder' => __('accounting::lang.payment_account') . ' 2', 'required' => 'required']); !!}
-                </div>
-            </div>
-
-            <div class="col-md-6">
-                <div class="form-group">
-                    {!! Form::label('deposit_to_2', __('accounting::lang.deposit_to') . ' 2:*' ) !!}
-                    {!! Form::select('deposit_to[]', !is_null($default_deposit_to_2 ?? null) ?
-                        [$default_deposit_to_2->id => $default_deposit_to_2->name] : [], $default_deposit_to_2->id ?? null, ['class' => 'form-control accounts-dropdown', 'id' => 'deposit_to_2', 'placeholder' => __('accounting::lang.deposit_to') . ' 2', 'required' => 'required']); !!}
-                </div>
-            </div>
-        </div>
-        <div class="row">
-            <div class="col-md-6">
-                <div class="form-group">
-                    {!! Form::label('payment_account_3', __('accounting::lang.payment_account') . ' 3:*' ) !!}
-                    {!! Form::select('payment_account[]', !is_null($default_payment_account_3 ?? null) ? [$default_payment_account_3->id => $default_payment_account_3->name] : [], $default_payment_account_3->id ?? null, ['class' => 'form-control accounts-dropdown', 'id' => 'payment_account_3', 'placeholder' => __('accounting::lang.payment_account') . ' 3', 'required' => 'required']); !!}
-                </div>
-            </div>
-
-            <div class="col-md-6">
-                <div class="form-group">
-                    {!! Form::label('deposit_to_3', __('accounting::lang.deposit_to') . ' 3:*' ) !!}
-                    {!! Form::select('deposit_to[]', !is_null($default_deposit_to_3 ?? null) ?
-                        [$default_deposit_to_3->id => $default_deposit_to_3->name] : [], $default_deposit_to_3->id ?? null, ['class' => 'form-control accounts-dropdown', 'id' => 'deposit_to_3', 'placeholder' => __('accounting::lang.deposit_to') . ' 3', 'required' => 'required']); !!}
-                </div>
-            </div>
-        </div>
     @endif
 
     @if($type == 'gym_subscription')
