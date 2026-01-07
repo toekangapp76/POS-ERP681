@@ -161,7 +161,7 @@ class AccountingUtil extends Util
     /**
      * Function to save a mapping
      */
-    public function saveMap($type, $id, $user_id, $business_id, $deposit_to, $payment_account, $ppn_account = null, $discount_account = null, $operation_date = null, $deposit_to_2 = null, $payment_account_2 = null){
+    public function saveMap($type, $id, $user_id, $business_id, $deposit_to, $payment_account, $ppn_account = null, $discount_account = null, $operation_date = null, $deposit_to_2 = null, $payment_account_2 = null, $deposit_to_3 = null, $payment_account_3 = null){
         if ($type == 'sell') {
             $transaction = Transaction::where('business_id', $business_id)->where('id', $id)->firstorFail();
             
@@ -394,6 +394,18 @@ class AccountingUtil extends Util
                 $deposit_data_2 = $deposit_data;
                 $deposit_data_2['accounting_account_id'] = $deposit_to_2;
                 AccountingAccountsTransaction::createTransaction($deposit_data_2);
+            }
+
+            if (!empty($payment_account_3)) {
+                $payment_data_3 = $payment_data;
+                $payment_data_3['accounting_account_id'] = $payment_account_3;
+                AccountingAccountsTransaction::createTransaction($payment_data_3);
+            }
+
+            if (!empty($deposit_to_3)) {
+                $deposit_data_3 = $deposit_data;
+                $deposit_data_3['accounting_account_id'] = $deposit_to_3;
+                AccountingAccountsTransaction::createTransaction($deposit_data_3);
             }
         } else {
             AccountingAccountsTransaction::updateOrCreateMapTransaction($payment_data);

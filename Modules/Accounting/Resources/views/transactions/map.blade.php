@@ -106,6 +106,22 @@
                 </div>
             </div>
         </div>
+        <div class="row">
+            <div class="col-md-6">
+                <div class="form-group">
+                    {!! Form::label('payment_account_3', __('accounting::lang.payment_account') . ' 3:*' ) !!}
+                    {!! Form::select('payment_account[]', !is_null($default_payment_account_3 ?? null) ? [$default_payment_account_3->id => $default_payment_account_3->name] : [], $default_payment_account_3->id ?? null, ['class' => 'form-control accounts-dropdown', 'id' => 'payment_account_3', 'placeholder' => __('accounting::lang.payment_account') . ' 3', 'required' => 'required']); !!}
+                </div>
+            </div>
+
+            <div class="col-md-6">
+                <div class="form-group">
+                    {!! Form::label('deposit_to_3', __('accounting::lang.deposit_to') . ' 3:*' ) !!}
+                    {!! Form::select('deposit_to[]', !is_null($default_deposit_to_3 ?? null) ?
+                        [$default_deposit_to_3->id => $default_deposit_to_3->name] : [], $default_deposit_to_3->id ?? null, ['class' => 'form-control accounts-dropdown', 'id' => 'deposit_to_3', 'placeholder' => __('accounting::lang.deposit_to') . ' 3', 'required' => 'required']); !!}
+                </div>
+            </div>
+        </div>
     @endif
 
     @if($type == 'gym_subscription')
