@@ -248,10 +248,12 @@ class DeferredRevenueController extends Controller
 
     /**
      * Create GL entry for recognition
+     * operation_date menggunakan period_start untuk mengikuti tanggal booking membership
      */
     private function createRecognitionGLEntry(GymDeferredRevenue $schedule, int $userId): void
     {
         // Dr. Member Deposit (reduce liability)
+        // operation_date menggunakan period_start (awal periode booking membership)
         \Modules\Accounting\Entities\AccountingAccountsTransaction::create([
             'accounting_account_id' => $schedule->deposit_account_id,
             'transaction_id' => $schedule->transaction_id,
@@ -261,11 +263,12 @@ class DeferredRevenueController extends Controller
             'sub_type' => 'deferred_revenue_recognition',
             'map_type' => 'deferred_deposit',
             'created_by' => $userId,
-            'operation_date' => $schedule->recognition_date,
+            'operation_date' => $schedule->period_start,
             'note' => 'Revenue recognition: ' . $schedule->period_start->format('d/m/Y') . ' - ' . $schedule->period_end->format('d/m/Y'),
         ]);
 
         // Cr. Membership Revenue (recognize income)
+        // operation_date menggunakan period_start (awal periode booking membership)
         \Modules\Accounting\Entities\AccountingAccountsTransaction::create([
             'accounting_account_id' => $schedule->revenue_account_id,
             'transaction_id' => $schedule->transaction_id,
@@ -275,7 +278,7 @@ class DeferredRevenueController extends Controller
             'sub_type' => 'deferred_revenue_recognition',
             'map_type' => 'deferred_revenue',
             'created_by' => $userId,
-            'operation_date' => $schedule->recognition_date,
+            'operation_date' => $schedule->period_start,
             'note' => 'Revenue recognition: ' . $schedule->period_start->format('d/m/Y') . ' - ' . $schedule->period_end->format('d/m/Y'),
         ]);
     }
