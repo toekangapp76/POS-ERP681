@@ -36,4 +36,13 @@ class ExpenseCategory extends Model
     {
         return $query->whereNull('parent_id');
     }
+
+    /**
+     * Get the default expense account for this category.
+     * This account will be used when mapping expenses to P&L Bisnis.
+     */
+    public function defaultExpenseAccount()
+    {
+        return $this->belongsTo(\Modules\Accounting\Entities\AccountingAccount::class, 'default_expense_account_id');
+    }
 }

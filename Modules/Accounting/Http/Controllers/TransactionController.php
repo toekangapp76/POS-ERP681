@@ -674,7 +674,11 @@ class TransactionController extends Controller
                 $default_deposit_to = $deposit_maps->get(0) ? AccountingAccount::find($deposit_maps->get(0)->accounting_account_id) : null;
                 $expense_categories = ExpenseCategory::where('business_id', $business_id)
                                         ->whereNull('parent_id')
-                                        ->pluck('name', 'id');
+                                        ->get()
+                                        ->mapWithKeys(function ($cat) {
+                                            $label = !empty($cat->code) ? $cat->code . ' - ' . $cat->name : $cat->name;
+                                            return [$cat->id => $label];
+                                        });
 
                 return view('accounting::transactions.map')
                         ->with(compact('transaction', 'type', 'default_payment_account', 'default_deposit_to', 'expense_categories'));
@@ -790,11 +794,25 @@ class TransactionController extends Controller
                                 $default_payment = $category_map['payment_account'] ?? null;
                                 $default_deposit = $category_map['deposit_to'] ?? null;
                             }
+
+                            // NEW: Check if expense category has a default_expense_account_id
+                            // This overrides the location-based mapping for P&L Bisnis integration
+                            if (!empty($expense_category_id)) {
+                                $expense_category = ExpenseCategory::find($expense_category_id);
+                                if (!empty($expense_category) && !empty($expense_category->default_expense_account_id)) {
+                                    // Use the default expense account as the payment account (debit)
+                                    $default_payment = $expense_category->default_expense_account_id;
+                                }
+                            }
+
                             if (!empty($default_payment) && !empty($default_deposit)) {
                                 $payment_account_values = [$default_payment];
                                 $deposit_to_values = [$default_deposit];
                                 $payment_account = $payment_account_values[0];
                                 $deposit_to = $deposit_to_values[0];
+                            } elseif (!empty($default_payment)) {
+                                // Only payment account from category, keep existing deposit
+                                $payment_account = $default_payment;
                             }
                         }
                     }

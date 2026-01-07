@@ -29,6 +29,15 @@
             {!! Form::label('parent_id', __( 'category.select_parent_category' ) . ':') !!}
             {!! Form::select('parent_id', $categories, null, ['class' => 'form-control', 'placeholder' => __('lang_v1.none')]); !!}
         </div>
+
+        @if(!empty($expense_accounts) && count($expense_accounts) > 0)
+        <hr>
+        <div class="form-group">
+            {!! Form::label('default_expense_account_id', __( 'accounting::lang.default_expense_account' ) . ':') !!}
+            <p class="help-block text-muted"><small>@lang('accounting::lang.default_expense_account_help')</small></p>
+            {!! Form::select('default_expense_account_id', $expense_accounts, null, ['class' => 'form-control select2', 'placeholder' => __('messages.please_select')]); !!}
+        </div>
+        @endif
     </div>
 
     <div class="modal-footer">

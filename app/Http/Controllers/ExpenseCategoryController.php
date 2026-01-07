@@ -64,7 +64,20 @@ class ExpenseCategoryController extends Controller
                         ->whereNull('parent_id')
                         ->pluck('name', 'id');
 
-        return view('expense_category.create')->with(compact('categories'));
+        // Get expense accounts for default account selection (P&L Bisnis integration)
+        $expense_accounts = [];
+        if (class_exists('\Modules\Accounting\Entities\AccountingAccount')) {
+            $expense_accounts = \Modules\Accounting\Entities\AccountingAccount::where('business_id', $business_id)
+                ->where('status', 'active')
+                ->whereIn('account_primary_type', ['expenses', 'cost_of_sale', 'other_expense'])
+                ->orderBy('gl_code')
+                ->get()
+                ->mapWithKeys(function ($acc) {
+                    return [$acc->id => $acc->gl_code . ' - ' . $acc->name];
+                });
+        }
+
+        return view('expense_category.create')->with(compact('categories', 'expense_accounts'));
     }
 
     /**
@@ -82,6 +95,11 @@ class ExpenseCategoryController extends Controller
         try {
             $input = $request->only(['name', 'code']);
             $input['business_id'] = $request->session()->get('user.business_id');
+
+            // Add default expense account if provided
+            if (!empty($request->input('default_expense_account_id'))) {
+                $input['default_expense_account_id'] = $request->input('default_expense_account_id');
+            }
 
             if (! empty($request->input('add_as_sub_cat')) && $request->input('add_as_sub_cat') == 1 && ! empty($request->input('parent_id'))) {
                 $input['parent_id'] = $request->input('parent_id');
@@ -133,8 +151,21 @@ class ExpenseCategoryController extends Controller
                         ->whereNull('parent_id')
                         ->pluck('name', 'id');
 
+            // Get expense accounts for default account selection (P&L Bisnis integration)
+            $expense_accounts = [];
+            if (class_exists('\Modules\Accounting\Entities\AccountingAccount')) {
+                $expense_accounts = \Modules\Accounting\Entities\AccountingAccount::where('business_id', $business_id)
+                    ->where('status', 'active')
+                    ->whereIn('account_primary_type', ['expenses', 'cost_of_sale', 'other_expense'])
+                    ->orderBy('gl_code')
+                    ->get()
+                    ->mapWithKeys(function ($acc) {
+                        return [$acc->id => $acc->gl_code . ' - ' . $acc->name];
+                    });
+            }
+
             return view('expense_category.edit')
-                    ->with(compact('expense_category', 'categories'));
+                    ->with(compact('expense_category', 'categories', 'expense_accounts'));
         }
     }
 
@@ -159,6 +190,11 @@ class ExpenseCategoryController extends Controller
                 $expense_category = ExpenseCategory::where('business_id', $business_id)->findOrFail($id);
                 $expense_category->name = $input['name'];
                 $expense_category->code = $input['code'];
+
+                // Update default expense account
+                $expense_category->default_expense_account_id = !empty($request->input('default_expense_account_id')) 
+                    ? $request->input('default_expense_account_id') 
+                    : null;
 
                 if (! empty($request->input('add_as_sub_cat')) && $request->input('add_as_sub_cat') == 1 && ! empty($request->input('parent_id'))) {
                     $expense_category->parent_id = $request->input('parent_id');

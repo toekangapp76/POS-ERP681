@@ -509,4 +509,6 @@ return [
     'all' => 'All',
     'other' => 'Other',
     'monthly_summary' => 'Monthly Summary',
+    'default_expense_account' => 'Default Expense Account',
+    'default_expense_account_help' => 'Select the default accounting GL account for this expense category. This will be used for P&L Business Category report.',
 ];
