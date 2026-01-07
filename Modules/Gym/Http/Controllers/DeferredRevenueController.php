@@ -40,6 +40,8 @@ class DeferredRevenueController extends Controller
                 ->with(['transaction.contact', 'gymPackage', 'depositAccount', 'revenueAccount'])
                 ->select('gym_deferred_revenues.*');
 
+            // Use per-transaction cumulative sums in PHP to keep logic aligned with schedule order.
+
             // Filter by status
             if ($request->status && $request->status !== 'all') {
                 $schedules = $schedules->where('status', $request->status);
@@ -52,12 +54,76 @@ class DeferredRevenueController extends Controller
                 $schedules = $schedules->whereBetween('recognition_date', [$start, $end]);
             }
 
+            $filterStatus = $request->status ?? 'all';
+            $filterStart = $request->start_date ? Carbon::parse($request->start_date)->toDateString() : null;
+            $filterEnd = $request->end_date ? Carbon::parse($request->end_date)->toDateString() : null;
+            $taxDivisor = 1.1;
+
             return DataTables::of($schedules)
                 ->addColumn('member_name', function ($row) {
                     return $row->transaction->contact->name ?? '-';
                 })
                 ->addColumn('package_name', function ($row) {
                     return $row->gymPackage->name ?? '-';
+                })
+                ->addColumn('ref_no', function ($row) {
+                    return optional($row->transaction)->ref_no ?? '-';
+                })
+                ->addColumn('total_membership', function ($row) use ($taxDivisor) {
+                    $totalWithTax = optional($row->transaction)->final_total;
+                    $totalMembership = $row->total_amount ?? ($totalWithTax !== null ? ($totalWithTax / $taxDivisor) : null);
+                    if ($totalMembership === null) {
+                        return '-';
+                    }
+
+                    return number_format($totalMembership, 2, ',', '.');
+                })
+                ->addColumn('remaining_value', function ($row) use ($taxDivisor, $filterStatus, $filterStart, $filterEnd) {
+                    static $cumulativeCache = [];
+
+                    $totalWithTax = optional($row->transaction)->final_total;
+                    $totalMembership = $row->total_amount ?? ($totalWithTax !== null ? ($totalWithTax / $taxDivisor) : null);
+                    if ($totalMembership === null) {
+                        return '-';
+                    }
+
+                    $totalAmountKey = $row->total_amount ?? ($totalMembership !== null ? number_format((float) $totalMembership, 4, '.', '') : '');
+                    $groupKey = $row->contact_id . '|' . $row->gym_package_id . '|' . $totalAmountKey;
+                    $cacheKey = $groupKey . '|' . $filterStatus . '|' . ($filterStart ?? '') . '|' . ($filterEnd ?? '');
+                    if (!isset($cumulativeCache[$cacheKey])) {
+                        $runningTotal = 0.0;
+                        $cumulativeById = [];
+
+                        $query = GymDeferredRevenue::where('contact_id', $row->contact_id)
+                            ->where('gym_package_id', $row->gym_package_id);
+                        if ($row->total_amount !== null) {
+                            $query->where('total_amount', $row->total_amount);
+                        }
+                        if (!empty($filterStatus) && $filterStatus !== 'all') {
+                            $query->where('status', $filterStatus);
+                        } else {
+                            $query->where('status', '!=', 'cancelled');
+                        }
+                        if ($filterStart && $filterEnd) {
+                            $query->whereBetween('recognition_date', [$filterStart, $filterEnd]);
+                        }
+
+                        $schedules = $query
+                            ->orderBy('recognition_date')
+                            ->orderBy('id')
+                            ->get(['id', 'recognition_amount']);
+
+                        foreach ($schedules as $schedule) {
+                            $runningTotal += (float) $schedule->recognition_amount;
+                            $cumulativeById[$schedule->id] = $runningTotal;
+                        }
+
+                        $cumulativeCache[$cacheKey] = $cumulativeById;
+                    }
+
+                    $recognizedSum = (float) ($cumulativeCache[$cacheKey][$row->id] ?? 0);
+                    $remainingValue = $totalMembership - (float) $recognizedSum;
+                    return number_format($remainingValue, 2, ',', '.');
                 })
                 ->editColumn('recognition_date', function ($row) {
                     return $row->recognition_date->format('d/m/Y');
