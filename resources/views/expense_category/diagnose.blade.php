@@ -1,13 +1,14 @@
 @extends('layouts.app')
-@section('title', __('expense.expense_categories') . ' - Diagnosa')
+@section('title', __('expense.expense_categories') . ' - Diagnosa P&L Bisnis')
 
 @section('content')
 
     <!-- Content Header (Page header) -->
     <section class="content-header">
         <h1 class="tw-text-xl md:tw-text-3xl tw-font-bold tw-text-black">
-            <i class="fas fa-stethoscope"></i> Diagnosa Expense Category Mapping
-            <small class="tw-text-sm md:tw-text-base tw-text-gray-700 tw-font-semibold">Untuk integrasi P&L Bisnis</small>
+            <i class="fas fa-stethoscope"></i> Diagnosa Expense Category → P&L Bisnis
+            <small class="tw-text-sm md:tw-text-base tw-text-gray-700 tw-font-semibold">Verifikasi integrasi P&L
+                Group</small>
         </h1>
     </section>
 
@@ -25,14 +26,54 @@
 
         <div class="alert alert-info">
             <i class="fas fa-info-circle"></i>
-            <strong>Panduan:</strong> Halaman ini membantu Anda mengidentifikasi masalah konfigurasi expense category untuk
-            P&L Bisnis.
+            <strong>Panduan:</strong> Halaman ini membantu Anda memverifikasi bahwa setiap Expense Category sudah memiliki
+            P&L Group yang benar.
             <ul class="tw-mt-2">
-                <li><span class="label label-success">✓ Benar</span> = Expense category sudah ter-konfigurasi dengan benar
+                <li><span class="label label-success">✓ Benar</span> = P&L Group sudah di-set, expense akan ter-grouping di
+                    P&L Bisnis</li>
+                <li><span class="label label-danger">✗ Belum</span> = P&L Group belum di-set, expense akan masuk ke "Other"
                 </li>
-                <li><span class="label label-warning">⚠ Warning</span> = Default Account belum di-set</li>
-                <li><span class="label label-danger">✗ Error</span> = Akun tidak memiliki Detail Type</li>
             </ul>
+        </div>
+
+        <!-- Summary Statistics -->
+        <div class="row tw-mb-4">
+            <div class="col-md-3">
+                <div class="info-box bg-aqua">
+                    <span class="info-box-icon"><i class="fas fa-folder"></i></span>
+                    <div class="info-box-content">
+                        <span class="info-box-text">Total Kategori</span>
+                        <span class="info-box-number">{{ $summary['total_categories'] }}</span>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-3">
+                <div class="info-box bg-green">
+                    <span class="info-box-icon"><i class="fas fa-check"></i></span>
+                    <div class="info-box-content">
+                        <span class="info-box-text">Konfigurasi Benar</span>
+                        <span class="info-box-number">{{ $summary['configured'] }}</span>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-3">
+                <div class="info-box bg-red">
+                    <span class="info-box-icon"><i class="fas fa-times"></i></span>
+                    <div class="info-box-content">
+                        <span class="info-box-text">Belum Dikonfigurasi</span>
+                        <span class="info-box-number">{{ $summary['not_configured'] }}</span>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-3">
+                <div class="info-box bg-purple">
+                    <span class="info-box-icon"><i class="fas fa-tags"></i></span>
+                    <div class="info-box-content">
+                        <span class="info-box-text">P&L Groups</span>
+                        <span class="info-box-number">{{ count($summary['pnl_groups']) }}</span>
+                    </div>
+                </div>
+            </div>
         </div>
 
         <div class="table-responsive">
@@ -40,38 +81,35 @@
                 <thead>
                     <tr>
                         <th width="5%">Status</th>
-                        <th width="15%">Expense Category</th>
                         <th width="10%">Code</th>
-                        <th width="25%">Default Expense Account</th>
-                        <th width="15%">Detail Type (P&L Bisnis)</th>
-                        <th width="30%">Diagnosa</th>
+                        <th width="20%">Expense Category</th>
+                        <th width="15%">P&L Group</th>
+                        <th width="25%">Default Account (Opsional)</th>
+                        <th width="25%">Diagnosa</th>
                     </tr>
                 </thead>
                 <tbody>
                     @forelse($diagnostics as $diag)
-                        <tr
-                            class="{{ $diag['status'] == 'success' ? 'success' : ($diag['status'] == 'warning' ? 'warning' : 'danger') }}">
+                        <tr class="{{ $diag['status'] == 'success' ? 'success' : 'danger' }}">
                             <td class="text-center">
                                 @if($diag['status'] == 'success')
                                     <span class="label label-success"><i class="fas fa-check"></i></span>
-                                @elseif($diag['status'] == 'warning')
-                                    <span class="label label-warning"><i class="fas fa-exclamation-triangle"></i></span>
                                 @else
                                     <span class="label label-danger"><i class="fas fa-times"></i></span>
                                 @endif
                             </td>
+                            <td><code>{{ $diag['category']->code ?? '-' }}</code></td>
                             <td><strong>{{ $diag['category']->name }}</strong></td>
-                            <td>{{ $diag['category']->code ?? '-' }}</td>
                             <td>
-                                @if($diag['account_info'])
-                                    <code>{{ $diag['account_info']['gl_code'] }}</code> - {{ $diag['account_info']['name'] }}
+                                @if($diag['pnl_group'])
+                                    <span class="label label-info">{{ $diag['pnl_group'] }}</span>
                                 @else
                                     <span class="text-muted">Belum di-set</span>
                                 @endif
                             </td>
                             <td>
-                                @if($diag['detail_type'])
-                                    <span class="label label-info">{{ $diag['detail_type'] }}</span>
+                                @if($diag['account_info'])
+                                    <code>{{ $diag['account_info']['gl_code'] }}</code> - {{ $diag['account_info']['name'] }}
                                 @else
                                     <span class="text-muted">-</span>
                                 @endif
@@ -98,50 +136,43 @@
             </table>
         </div>
 
-        <!-- Summary -->
-        <div class="row tw-mt-4">
-            <div class="col-md-4">
-                <div class="info-box bg-green">
-                    <span class="info-box-icon"><i class="fas fa-check"></i></span>
-                    <div class="info-box-content">
-                        <span class="info-box-text">Konfigurasi Benar</span>
-                        <span
-                            class="info-box-number">{{ collect($diagnostics)->where('status', 'success')->count() }}</span>
-                    </div>
-                </div>
+        <!-- Available P&L Groups -->
+        <div class="box box-info tw-mt-4">
+            <div class="box-header with-border">
+                <h3 class="box-title"><i class="fas fa-tags"></i> P&L Groups yang Tersedia</h3>
             </div>
-            <div class="col-md-4">
-                <div class="info-box bg-yellow">
-                    <span class="info-box-icon"><i class="fas fa-exclamation-triangle"></i></span>
-                    <div class="info-box-content">
-                        <span class="info-box-text">Perlu Aksi</span>
-                        <span
-                            class="info-box-number">{{ collect($diagnostics)->where('status', 'warning')->count() }}</span>
-                    </div>
-                </div>
-            </div>
-            <div class="col-md-4">
-                <div class="info-box bg-red">
-                    <span class="info-box-icon"><i class="fas fa-times"></i></span>
-                    <div class="info-box-content">
-                        <span class="info-box-text">Error</span>
-                        <span class="info-box-number">{{ collect($diagnostics)->where('status', 'danger')->count() }}</span>
-                    </div>
+            <div class="box-body">
+                <p class="text-muted">Ini adalah daftar P&L Group yang saat ini digunakan di Expense Categories:</p>
+                <div class="tw-flex tw-flex-wrap tw-gap-2">
+                    @if(count($summary['pnl_groups']) > 0)
+                        @foreach($summary['pnl_groups'] as $group)
+                            <span class="label label-primary" style="font-size: 14px;">{{ $group }}</span>
+                        @endforeach
+                    @else
+                        <span class="text-muted">Belum ada P&L Group yang dikonfigurasi.</span>
+                    @endif
                 </div>
             </div>
         </div>
 
-        <!-- Available Detail Types -->
-        <div class="box box-info tw-mt-4">
+        <!-- How It Works -->
+        <div class="box box-success tw-mt-4">
             <div class="box-header with-border">
-                <h3 class="box-title"><i class="fas fa-list"></i> Detail Types yang Tersedia (Kategori P&L Bisnis)</h3>
+                <h3 class="box-title"><i class="fas fa-lightbulb"></i> Bagaimana Ini Bekerja?</h3>
             </div>
             <div class="box-body">
-                <p class="text-muted">Ini adalah daftar Detail Type yang dapat digunakan untuk grouping di P&L Bisnis:</p>
-                <div class="tw-flex tw-flex-wrap tw-gap-2">
-                    @foreach($detail_types as $id => $name)
-                        <span class="label label-default">{{ $name }}</span>
-                    @endforeach
+                <ol>
+                    <li><strong>P&L Group</strong> pada Expense Category menentukan di kolom mana expense akan muncul di
+                        report P&L Bisnis.</li>
+                    <li>Ketika membuat transaksi expense, pilih <strong>Expense Category</strong> yang sesuai.</li>
+                    <li>Expense akan otomatis ter-grouping di P&L Bisnis berdasarkan <strong>P&L Group</strong> dari
+                        kategori tersebut.</li>
+                    <li>Jika P&L Group belum di-set, expense akan masuk ke kategori <strong>"Other"</strong>.</li>
+                </ol>
+                <div class="alert alert-warning tw-mt-2">
+                    <i class="fas fa-exclamation-triangle"></i>
+                    <strong>Penting:</strong> Pastikan semua Expense Category yang aktif sudah memiliki P&L Group yang
+                    benar!
                 </div>
             </div>
         </div>

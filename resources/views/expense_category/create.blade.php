@@ -18,6 +18,12 @@
           {!! Form::text('code', null, ['class' => 'form-control', 'placeholder' => __( 'expense.category_code' )]); !!}
       </div>
 
+      <div class="form-group">
+        {!! Form::label('pnl_group', 'P&L Group:*') !!}
+        <p class="help-block text-muted"><small>Nama grup untuk grouping expense di P&L Bisnis (contoh: Gym, Padel, Pro Shop)</small></p>
+        {!! Form::text('pnl_group', null, ['class' => 'form-control', 'required', 'placeholder' => 'Contoh: Gym']); !!}
+      </div>
+
         <div class="form-group">
             <div class="checkbox">
               <label>
@@ -29,15 +35,6 @@
             {!! Form::label('parent_id', __( 'category.select_parent_category' ) . ':') !!}
             {!! Form::select('parent_id', $categories, null, ['class' => 'form-control', 'placeholder' => __('lang_v1.none')]); !!}
         </div>
-
-        @if(!empty($expense_accounts) && count($expense_accounts) > 0)
-        <hr>
-        <div class="form-group">
-            {!! Form::label('default_expense_account_id', __( 'accounting::lang.default_expense_account' ) . ':') !!}
-            <p class="help-block text-muted"><small>@lang('accounting::lang.default_expense_account_help')</small></p>
-            {!! Form::select('default_expense_account_id', $expense_accounts, null, ['class' => 'form-control select2', 'placeholder' => __('messages.please_select')]); !!}
-        </div>
-        @endif
     </div>
 
     <div class="modal-footer">
@@ -49,17 +46,3 @@
 
   </div><!-- /.modal-content -->
 </div><!-- /.modal-dialog -->
-
-<script>
-$(document).ready(function() {
-  
-    if ($('#default_expense_account_id').length) {
-        $('#default_expense_account_id').select2({
-            dropdownParent: $('.expense_category_modal'),
-            placeholder: "@lang('messages.please_select')",
-            allowClear: true,
-            width: '100%'
-        });
-    }
-});
-</script>

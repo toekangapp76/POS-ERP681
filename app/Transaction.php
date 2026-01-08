@@ -275,6 +275,15 @@ class Transaction extends Model
     }
 
     /**
+     * Get the expense category for expense transactions.
+     * Used for P&L Bisnis grouping.
+     */
+    public function expense_category()
+    {
+        return $this->belongsTo(\App\ExpenseCategory::class, 'expense_category_id');
+    }
+
+    /**
      * Returns the list of discount types.
      */
     public static function discountTypes()

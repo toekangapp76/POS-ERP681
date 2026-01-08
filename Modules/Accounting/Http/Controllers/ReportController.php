@@ -1050,18 +1050,7 @@ class ReportController extends Controller
             abort(403, 'Unauthorized action.');
         }
 
-        // Get gym categories
-        $gym_categories = [];
-        try {
-            $gym_categories = GymCategory::where('business_id', $business_id)
-                ->select('id', 'name')
-                ->orderBy('name')
-                ->get();
-        } catch (\Exception $e) {
-            // Gym module not installed
-        }
-
-        if (!empty(request()->start_date) && !empty(request()->end_date)) {
+        if (! empty(request()->start_date) && ! empty(request()->end_date)) {
             $start_date = request()->start_date;
             $end_date = request()->end_date;
         } else {
@@ -1090,7 +1079,6 @@ class ReportController extends Controller
         $current_month_period = $month_count > 0 ? $months[$month_count - 1] : null;
         $last_month_period = $month_count > 1 ? $months[$month_count - 2] : null;
 
-        // YTD period is the entire date range
         $ytd_period = [
             'start' => $start_date,
             'end' => $end_date,
@@ -1100,7 +1088,7 @@ class ReportController extends Controller
         $cm_start = $current_month_period ? $current_month_period['start'] : null;
         $cm_end = $current_month_period ? $current_month_period['end'] : null;
 
-        // Last Month period  
+        // Last Month period
         $lm_start = $last_month_period ? $last_month_period['start'] : null;
         $lm_end = $last_month_period ? $last_month_period['end'] : null;
 
@@ -1120,20 +1108,21 @@ class ReportController extends Controller
         $total_income = 0;
         $total_expense = 0;
 
-        // Initialize category totals with period breakdown (last_month, current_month, ytd)
-        $period_keys = ['last_month', 'current_month', 'ytd'];
+        // Initialize category totals
+        $period_values = ['last_month', 'current_month', 'ytd'];
+        $createPeriodStructure = function () use ($period_values) {
+            return array_fill_keys($period_values, 0);
+        };
+
         $category_totals = [
             'income' => [],
             'expense' => [],
         ];
 
-        // Helper function to create period structure
-        $createPeriodStructure = function () use ($period_keys) {
-            return array_fill_keys($period_keys, 0);
-        };
+        // 1. BUILD BUSINESS CATEGORIES (Merge Detail Types & Expense Category Groups)
+        $business_categories = [];
 
-        // Fetch business categories dynamically from AccountingAccountType (detail_type)
-        // This allows business categories to be managed in Accounting Settings -> Detail Type tab
+        // A. From Accounting Detail Types (Existing Logic)
         $detail_types_from_db = AccountingAccountType::where('account_type', 'detail_type')
             ->where(function ($q) use ($business_id) {
                 $q->whereNull('business_id')
@@ -1143,160 +1132,204 @@ class ReportController extends Controller
             ->orderBy('name')
             ->get();
 
-        // Build business_categories dynamically from database
-        // IMPORTANT: Merge all Detail Type IDs that have the SAME NAME into one category
-        // This is needed because there can be multiple detail types with the same name but different parents
-        // e.g., "Padel" under "Paddle Revenue", "Padel" under "Payroll Expense", etc.
-        $business_categories = [];
         foreach ($detail_types_from_db as $dt) {
-            // Create a slug-friendly key from the name
             $cat_key = \Illuminate\Support\Str::slug($dt->name, '_');
-            
-            // Get display name (translated if system, raw if user-created)
-            $display_name = empty($dt->business_id) 
-                ? __('accounting::lang.' . $dt->name) 
+            $display_name = empty($dt->business_id)
+                ? __('accounting::lang.'.$dt->name)
                 : $dt->name;
-            
-            // Check if category already exists - if so, ADD the ID to the array
+
             if (isset($business_categories[$cat_key])) {
-                // Append this ID to existing list
                 $business_categories[$cat_key]['detail_type_ids'][] = $dt->id;
             } else {
-                // Create new category
                 $business_categories[$cat_key] = [
                     'name' => $display_name,
                     'detail_type_ids' => [$dt->id],
+                    'pnl_groups' => [], // Will be used for expense matching
                 ];
             }
         }
 
-        // Initialize category totals for each business category
+        // B. From Expense Categories 'pnl_group' field (New Logic)
+        $expense_groups = \App\ExpenseCategory::where('business_id', $business_id)
+            ->whereNotNull('pnl_group')
+            ->distinct('pnl_group')
+            ->pluck('pnl_group');
+
+        foreach ($expense_groups as $group_name) {
+            $cat_key = \Illuminate\Support\Str::slug($group_name, '_');
+
+            if (! isset($business_categories[$cat_key])) {
+                // If category doesn't exist from detail types, create it
+                $business_categories[$cat_key] = [
+                    'name' => $group_name,
+                    'detail_type_ids' => [],
+                    'pnl_groups' => [$group_name],
+                ];
+            } else {
+                // If exists, just add the pnl_group name to the list
+                // This handles case where Expense Group "Gym" matches Account Detail Type "Gym"
+                if (! in_array($group_name, $business_categories[$cat_key]['pnl_groups'])) {
+                    $business_categories[$cat_key]['pnl_groups'][] = $group_name;
+                }
+            }
+        }
+
+        // Initialize totals for all categories
         foreach (array_keys($business_categories) as $cat_key) {
             $category_totals['income'][$cat_key] = $createPeriodStructure();
             $category_totals['expense'][$cat_key] = $createPeriodStructure();
         }
-        // Initialize "other" category for accounts without matching detail_type
         $category_totals['income']['other'] = $createPeriodStructure();
         $category_totals['expense']['other'] = $createPeriodStructure();
 
-        // Helper function to calculate balance for a specific date range
-        $calculatePeriodBalance = function ($account_id, $start, $end, $account_type) {
-            if (!$start || !$end)
-                return 0;
+        // 2. HELPER TO CALCULATE BALANCE WITH BREAKDOWN
+        $calculateBalanceWithBreakdown = function ($account_id, $start, $end, $account_type) use ($business_categories) {
+            if (! $start || ! $end) {
+                return ['total' => 0, 'breakdown' => []];
+            }
 
-            $period = DB::table('accounting_accounts_transactions')
-                ->where('accounting_account_id', $account_id)
+            $query = DB::table('accounting_accounts_transactions as aat')
+                ->where('aat.accounting_account_id', $account_id)
                 ->where(function ($q) {
-                    $q->whereNull('sub_type')
-                        ->orWhere('sub_type', '!=', 'opening_balance');
+                    $q->whereNull('aat.sub_type')
+                        ->orWhere('aat.sub_type', '!=', 'opening_balance');
                 })
-                ->whereDate('operation_date', '>=', $start)
-                ->whereDate('operation_date', '<=', $end)
-                ->select(
-                    DB::raw("SUM(IF(type = 'debit', amount, 0)) as debit"),
-                    DB::raw("SUM(IF(type = 'credit', amount, 0)) as credit")
-                )->first();
+                ->whereDate('aat.operation_date', '>=', $start)
+                ->whereDate('aat.operation_date', '<=', $end);
 
-            $debit = $period->debit ?? 0;
-            $credit = $period->credit ?? 0;
-
-            if ($account_type == 'income') {
-                return $credit - $debit;
+            if ($account_type == 'expenses') {
+                // For expenses: Join transactions to get expense category -> pnl_group
+                $query->leftJoin('transactions as t', 'aat.transaction_id', '=', 't.id')
+                    ->leftJoin('expense_categories as ec', 't.expense_category_id', '=', 'ec.id')
+                    ->select(
+                        DB::raw("SUM(IF(aat.type = 'debit', aat.amount, 0)) - SUM(IF(aat.type = 'credit', aat.amount, 0)) as balance"),
+                        'ec.pnl_group'
+                    )
+                    ->groupBy('ec.pnl_group');
             } else {
-                return $debit - $credit;
+                // For income: Simple total (distribution handled by account detail type)
+                $query->select(
+                    DB::raw("SUM(IF(aat.type = 'credit', aat.amount, 0)) - SUM(IF(aat.type = 'debit', aat.amount, 0)) as balance")
+                );
             }
-        };
 
-        // Helper function to determine category from detail_type_id
-        $getCategoryFromDetailTypeId = function ($detail_type_id) use ($business_categories) {
-            if (empty($detail_type_id)) {
-                return 'other';
-            }
-            foreach ($business_categories as $cat_key => $cat_info) {
-                if (in_array($detail_type_id, $cat_info['detail_type_ids'])) {
-                    return $cat_key;
+            $results = $query->get();
+            $total = 0;
+            $breakdown = [];
+
+            if ($account_type == 'expenses') {
+                foreach ($results as $row) {
+                    $bal = $row->balance;
+                    $total += $bal;
+
+                    $pnl_group = $row->pnl_group;
+                    $matched = false;
+
+                    if ($pnl_group) {
+                        $slug = \Illuminate\Support\Str::slug($pnl_group, '_');
+                        // Use slug to find matching business category
+                        if (isset($business_categories[$slug])) {
+                            $breakdown[$slug] = ($breakdown[$slug] ?? 0) + $bal;
+                            $matched = true;
+                        }
+                    }
+
+                    if (! $matched) {
+                        $breakdown['other'] = ($breakdown['other'] ?? 0) + $bal;
+                    }
                 }
+            } else {
+                $bal = $results->first()->balance ?? 0;
+                $total = $bal;
+                // No dynamic breakdown for income
             }
-            return 'other';
+
+            return ['total' => $total, 'breakdown' => $breakdown];
         };
 
+        // 3. MAIN LOOP
         foreach ($all_accounts as $account) {
-            // Get the detail type id for this account
-            $detail_type_id = $account->detail_type_id;
-            $category_key = $getCategoryFromDetailTypeId($detail_type_id);
+            $is_income = $account->account_primary_type == 'income';
 
-            // Calculate balances for all periods
-            $lm_balance = $calculatePeriodBalance($account->id, $lm_start, $lm_end, $account->account_primary_type);
-            $cm_balance = $calculatePeriodBalance($account->id, $cm_start, $cm_end, $account->account_primary_type);
-            $ytd_balance = $calculatePeriodBalance($account->id, $start_date, $end_date, $account->account_primary_type);
+            // Calculate for all periods
+            $lm_data = $calculateBalanceWithBreakdown($account->id, $lm_start, $lm_end, $account->account_primary_type);
+            $cm_data = $calculateBalanceWithBreakdown($account->id, $cm_start, $cm_end, $account->account_primary_type);
+            $ytd_data = $calculateBalanceWithBreakdown($account->id, $start_date, $end_date, $account->account_primary_type);
 
-            // Skip if no balance in any period
-            if ($ytd_balance == 0 && $lm_balance == 0 && $cm_balance == 0) {
+            $ytd_total = $ytd_data['total'];
+
+            // Skip if no activity
+            if ($ytd_total == 0 && $lm_data['total'] == 0 && $cm_data['total'] == 0) {
                 continue;
             }
 
-            // Build category_balances with only the matching category having values
-            $category_balances = [];
-            foreach (array_keys($business_categories) as $cat) {
-                if ($cat == $category_key) {
-                    $category_balances[$cat] = [
-                        'last_month' => $lm_balance,
-                        'current_month' => $cm_balance,
-                        'ytd' => $ytd_balance,
-                    ];
-                } else {
-                    $category_balances[$cat] = [
-                        'last_month' => 0,
-                        'current_month' => 0,
-                        'ytd' => 0,
-                    ];
-                }
+            // Init account specific balances
+            $account_cat_balances = [];
+            foreach (array_keys($business_categories) as $k) {
+                $account_cat_balances[$k] = $createPeriodStructure();
             }
-            // Handle 'other' category
-            if ($category_key == 'other') {
-                $category_balances['other'] = [
-                    'last_month' => $lm_balance,
-                    'current_month' => $cm_balance,
-                    'ytd' => $ytd_balance,
-                ];
+            $account_cat_balances['other'] = $createPeriodStructure();
+
+            if ($is_income) {
+                // INCOME LOGIC: Assign total to account's detail type category
+                $dt_id = $account->detail_type_id;
+                $target_cat = 'other';
+                if ($dt_id) {
+                    foreach ($business_categories as $k => $info) {
+                        if (in_array($dt_id, $info['detail_type_ids'])) {
+                            $target_cat = $k;
+                            break;
+                        }
+                    }
+                }
+
+                // Add to account balances
+                $account_cat_balances[$target_cat]['last_month'] += $lm_data['total'];
+                $account_cat_balances[$target_cat]['current_month'] += $cm_data['total'];
+                $account_cat_balances[$target_cat]['ytd'] += $ytd_data['total'];
+
+                // Add to Global Totals
+                $category_totals['income'][$target_cat]['last_month'] += $lm_data['total'];
+                $category_totals['income'][$target_cat]['current_month'] += $cm_data['total'];
+                $category_totals['income'][$target_cat]['ytd'] += $ytd_data['total'];
+                $total_income += $ytd_data['total'];
             } else {
-                $category_balances['other'] = [
-                    'last_month' => 0,
-                    'current_month' => 0,
-                    'ytd' => 0,
-                ];
+                // EXPENSE LOGIC: Distribute based on transaction breakdown
+                $distribute = function ($data, $period) use (&$account_cat_balances, &$category_totals) {
+                    foreach ($data['breakdown'] as $cat => $val) {
+                        $target = isset($account_cat_balances[$cat]) ? $cat : 'other';
+                        $account_cat_balances[$target][$period] += $val;
+                        $category_totals['expense'][$target][$period] += $val;
+                    }
+                };
+
+                $distribute($lm_data, 'last_month');
+                $distribute($cm_data, 'current_month');
+                $distribute($ytd_data, 'ytd');
+                $total_expense += $ytd_total;
             }
 
             $account_data = (object) [
                 'gl_code' => $account->gl_code,
                 'name' => $account->name,
                 'account_primary_type' => $account->account_primary_type,
-                'category_balances' => $category_balances,
-                'balance' => $ytd_balance,
+                'category_balances' => $account_cat_balances,
+                'balance' => $ytd_total,
                 'detail_type' => $account->detail_type ? $account->detail_type->name : null,
-                'category_key' => $category_key,
+                // category_key used for grouping in view, might be ambiguous for shared expenses but useful for sorting
+                'category_key' => $is_income ? $target_cat : 'mixed',
             ];
 
-            if ($account->account_primary_type == 'income') {
+            if ($is_income) {
                 $income_accounts->push($account_data);
-                $total_income += $ytd_balance;
-                // Update category totals for this account's category
-                $category_totals['income'][$category_key]['last_month'] += $lm_balance;
-                $category_totals['income'][$category_key]['current_month'] += $cm_balance;
-                $category_totals['income'][$category_key]['ytd'] += $ytd_balance;
             } else {
                 $expense_accounts->push($account_data);
-                $total_expense += $ytd_balance;
-                // Update category totals for this account's category
-                $category_totals['expense'][$category_key]['last_month'] += $lm_balance;
-                $category_totals['expense'][$category_key]['current_month'] += $cm_balance;
-                $category_totals['expense'][$category_key]['ytd'] += $ytd_balance;
             }
         }
 
         $net_profit = $total_income - $total_expense;
 
-        // Calculate net profit per category with period breakdown
+        // Calculate net profit per category
         $category_net_profit = [];
         foreach (array_keys($business_categories) as $cat_key) {
             $category_net_profit[$cat_key] = [

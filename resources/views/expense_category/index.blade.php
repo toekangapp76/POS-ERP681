@@ -40,7 +40,7 @@
                     <tr>
                         <th>@lang('expense.category_name')</th>
                         <th>@lang('expense.category_code')</th>
-                        {{-- <th>@lang('accounting::lang.default_expense_account')</th> --}}
+                        {{-- <th>P&L Group</th> --}}
                         <th>@lang('messages.action')</th>
                     </tr>
                 </thead>

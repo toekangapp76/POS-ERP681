@@ -1417,7 +1417,7 @@ $(document).ready(function () {
         // columns: [
         //     { data: 'name', name: 'name' },
         //     { data: 'code', name: 'code' },
-        //     // { data: 'default_account', name: 'default_account', orderable: false, searchable: false },
+        //     { data: 'pnl_group_display', name: 'pnl_group', orderable: false, searchable: false },
         //     { data: 'action', name: 'action', orderable: false, searchable: false }
         // ]
     });

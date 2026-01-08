@@ -23,8 +23,7 @@ class ExpenseCategoryController extends Controller
             $business_id = request()->session()->get('user.business_id');
 
             $expense_category = ExpenseCategory::where('business_id', $business_id)
-                        ->with('defaultExpenseAccount.detail_type')
-                        ->select(['name', 'code', 'id', 'parent_id', 'default_expense_account_id']);
+                        ->select(['name', 'code', 'id', 'parent_id', 'pnl_group']);
 
             return Datatables::of($expense_category)
                 ->addColumn(
@@ -33,13 +32,11 @@ class ExpenseCategoryController extends Controller
                         &nbsp;
                         <button data-href="{{action(\'App\Http\Controllers\ExpenseCategoryController@destroy\', [$id])}}" class="tw-dw-btn tw-dw-btn-outline tw-dw-btn-xs tw-dw-btn-error delete_expense_category"><i class="glyphicon glyphicon-trash"></i> @lang("messages.delete")</button>'
                 )
-                ->addColumn('default_account', function ($row) {
-                    if (!empty($row->defaultExpenseAccount)) {
-                        $account = $row->defaultExpenseAccount;
-                        $detail_type = $account->detail_type ? ' <span class="label label-info">' . $account->detail_type->name . '</span>' : '';
-                        return $account->gl_code . ' - ' . $account->name . $detail_type;
+                ->addColumn('pnl_group_display', function ($row) {
+                    if (!empty($row->pnl_group)) {
+                        return '<span class="label label-info">' . $row->pnl_group . '</span>';
                     }
-                    return '<span class="text-muted">-</span>';
+                    return '<span class="label label-warning">Belum di-set</span>';
                 })
                 ->editColumn('name', function ($row) {
                     if (! empty($row->parent_id)) {
@@ -50,9 +47,7 @@ class ExpenseCategoryController extends Controller
                 })
                 ->removeColumn('id')
                 ->removeColumn('parent_id')
-                ->removeColumn('default_expense_account_id')
-                ->removeColumn('defaultExpenseAccount')
-                ->removeColumn('default_expense_account')
+                ->removeColumn('pnl_group')
                 ->rawColumns([2, 3])
                 ->make(false);
         }
@@ -76,21 +71,7 @@ class ExpenseCategoryController extends Controller
                         ->whereNull('parent_id')
                         ->pluck('name', 'id');
 
-        $expense_accounts = [];
-        if (class_exists('\Modules\Accounting\Entities\AccountingAccount')) {
-            $expense_accounts = \Modules\Accounting\Entities\AccountingAccount::where('business_id', $business_id)
-                ->where('status', 'active')
-                ->whereIn('account_primary_type', ['expenses', 'cost_of_sale', 'other_expense'])
-                ->with('detail_type')
-                ->orderBy('gl_code')
-                ->get()
-                ->mapWithKeys(function ($acc) {
-                    $detail_type_label = $acc->detail_type ? ' [' . $acc->detail_type->name . ']' : '';
-                    return [$acc->id => $acc->gl_code . ' - ' . $acc->name . $detail_type_label];
-                });
-        }
-
-        return view('expense_category.create')->with(compact('categories', 'expense_accounts'));
+        return view('expense_category.create')->with(compact('categories'));
     }
 
     /**
@@ -164,22 +145,8 @@ class ExpenseCategoryController extends Controller
                         ->whereNull('parent_id')
                         ->pluck('name', 'id');
 
-            $expense_accounts = [];
-            if (class_exists('\Modules\Accounting\Entities\AccountingAccount')) {
-                $expense_accounts = \Modules\Accounting\Entities\AccountingAccount::where('business_id', $business_id)
-                    ->where('status', 'active')
-                    ->whereIn('account_primary_type', ['expenses', 'cost_of_sale', 'other_expense'])
-                    ->with('detail_type')
-                    ->orderBy('gl_code')
-                    ->get()
-                    ->mapWithKeys(function ($acc) {
-                        $detail_type_label = $acc->detail_type ? ' [' . $acc->detail_type->name . ']' : '';
-                        return [$acc->id => $acc->gl_code . ' - ' . $acc->name . $detail_type_label];
-                    });
-            }
-
             return view('expense_category.edit')
-                    ->with(compact('expense_category', 'categories', 'expense_accounts'));
+                    ->with(compact('expense_category', 'categories'));
         }
     }
 
@@ -292,7 +259,7 @@ class ExpenseCategoryController extends Controller
     }
 
     /**
-     * Display diagnostic information for expense category mapping.
+     * Display diagnostic information for expense category mapping to P&L Bisnis.
      *
      * @return \Illuminate\Http\Response
      */
@@ -306,49 +273,56 @@ class ExpenseCategoryController extends Controller
 
         $categories = ExpenseCategory::where('business_id', $business_id)
             ->whereNull('parent_id')
-            ->with('defaultExpenseAccount.detail_type')
+            ->with('defaultExpenseAccount')
+            ->orderBy('code')
             ->get();
 
-        $detail_types = [];
-        if (class_exists('\Modules\Accounting\Entities\AccountingAccountType')) {
-            $detail_types = \Modules\Accounting\Entities\AccountingAccountType::where('account_type', 'detail_type')
-                ->orderBy('name')
-                ->pluck('name', 'id');
-        }
+        // Get unique pnl_groups for reference
+        $existing_pnl_groups = ExpenseCategory::where('business_id', $business_id)
+            ->whereNotNull('pnl_group')
+            ->distinct()
+            ->pluck('pnl_group')
+            ->toArray();
 
         $diagnostics = [];
         foreach ($categories as $cat) {
-            $status = 'warning';
-            $message = 'Default Expense Account belum di-set';
-            $account_info = null;
-            $detail_type_info = null;
+            $status = 'danger';
+            $message = 'P&L Group belum di-set. Expense akan masuk ke kategori "Other" di P&L Bisnis.';
+            $pnl_group = null;
 
+            if (! empty($cat->pnl_group)) {
+                $pnl_group = $cat->pnl_group;
+                $status = 'success';
+                $message = 'Expense akan muncul di kategori "' . $pnl_group . '" di P&L Bisnis.';
+            }
+
+            // Account info (optional, for reference)
+            $account_info = null;
             if ($cat->default_expense_account_id && $cat->defaultExpenseAccount) {
                 $account = $cat->defaultExpenseAccount;
                 $account_info = [
                     'gl_code' => $account->gl_code,
                     'name' => $account->name,
                 ];
-                
-                if ($account->detail_type) {
-                    $detail_type_info = $account->detail_type->name;
-                    $status = 'success';
-                    $message = 'Konfigurasi sudah benar. Expense akan muncul di kategori "' . $account->detail_type->name . '" di P&L Bisnis.';
-                } else {
-                    $status = 'danger';
-                    $message = 'Akun "' . $account->name . '" tidak memiliki Detail Type. Expense tidak akan ter-grouping dengan benar di P&L Bisnis.';
-                }
             }
 
             $diagnostics[] = [
                 'category' => $cat,
                 'status' => $status,
                 'message' => $message,
+                'pnl_group' => $pnl_group,
                 'account_info' => $account_info,
-                'detail_type' => $detail_type_info,
             ];
         }
 
-        return view('expense_category.diagnose')->with(compact('diagnostics', 'detail_types'));
+        // Summary statistics
+        $summary = [
+            'total_categories' => count($categories),
+            'configured' => collect($diagnostics)->where('status', 'success')->count(),
+            'not_configured' => collect($diagnostics)->where('status', 'danger')->count(),
+            'pnl_groups' => $existing_pnl_groups,
+        ];
+
+        return view('expense_category.diagnose')->with(compact('diagnostics', 'summary'));
     }
 }
