@@ -11,6 +11,7 @@ use App\Http\Controllers\BusinessController;
 use App\Http\Controllers\BusinessLocationController;
 use App\Http\Controllers\CashRegisterController;
 use App\Http\Controllers\CategoryController;
+use App\Http\Controllers\KitchenPrinterController;
 use App\Http\Controllers\CombinedPurchaseReturnController;
 use App\Http\Controllers\ContactController;
 use App\Http\Controllers\CustomerGroupController;
@@ -59,6 +60,7 @@ use App\Http\Controllers\UnitController;
 use App\Http\Controllers\UserController;
 use App\Http\Controllers\VariationTemplateController;
 use App\Http\Controllers\WarrantyController;
+use App\Http\Controllers\SelfOrderController;
 use Illuminate\Support\Facades\Route;
 
 /*
@@ -435,6 +437,10 @@ Route::middleware(['setData', 'auth', 'SetSessionData', 'language', 'timezone', 
     //Restaurant module
     Route::prefix('modules')->group(function () {
         Route::resource('tables', Restaurant\TableController::class);
+        Route::get('tables-floor-plan', [Restaurant\TableController::class, 'floorPlan'])->name('tables.floor-plan');
+        Route::post('tables-transfer', [Restaurant\TableController::class, 'transfer'])->name('tables.transfer');
+        Route::post('tables/{id}/position', [Restaurant\TableController::class, 'savePosition'])->name('tables.save-position');
+        Route::post('kitchen-print/{transaction_id}', [KitchenPrinterController::class, 'printKot'])->name('kitchen.print');
         Route::resource('modifiers', Restaurant\ModifierSetsController::class);
 
         //Map modifier to products
@@ -527,4 +533,12 @@ Route::middleware(['setData', 'auth', 'SetSessionData', 'language', 'timezone'])
     Route::get('/sells/invoice-url/{id}', [SellPosController::class, 'showInvoiceUrl']);
     Route::get('/show-notification/{id}', [HomeController::class, 'showNotification']);
     Route::post('/sell/check-invoice-number', [SellController::class, 'checkInvoiceNumber']);
+});
+
+// ── Self-Order (public — no auth required) ───────────────────────────────────
+Route::prefix('self-order')->name('self-order.')->group(function () {
+    Route::get('/{token}',        [SelfOrderController::class, 'index'])->name('index');
+    Route::get('/{token}/menu',   [SelfOrderController::class, 'menu'])->name('menu');
+    Route::post('/{token}/order', [SelfOrderController::class, 'placeOrder'])->name('place');
+    Route::get('/{token}/status', [SelfOrderController::class, 'orderStatus'])->name('status');
 });

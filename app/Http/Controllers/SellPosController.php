@@ -63,6 +63,8 @@ use Stripe\Charge;
 use Stripe\Stripe;
 use Yajra\DataTables\Facades\DataTables;
 use App\Events\SellCreatedOrModified;
+use App\Services\RaptorPosService;
+use Modules\Manufacturing\Entities\MfgRecipe;
 
 class SellPosController extends Controller
 {
@@ -83,6 +85,8 @@ class SellPosController extends Controller
 
     protected $notificationUtil;
 
+    protected $raptorPos;
+
     /**
      * Constructor
      *
@@ -96,7 +100,8 @@ class SellPosController extends Controller
         TransactionUtil $transactionUtil,
         CashRegisterUtil $cashRegisterUtil,
         ModuleUtil $moduleUtil,
-        NotificationUtil $notificationUtil
+        NotificationUtil $notificationUtil,
+        RaptorPosService $raptorPos
     ) {
         $this->contactUtil = $contactUtil;
         $this->productUtil = $productUtil;
@@ -105,6 +110,7 @@ class SellPosController extends Controller
         $this->cashRegisterUtil = $cashRegisterUtil;
         $this->moduleUtil = $moduleUtil;
         $this->notificationUtil = $notificationUtil;
+        $this->raptorPos = $raptorPos;
 
         $this->dummyPaymentLine = ['method' => 'cash', 'amount' => 0, 'note' => '', 'card_transaction_number' => '', 'card_number' => '', 'card_type' => '', 'card_holder_name' => '', 'card_month' => '', 'card_year' => '', 'card_security' => '', 'cheque_number' => '', 'bank_account_number' => '',
             'is_return' => 0, 'transaction_no' => ''];
@@ -427,6 +433,14 @@ class SellPosController extends Controller
 
                 //Customer group details
                 $contact_id = $request->get('contact_id', null);
+                // Fallback to walk-in customer if no customer selected
+                if (empty($contact_id)) {
+                    $wic = $this->contactUtil->getWalkInCustomer($business_id);
+                    $contact_id = $wic['id'] ?? null;
+                    if ($contact_id) {
+                        $input['contact_id'] = $contact_id;
+                    }
+                }
                 $cg = $this->contactUtil->getCustomerGroup($business_id, $contact_id);
                 $input['customer_group_id'] = (empty($cg) || empty($cg->id)) ? null : $cg->id;
 
@@ -497,6 +511,7 @@ class SellPosController extends Controller
 
                 if ($this->transactionUtil->isModuleEnabled('tables')) {
                     $input['res_table_id'] = request()->get('res_table_id');
+                    $input['pax'] = (int) request()->get('pax', 0);
                 }
                 if ($this->transactionUtil->isModuleEnabled('service_staff')) {
                     $input['res_waiter_id'] = request()->get('res_waiter_id');
@@ -580,6 +595,17 @@ class SellPosController extends Controller
                         }
                     }
 
+                    // Auto-deduct BOM ingredients (runs whenever MfgRecipe table is available)
+                    $bom_items = [];
+                    foreach ($input['products'] as $product) {
+                        $qty = $this->productUtil->num_uf($product['quantity']);
+                        if (! empty($product['base_unit_multiplier'])) {
+                            $qty = $qty * $product['base_unit_multiplier'];
+                        }
+                        $bom_items[] = ['variation_id' => $product['variation_id'], 'quantity' => $qty];
+                    }
+                    $this->deductBomIngredients($bom_items, $input['location_id']);
+
                     //Add payments to Cash Register
                     if (!$is_direct_sale && !$transaction->is_suspend && !empty($input['payment']) && !$is_credit_sale) {
                         $this->cashRegisterUtil->addSellPayments($transaction, $input['payment']);
@@ -634,6 +660,11 @@ class SellPosController extends Controller
 
                 SellCreatedOrModified::dispatch($transaction);
 
+                // Push to RaptorPOS when transaction is paid
+                if ($payment_status === 'paid') {
+                    $this->raptorPos->pushTransaction($transaction);
+                }
+
                 if ($request->input('is_save_and_print') == 1) {
                     $url = $this->transactionUtil->getInvoiceUrl($transaction->id, $business_id);
 
@@ -669,7 +700,7 @@ class SellPosController extends Controller
                     $receipt = $this->receiptContent($business_id, $input['location_id'], $transaction->id, null, false, true, $invoice_layout_id);
                 }
 
-                $output = ['success' => 1, 'msg' => $msg, 'receipt' => $receipt];
+                $output = ['success' => 1, 'msg' => $msg, 'receipt' => $receipt, 'transaction_id' => $transaction->id];
 
                 if (!empty($whatsapp_link)) {
                     $output['whatsapp_link'] = $whatsapp_link;
@@ -1261,6 +1292,14 @@ class SellPosController extends Controller
 
                 //Customer group details
                 $contact_id = $request->get('contact_id', null);
+                // Fallback to walk-in customer if no customer selected
+                if (empty($contact_id)) {
+                    $wic = $this->contactUtil->getWalkInCustomer($business_id);
+                    $contact_id = $wic['id'] ?? null;
+                    if ($contact_id) {
+                        $input['contact_id'] = $contact_id;
+                    }
+                }
                 $cg = $this->contactUtil->getCustomerGroup($business_id, $contact_id);
                 $input['customer_group_id'] = (empty($cg) || empty($cg->id)) ? null : $cg->id;
 
@@ -1301,6 +1340,7 @@ class SellPosController extends Controller
 
                 if ($this->transactionUtil->isModuleEnabled('tables')) {
                     $input['res_table_id'] = request()->get('res_table_id');
+                    $input['pax'] = (int) request()->get('pax', 0);
                 }
                 if ($this->transactionUtil->isModuleEnabled('service_staff')) {
                     $input['res_waiter_id'] = request()->get('res_waiter_id');
@@ -1491,6 +1531,11 @@ class SellPosController extends Controller
                 SellCreatedOrModified::dispatch($transaction);
 
                 DB::commit();
+
+                // Push to RaptorPOS when transaction becomes paid
+                if ($payment_status === 'paid') {
+                    $this->raptorPos->pushTransaction($transaction);
+                }
 
                 if ($request->input('is_save_and_print') == 1) {
                     $url = $this->transactionUtil->getInvoiceUrl($id, $business_id);
@@ -2623,6 +2668,13 @@ class SellPosController extends Controller
                 }
             }
 
+            // Auto-deduct BOM ingredients
+            $bom_items_api = [];
+            foreach ($order_data['products'] as $product) {
+                $bom_items_api[] = ['variation_id' => $product['variation_id'], 'quantity' => $product['quantity']];
+            }
+            $this->deductBomIngredients($bom_items_api, $order_data['location_id']);
+
             $this->transactionUtil->mapPurchaseSell($business_data, $transaction->sell_lines, 'purchase');
             //Auto send notification
             $this->notificationUtil->autoSendNotification($business_id, 'new_sale', $transaction, $transaction->contact);
@@ -2869,6 +2921,13 @@ class SellPosController extends Controller
                         );
                 }
             }
+
+            // Auto-deduct BOM ingredients
+            $bom_items_final = [];
+            foreach ($transaction->sell_lines as $sell_line) {
+                $bom_items_final[] = ['variation_id' => $sell_line->variation_id, 'quantity' => $sell_line->quantity];
+            }
+            $this->deductBomIngredients($bom_items_final, $transaction->location_id);
 
             //Update payment status
             $this->transactionUtil->updatePaymentStatus($transaction->id, $transaction->final_total);
@@ -3294,6 +3353,69 @@ class SellPosController extends Controller
 
             return $output;
 
+        }
+    }
+
+    /**
+     * Automatically deduct BOM ingredient quantities when a product with a recipe is sold.
+     * Called silently inside the DB transaction; errors are logged but do not abort the sale.
+     *
+     * @param array $items  [['variation_id' => int, 'quantity' => float (base units)], ...]
+     * @param int   $location_id
+     */
+    private function deductBomIngredients(array $items, $location_id)
+    {
+        \Log::info('[BOM-AUTO] deductBomIngredients called, items=' . count($items) . ' location=' . $location_id);
+        foreach ($items as $item) {
+            $recipe = MfgRecipe::where('variation_id', $item['variation_id'])
+                ->with(['ingredients', 'sub_unit'])
+                ->first();
+
+            if (! $recipe) {
+                \Log::info('[BOM-AUTO] no recipe for variation=' . $item['variation_id']);
+                continue;
+            }
+            \Log::info('[BOM-AUTO] recipe found id=' . $recipe->id . ' for variation=' . $item['variation_id']);
+
+            // Convert recipe yield to base units
+            $recipe_multiplier = ! empty($recipe->sub_unit)
+                ? ($recipe->sub_unit->base_unit_multiplier ?: 1)
+                : 1;
+            $recipe_base_qty = $recipe->total_quantity * $recipe_multiplier;
+
+            if ($recipe_base_qty <= 0) {
+                continue;
+            }
+
+            foreach ($recipe->ingredients as $ingredient) {
+                $ing_multiplier = 1;
+                if (! empty($ingredient->sub_unit_id)) {
+                    $sub_unit = \App\Unit::find($ingredient->sub_unit_id);
+                    $ing_multiplier = ! empty($sub_unit->base_unit_multiplier)
+                        ? $sub_unit->base_unit_multiplier
+                        : 1;
+                }
+
+                $qty_to_deduct = ($ingredient->quantity * $ing_multiplier / $recipe_base_qty) * $item['quantity'];
+
+                if ($qty_to_deduct <= 0) {
+                    continue;
+                }
+
+                $variation = \App\Variation::with('product')->find($ingredient->variation_id);
+                if ($variation && $variation->product && $variation->product->enable_stock) {
+                    try {
+                        $this->productUtil->decreaseProductQuantity(
+                            $variation->product_id,
+                            $ingredient->variation_id,
+                            $location_id,
+                            $qty_to_deduct
+                        );
+                    } catch (\Exception $e) {
+                        \Log::error('BOM auto-deduct failed for variation ' . $ingredient->variation_id . ': ' . $e->getMessage());
+                    }
+                }
+            }
         }
     }
 }

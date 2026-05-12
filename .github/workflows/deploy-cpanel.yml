@@ -4,26 +4,18 @@ on:
   push:
     branches:
       - main
-      - master
   workflow_dispatch:
-
-env:
-  FTP_HOST: ${{ secrets.FTP_HOST }}
-  FTP_USER: ${{ secrets.FTP_USER }}
-  FTP_PASSWORD: ${{ secrets.FTP_PASSWORD }}
-  DEPLOY_PATH: /public_html/Ascend/ 
-  REMOTE_HOST: ${{ secrets.REMOTE_HOST }}
-  REMOTE_USER: ${{ secrets.REMOTE_USER }}
-  REMOTE_PATH: ${{ secrets.REMOTE_PATH }} 
 
 jobs:
   deploy:
     runs-on: ubuntu-latest
-    
+
     steps:
+      # ── 1. Checkout ──────────────────────────────────────────
       - name: Checkout repository
         uses: actions/checkout@v4
 
+      # ── 2. PHP + Composer ────────────────────────────────────
       - name: Setup PHP
         uses: shivammathur/setup-php@v2
         with:
@@ -32,56 +24,28 @@ jobs:
           tools: composer:v2
 
       - name: Cache Composer packages
-        id: composer-cache
         uses: actions/cache@v3
         with:
           path: vendor
           key: ${{ runner.os }}-php-${{ hashFiles('**/composer.lock') }}
-          restore-keys: |
-            ${{ runner.os }}-php-
+          restore-keys: ${{ runner.os }}-php-
 
       - name: Install Composer dependencies
-        run: composer install --ignore-platform-reqs --no-dev --no-interaction --no-scripts
+        run: composer install --ignore-platform-reqs --no-dev --no-interaction --optimize-autoloader
 
-    #   - name: Setup Node.js
-    #     uses: actions/setup-node@v4
-    #     with:
-    #       node-version: '20'
-    #       cache: 'npm'
-
-    #   - name: Install NPM dependencies
-    #     run: npm ci
-
-    #   - name: Build assets
-    #     run: npm run production
-
-      - name: Prepare deployment files
-        run: |
-          # Remove development files that shouldn't be deployed
-          rm -rf node_modules
-          rm -rf tests
-          rm -rf .git
-          rm -rf .github
-          rm -f .gitignore
-          rm -f .env.example
-          rm -f phpunit.xml
-          rm -f package.json
-          rm -f package-lock.json
-          rm -f webpack.mix.js
-          rm -f vite.config.js 2>/dev/null || true
-
+      # ── 3. Upload via SFTP ───────────────────────────────────
       - name: Deploy via SFTP
         uses: wangyucode/sftp-upload-action@v2.0.2
         with:
-          host: ${{ secrets.FTP_HOST }}
-          port: 21
-          username: ${{ secrets.FTP_USER }}
-          password: ${{ secrets.FTP_PASSWORD }}
-          localDir: './.'
-          remoteDir: ${{ env.DEPLOY_PATH }}
+          host: ${{ secrets.SSH_HOST }}
+          port: 22
+          username: ${{ secrets.SSH_USER }}
+          password: ${{ secrets.SSH_PASSWORD }}
+          localDir: './'
+          remoteDir: ${{ secrets.DEPLOY_PATH }}
           exclude: |
-            **/.git*
-            **/.git*/**
+            **/.git/**
+            **/.github/**
             **/node_modules/**
             **/tests/**
             .env
@@ -91,19 +55,25 @@ jobs:
             package-lock.json
             webpack.mix.js
             vite.config.js
+            storage/logs/**
+            storage/framework/cache/**
+            storage/framework/sessions/**
+            storage/framework/views/**
 
-    #   - name: Run post-deployment commands via SSH (Optional)
-    #     uses: appleboy/ssh-action@v1.0.0
-    #     if: ${{ secrets.SSH_HOST != '' }}
-    #     with:
-    #       host: ${{ secrets.SSH_HOST }}
-    #       username: ${{ secrets.SSH_USER }}
-    #       password: ${{ secrets.SSH_PASSWORD }}
-    #       port: ${{ secrets.SSH_PORT || 22 }}
-    #       script: |
-    #         cd ${{ env.DEPLOY_PATH }}
-    #         php artisan migrate --force
-    #         php artisan config:cache
-    #         php artisan route:cache
-    #         php artisan view:cache
-    #         php artisan optimize
+      # ── 4. Post-deploy via SSH ───────────────────────────────
+      - name: Run post-deployment commands
+        uses: appleboy/ssh-action@v1.0.3
+        with:
+          host: ${{ secrets.SSH_HOST }}
+          username: ${{ secrets.SSH_USER }}
+          password: ${{ secrets.SSH_PASSWORD }}
+          port: 22
+          script: |
+            cd ${{ secrets.DEPLOY_PATH }}
+            php artisan migrate --force
+            php artisan config:cache
+            php artisan route:cache
+            php artisan view:cache
+            php artisan optimize
+            php artisan storage:link 2>/dev/null || true
+            echo "✅ Deploy selesai: $(date '+%Y-%m-%d %H:%M:%S')"

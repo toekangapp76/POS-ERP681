@@ -87,13 +87,57 @@
         <div class="modal fade tables_modal" tabindex="-1" role="dialog" aria-labelledby="gridSystemModalLabel">
         </div>
 
+        {{-- QR Code Modal --}}
+        <div class="modal fade" id="qr_modal" tabindex="-1" role="dialog">
+            <div class="modal-dialog modal-sm" style="max-width:340px">
+                <div class="modal-content">
+                    <div class="modal-header" style="background:#2d3a8c;color:#fff;border-radius:4px 4px 0 0">
+                        <button type="button" class="close" data-dismiss="modal" style="color:#fff;opacity:1">&times;</button>
+                        <h4 class="modal-title"><i class="fa fa-qrcode"></i> QR Self-Order — <span id="qr_table_name"></span></h4>
+                    </div>
+                    <div class="modal-body" style="text-align:center;padding:24px">
+                        <div id="qr_code_container" style="display:inline-block;padding:12px;border:2px solid #eee;border-radius:8px;background:#fff"></div>
+                        <p style="margin-top:12px;font-size:12px;color:#888;word-break:break-all" id="qr_url_text"></p>
+                    </div>
+                    <div class="modal-footer" style="border-top:1px solid #eee;display:flex;gap:8px">
+                        <button type="button" class="btn btn-default" data-dismiss="modal" style="flex:1">Tutup</button>
+                        <button type="button" class="btn btn-primary" id="btn_copy_url" style="flex:1"><i class="fa fa-copy"></i> Copy Link</button>
+                        <button type="button" class="btn btn-success" onclick="printQr()" style="flex:1"><i class="fa fa-print"></i> Print QR</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+
     </section>
     <!-- /.content -->
 
 @endsection
 
 @section('javascript')
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
     <script type="text/javascript">
+        var _qrInstance = null;
+
+        function printQr() {
+            var url  = document.getElementById('qr_url_text').textContent;
+            var name = document.getElementById('qr_table_name').textContent;
+            var w = window.open('', '_blank', 'width=400,height=500');
+            w.document.write(`<!DOCTYPE html><html><head><title>QR Meja ${name}</title>
+                <style>*{margin:0;padding:0;box-sizing:border-box}body{font-family:sans-serif;text-align:center;padding:30px}
+                h2{font-size:20px;margin-bottom:8px}p{font-size:12px;color:#666;margin-bottom:20px}
+                #qr{display:inline-block;padding:12px;border:2px solid #ddd;border-radius:8px}
+                .footer{margin-top:16px;font-size:11px;color:#aaa}</style></head>
+                <body onload="window.print()">
+                <h2>Meja: ${name}</h2>
+                <p>Scan untuk memesan</p>
+                <div id="qr"></div>
+                <div class="footer">${url}</div>
+                <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"><\/script>
+                <script>new QRCode(document.getElementById('qr'),{text:'${url}',width:220,height:220,correctLevel:QRCode.CorrectLevel.M})<\/script>
+                </body></html>`);
+            w.document.close();
+        }
+
         $(document).ready(function() {
 
             $(document).on('submit', 'form#table_add_form', function(e) {
@@ -173,6 +217,35 @@
                             }
                         });
                     });
+                });
+            });
+
+            // QR Code button
+            $(document).on('click', 'button.show_qr_button', function() {
+                var token = $(this).data('token');
+                var name  = $(this).data('name');
+                var url   = window.location.origin + '/self-order/' + token;
+
+                document.getElementById('qr_table_name').textContent = name;
+                document.getElementById('qr_url_text').textContent   = url;
+
+                var container = document.getElementById('qr_code_container');
+                container.innerHTML = '';
+                if (_qrInstance) { _qrInstance = null; }
+                _qrInstance = new QRCode(container, {
+                    text:  url,
+                    width: 200,
+                    height: 200,
+                    correctLevel: QRCode.CorrectLevel.M,
+                });
+
+                $('#qr_modal').modal('show');
+            });
+
+            $('#btn_copy_url').on('click', function() {
+                var url = document.getElementById('qr_url_text').textContent;
+                navigator.clipboard.writeText(url).then(function() {
+                    toastr.success('Link disalin!');
                 });
             });
 

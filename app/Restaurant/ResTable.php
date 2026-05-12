@@ -4,21 +4,29 @@ namespace App\Restaurant;
 
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\SoftDeletes;
+use Illuminate\Support\Str;
 
 class ResTable extends Model
 {
     use SoftDeletes;
 
-    /**
-     * The attributes that should be mutated to dates.
-     *
-     * @var array
-     */
-
-    /**
-     * The attributes that aren't mass assignable.
-     *
-     * @var array
-     */
     protected $guarded = ['id'];
+
+    protected $casts = [
+        'capacity' => 'integer',
+    ];
+
+    protected static function booted(): void
+    {
+        static::creating(function ($table) {
+            if (empty($table->qr_token)) {
+                $table->qr_token = Str::random(32);
+            }
+        });
+    }
+
+    public function selfOrderUrl(): string
+    {
+        return url('/self-order/' . $this->qr_token);
+    }
 }

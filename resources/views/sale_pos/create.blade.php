@@ -96,6 +96,33 @@
 
     @include('sale_pos.partials.weighing_scale_modal')
 
+    {{-- Table Selection Overlay (hanya jika modul tables aktif) --}}
+    @if(in_array('tables', $enabled_modules))
+    <div id="table_select_overlay" data-floor-url="{{ route('tables.floor-plan') }}" style="display:none; position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.75); z-index:9999; overflow-y:auto;">
+        <div style="max-width:860px; margin:40px auto; background:#fff; border-radius:10px; overflow:hidden; box-shadow:0 10px 40px rgba(0,0,0,.4);">
+            <div style="background:#2d3a8c; color:#fff; padding:16px 20px; display:flex; align-items:center; justify-content:space-between;">
+                <h4 style="margin:0; font-size:18px;"><i class="fa fa-th-large"></i>&nbsp; Pilih Meja</h4>
+                <div style="display:flex;gap:8px;align-items:center;">
+                    <button type="button" id="btn_atur_layout_overlay" style="background:rgba(255,200,0,.25); border:1px solid rgba(255,200,0,.5); color:#fff; padding:6px 12px; border-radius:4px; cursor:pointer; font-size:12px;">
+                        <i class="fa fa-arrows"></i> Atur Layout
+                    </button>
+                    <button type="button" id="btn_skip_table" style="background:rgba(255,255,255,.2); border:none; color:#fff; padding:6px 14px; border-radius:4px; cursor:pointer; font-size:12px;">
+                        <i class="fa fa-forward"></i> Tanpa Meja
+                    </button>
+                </div>
+            </div>
+            <div id="table_overlay_body" style="padding:20px; min-height:200px;">
+                <div class="text-center"><i class="fa fa-spinner fa-spin fa-2x" style="margin-top:60px; color:#999;"></i></div>
+            </div>
+            <div style="background:#f9f9f9; padding:10px 20px; border-top:1px solid #eee; font-size:11px; color:#666;">
+                <span style="display:inline-block;width:14px;height:14px;background:#5cb85c;border-radius:3px;margin-right:4px;vertical-align:middle;"></span> Terisi &nbsp;
+                <span style="display:inline-block;width:14px;height:14px;background:#d9534f;border-radius:3px;margin-right:4px;vertical-align:middle;"></span> Minta Bill &nbsp;
+                <span style="display:inline-block;width:14px;height:14px;background:#e0e0e0;border:1px solid #ccc;border-radius:3px;margin-right:4px;vertical-align:middle;"></span> Kosong
+            </div>
+        </div>
+    </div>
+    @endif
+
 @stop
 @section('css')
     <!-- include module css -->
