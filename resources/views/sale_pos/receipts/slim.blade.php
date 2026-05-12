@@ -374,7 +374,7 @@
                         	{{$receipt_details->table_unit_price_label}}
                         </th>
                         @if(!empty($receipt_details->discounted_unit_price_label))
-							<th class="text-right">
+							<th class="text-right disc-price-col">
 								{{$receipt_details->discounted_unit_price_label}}
 							</th>
 						@endif
@@ -731,12 +731,22 @@ body {
 	* {
     	font-size: 12px;
     	font-family: 'Times New Roman';
-    	word-break: break-all;
+    	word-break: break-word;
+    	overflow-wrap: break-word;
 	}
 	.f-8 {
 		font-size: 8px !important;
 	}
-	
+
+th {
+	font-size: 10px !important;
+	word-break: normal;
+	white-space: normal;
+	overflow-wrap: break-word;
+	vertical-align: bottom;
+	padding-bottom: 2px;
+}
+
 .headings{
 	font-size: 16px;
 	font-weight: 700;
@@ -761,33 +771,33 @@ body {
 }
 
 td.serial_number, th.serial_number{
-	width: 5%;
-    max-width: 5%;
+	width: 4%;
+    max-width: 4%;
 }
 
 td.description,
 th.description {
-    width: 35%;
-    max-width: 35%;
+    width: 30%;
+    max-width: 30%;
 }
 
 td.quantity,
 th.quantity {
-    width: 15%;
-    max-width: 15%;
-    word-break: break-all;
+    width: 10%;
+    max-width: 10%;
+    word-break: break-word;
 }
 td.unit_price, th.unit_price{
-	width: 25%;
-    max-width: 25%;
-    word-break: break-all;
+	width: 18%;
+    max-width: 18%;
+    word-break: break-word;
 }
 
 td.price,
 th.price {
-    width: 20%;
-    max-width: 20%;
-    word-break: break-all;
+    width: 18%;
+    max-width: 18%;
+    word-break: break-word;
 }
 
 .centered {
@@ -860,5 +870,23 @@ img {
 
 .bw {
 	word-break: break-word;
+}
+
+td.disc-price-col, th.disc-price-col {
+	width: 16%;
+	max-width: 16%;
+	font-size: 9px;
+	word-break: break-word;
+}
+
+.table-f-12 th {
+	font-size: 10px;
+	padding: 2px 1px;
+	line-height: 1.2;
+}
+.table-f-12 td {
+	font-size: 11px;
+	padding: 2px 1px;
+	vertical-align: top;
 }
 </style>

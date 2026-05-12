@@ -234,15 +234,20 @@ class TableController extends Controller
             ->get();
 
         // Get active (unpaid) transactions per table
+        // NOTE: draft Dine-In transactions have payment_status=NULL, so we must
+        // use whereNull OR != 'paid' instead of just != 'paid' (NULL != 'paid' is NULL in MySQL)
         $active = DB::table('transactions')
             ->where('business_id', $business_id)
             ->where('type', 'sell')
             ->whereIn('status', ['draft', 'final', 'ordered'])
-            ->where('payment_status', '!=', 'paid')
+            ->where(function ($q) {
+                $q->whereNull('payment_status')
+                  ->orWhere('payment_status', '!=', 'paid');
+            })
             ->whereNotNull('res_table_id')
-            ->whereIn('res_table_id', $tables->pluck('id'))
+            ->whereIn('res_table_id', $tables->pluck('id')->toArray())
             ->select('res_table_id', 'id as transaction_id', 'status', 'invoice_no')
-            ->orderBy('created_at', 'desc')
+            ->orderBy('created_at', 'asc')
             ->get()
             ->keyBy('res_table_id');
 

@@ -555,6 +555,75 @@ $(document).ready(function() {
         });
     });
 
+    // ── Dine In — Simpan order, bayar nanti ─────────────
+    $('button#pos-dine-in').click(function() {
+        // Validasi: harus ada produk
+        if ($('table#pos_table tbody').find('.product_row').length <= 0) {
+            toastr.warning(LANG.no_products_added || 'Belum ada produk ditambahkan.');
+            return false;
+        }
+
+        // Validasi: harus pilih meja
+        var tableId   = $('#res_table_id').val();
+        var tableName = $('#res_table_id option:selected').text();
+        if (!tableId) {
+            toastr.warning('Pilih meja terlebih dahulu untuk Dine In.');
+            // Buka floor plan overlay jika ada
+            if ($('#table_select_overlay').length) {
+                $('#table_select_overlay').show();
+            }
+            return false;
+        }
+
+        var is_valid = isValidPosForm();
+        if (is_valid != true) { return; }
+
+        var data = pos_form_obj.serialize();
+        data = data + '&status=draft';
+        var url = pos_form_obj.attr('action');
+
+        disable_pos_form_actions();
+        $.ajax({
+            method: 'POST',
+            url: url,
+            data: data,
+            dataType: 'json',
+            success: function(result) {
+                enable_pos_form_actions();
+                if (result.success == 1) {
+                    // Kirim KOT ke kitchen/bar printer via TCP
+                    if (result.transaction_id) {
+                        $.ajax({
+                            method: 'POST',
+                            url: '/kitchen-print/' + result.transaction_id,
+                            data: { _token: $('meta[name="csrf-token"]').attr('content') },
+                            dataType: 'json',
+                            success: function(kotResult) {
+                                if (kotResult.results) {
+                                    $.each(kotResult.results, function(label, r) {
+                                        if (!r.success) {
+                                            toastr.warning('KOT ' + label + ': ' + r.msg);
+                                        }
+                                    });
+                                }
+                            }
+                        });
+                    }
+                    toastr.success('Order Dine In disimpan! Meja ' + tableName + ' terisi.');
+                    reset_pos_form();
+                    // Reload floor plan overlay dengan data terbaru
+                    reloadFloorPlanOverlay();
+                } else {
+                    toastr.error(result.msg);
+                }
+            },
+            error: function() {
+                enable_pos_form_actions();
+                toastr.error('Terjadi kesalahan. Coba lagi.');
+            }
+        });
+    });
+
     //Save invoice as Quotation
     $('button#pos-quotation').click(function() {
         //Check if product is present or not.
@@ -612,6 +681,17 @@ $(document).ready(function() {
         }
 
         $('#modal_payment').modal('show');
+    });
+
+    $('#modal_payment').on('show.bs.modal', function() {
+        if ($('form#edit_pos_sell_form').length > 0) {
+            var total_payable = __read_number($('input#final_total_input'));
+            var $first = $(this).find('.payment-amount').first();
+            if (__read_number($first) == 0) {
+                __write_number($first, total_payable);
+                calculate_balance_due();
+            }
+        }
     });
 
     $('#modal_payment').one('shown.bs.modal', function() {
@@ -756,6 +836,58 @@ $(document).ready(function() {
                 }
             },
         });
+    });
+
+    // Split Bill — toggle panel
+    $(document).on('click', '#btn_split_bill', function() {
+        $('#split_bill_panel').toggle();
+        if ($('#split_bill_panel').is(':visible')) {
+            $('#split_bill_count').focus().select();
+        }
+    });
+
+    // Split Bill — apply
+    $(document).on('click', '#btn_apply_split', function() {
+        var n = parseInt($('#split_bill_count').val()) || 2;
+        if (n < 2 || n > 10) { alert('Jumlah orang harus antara 2–10'); return; }
+
+        var total_payable = __read_number($('input#final_total_input'));
+        var per_person = Math.floor(total_payable / n);
+        var remainder  = total_payable - (per_person * n);
+
+        // Remove semua payment row kecuali yang pertama
+        $('#payment_rows_div .payment_row:not(:first)').remove();
+
+        // Set payment row pertama
+        var $first = $('#payment_rows_div .payment_row:first');
+        $first.find('input.payment-amount').val(__currency_trans_from_en(per_person + remainder, false)).trigger('change');
+
+        // Tambah row sisanya
+        var addNext = function(i) {
+            if (i >= n) {
+                $('#split_bill_panel').hide();
+                return;
+            }
+            var row_index = $('#payment_row_index').val();
+            var location_id = $('input#location_id').val();
+            $.ajax({
+                method: 'POST',
+                url: '/sells/pos/get_payment_row',
+                data: { row_index: row_index, location_id: location_id },
+                dataType: 'html',
+                success: function(result) {
+                    if (result) {
+                        var $appended = $(result).appendTo('#payment_rows_div');
+                        $appended.find('input.payment-amount').val(__currency_trans_from_en(per_person, false)).trigger('change');
+                        __select2($appended.find('.select2'));
+                        $appended.find('#method_' + row_index).trigger('change');
+                        $('#payment_row_index').val(parseInt(row_index) + 1);
+                    }
+                    addNext(i + 1);
+                }
+            });
+        };
+        addNext(1);
     });
 
     $(document).on('click', '.remove_payment_row', function() {
@@ -2072,9 +2204,10 @@ function isValidPosForm() {
     $('span.error').remove();
 
     if ($('select#customer_id').val() == null) {
-        flag = false;
-        error = '<span class="error">' + LANG.required + '</span>';
-        $(error).insertAfter($('select#customer_id').parent('div'));
+        var default_customer_id = $('#default_customer_id').val();
+        if (default_customer_id) {
+            set_default_customer();
+        }
     }
 
     if ($('tr.product_row').length == 0) {
@@ -2084,6 +2217,76 @@ function isValidPosForm() {
     }
 
     return flag;
+}
+
+function reloadFloorPlanOverlay() {
+    if (!$('#table_select_overlay').length) return;
+    var $overlay  = $('#table_select_overlay');
+    var $obody    = $('#table_overlay_body');
+    var floorUrl  = $overlay.data('floor-url') || '/modules/tables-floor-plan';
+    var locationId = $('input#location_id').val() || null;
+
+    $obody.html('<div class="text-center"><i class="fa fa-spinner fa-spin fa-2x" style="margin-top:60px;color:#999;"></i></div>');
+    $overlay.show();
+
+    $.ajax({
+        url: floorUrl,
+        method: 'GET',
+        cache: false,
+        data: { location_id: locationId },
+        dataType: 'json',
+        success: function(data) {
+            var html = '';
+            $.each(data, function(section, tables) {
+                html += '<div class="fp-section" style="margin-bottom:20px;">';
+                html += '<div class="fp-section-title" style="font-weight:bold;font-size:13px;background:#4a4a8a;color:#fff;padding:6px 12px;border-radius:4px 4px 0 0;margin-bottom:10px;">' + section + '</div>';
+                html += '<div class="fp-tables" style="display:flex;flex-wrap:wrap;gap:12px;padding:4px 2px;">';
+                $.each(tables, function(i, t) {
+                    var statusStyle = t.status === 'occupied'
+                        ? 'background:#43a047;border:2px solid #388e3c;color:#fff;'
+                        : (t.status === 'bill'
+                            ? 'background:#e53935;border:2px solid #c62828;color:#fff;'
+                            : 'background:#dce0ec;border:2px solid #b0b8d0;color:#444;');
+                    var badge = t.transaction_id ? '<span class="fp-badge">1</span>' : '';
+                    var cap   = t.transaction_id ? (t.invoice_no || 'Order aktif') : t.capacity + ' kursi';
+                    html += '<div class="fp-table fp-' + (t.shape || 'square') + ' fp-' + t.status + '"'
+                          + ' data-id="' + t.id + '" data-name="' + t.name + '"'
+                          + ' data-status="' + t.status + '" data-trxid="' + (t.transaction_id || '') + '"'
+                          + ' style="cursor:pointer;' + statusStyle + '">';
+                    html += badge + '<div class="fp-name">' + t.name + '</div>';
+                    html += '<div class="fp-cap">' + cap + '</div></div>';
+                });
+                html += '</div></div>';
+            });
+            if (!html) {
+                html = '<p class="text-center text-muted" style="padding:40px;">Belum ada meja terdaftar.</p>';
+            }
+            $obody.html(html);
+
+            $obody.find('.fp-table').off('click.fp').on('click.fp', function() {
+                var id     = $(this).data('id');
+                var name   = $(this).data('name');
+                var trxId  = $(this).data('trxid');
+                var status = $(this).data('status');
+                if (trxId && status !== 'available') {
+                    window.location.href = '/pos/payment/' + trxId;
+                    return;
+                }
+                showOverlayPaxPrompt($obody, id, name, function(pax) {
+                    $('#pax_count').val(pax);
+                    if ($('#pax_display_text').length) {
+                        $('#pax_display_text').text(pax);
+                        pax > 0 ? $('#pax_display').show() : $('#pax_display').hide();
+                    }
+                    $('#res_table_id').val(id).trigger('change');
+                    $overlay.fadeOut(200);
+                });
+            });
+        },
+        error: function() {
+            $obody.html('<p class="text-danger text-center" style="padding:40px;">Gagal memuat floor plan.</p>');
+        }
+    });
 }
 
 function reset_pos_form(){

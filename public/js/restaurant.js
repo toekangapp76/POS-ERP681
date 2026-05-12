@@ -31,7 +31,12 @@ $(document).ready(function() {
                         var cls = 'fp-table fp-' + t.shape + ' fp-' + t.status;
                         var badge = t.transaction_id ? '<span class="fp-badge">1</span>' : '';
                         var cap   = t.transaction_id ? (t.invoice_no || 'Order aktif') : t.capacity + ' kursi';
-                        html += '<div class="' + cls + '" data-id="' + t.id + '" data-name="' + t.name + '" data-status="' + t.status + '" data-trxid="' + (t.transaction_id || '') + '" style="cursor:pointer;">';
+                        var statusStyle = t.status === 'occupied'
+                            ? 'background:#43a047;border:2px solid #388e3c;color:#fff;'
+                            : (t.status === 'bill'
+                                ? 'background:#e53935;border:2px solid #c62828;color:#fff;'
+                                : 'background:#dce0ec;border:2px solid #b0b8d0;color:#444;');
+                        html += '<div class="' + cls + '" data-id="' + t.id + '" data-name="' + t.name + '" data-status="' + t.status + '" data-trxid="' + (t.transaction_id || '') + '" style="cursor:pointer;' + statusStyle + '">';
                         html += badge + '<div class="fp-name">' + t.name + '</div>';
                         html += '<div class="fp-cap">' + cap + '</div></div>';
                     });
@@ -109,7 +114,7 @@ $(document).ready(function() {
     }
 
     // ── PAX PROMPT untuk overlay pilih meja ────────────────
-    function showOverlayPaxPrompt($container, tableId, tableName, onConfirm) {
+    window.showOverlayPaxPrompt = function($container, tableId, tableName, onConfirm) {
         $('#overlay_pax_prompt').remove();
         var html = '<div id="overlay_pax_prompt" style="position:absolute;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,.45);z-index:100;display:flex;align-items:center;justify-content:center;border-radius:0 0 10px 10px;">'
             + '<div style="background:#fff;border-radius:12px;padding:24px 28px;min-width:260px;box-shadow:0 8px 28px rgba(0,0,0,.3);text-align:center;">'
