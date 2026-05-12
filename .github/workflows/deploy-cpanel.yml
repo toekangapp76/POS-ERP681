@@ -33,7 +33,7 @@ jobs:
       - name: Install Composer dependencies
         run: |
           mkdir -p bootstrap/cache storage/framework/cache storage/framework/sessions storage/framework/views storage/logs
-          composer install --ignore-platform-reqs --no-dev --no-interaction --optimize-autoloader
+          composer install --ignore-platform-reqs --no-dev --no-interaction --optimize-autoloader --no-scripts
 
       # ── 3. Upload via SFTP ───────────────────────────────────
       - name: Deploy via SFTP
