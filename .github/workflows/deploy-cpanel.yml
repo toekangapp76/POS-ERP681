@@ -40,7 +40,7 @@ jobs:
         uses: wangyucode/sftp-upload-action@v2.0.2
         with:
           host: ${{ secrets.SSH_HOST }}
-          port: 22
+          port: 65002
           username: ${{ secrets.SSH_USER }}
           password: ${{ secrets.SSH_PASSWORD }}
           localDir: './'
@@ -69,7 +69,7 @@ jobs:
           host: ${{ secrets.SSH_HOST }}
           username: ${{ secrets.SSH_USER }}
           password: ${{ secrets.SSH_PASSWORD }}
-          port: 22
+          port: 65002
           script: |
             cd ${{ secrets.DEPLOY_PATH }}
             php artisan migrate --force
